@@ -21,23 +21,7 @@ this project implements a high-performance market data processing system using t
 ```
 low-latency-market-analysis/
 ├── hps/
-│   ├── core0/
-│   │   ├── src/
-│   │   │   ├── market_data_handler/
-│   │   │   └── network_interface/
-│   │   └── scripts/
-│   │       ├── build.sh
-│   │       └── run.sh
-│   ├── core1/
-│   │   ├── src/
-│   │   │   ├── strategy_engine/
-│   │   │   └── order_management/
-│   │   └── scripts/
-│   │       ├── build.sh
-│   │       └── run.sh
-│   └── common/
-│       ├── include/
-│       └── lib/
+│   └── ?? 
 ├── fpga/
 │   ├── src/
 │   │   ├── hdl/
