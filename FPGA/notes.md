@@ -9,6 +9,6 @@ Edit verilog code in Quartus prime lite
 - generate programming file
 - program the fpga 
     - using quartus programmer gui
-    - using command line/ bash script
+    - using command line/ bash script from default example
 
 
