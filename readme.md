@@ -81,9 +81,6 @@ each component has its own build and execution scripts:
 - linux os (custom built or provided image)
 - alpaca markets api account (free paper trading account)
 
-
-<img src="images/FPGA_dev_flow.png" alt="FPGA Development Flow" style="max-width:800px;">
-
 ## system architecture
 
 ### fpga components
