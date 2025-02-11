@@ -137,12 +137,12 @@ target performance metrics:
 ## references
 
 ### OEM documentation
+- [De10-nano downloads](https://download.terasic.com/downloads/cd-rom/de10-nano/ ) 
 - [DE10-Nano System Builder](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=en-us&CategoryNo=167&No=1004)
 - [Alpaca Markets API](https://alpaca.markets/learn/api-documentation/)
 - [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=en-us&CategoryNo=167&No=1004)
 
 ### course material
-
 - [ECE5760 - DE10-Nano Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
 - [ECE5760 - FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
 - [ECE5760 - HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherials/linux_index.html)
