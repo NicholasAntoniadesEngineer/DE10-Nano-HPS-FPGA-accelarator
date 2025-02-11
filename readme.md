@@ -77,6 +77,7 @@ each component has its own build and execution scripts:
 ## software requirements
 
 - quartus prime lite (free version)
+  - compile the fpga design and 
 - DE10-Nano System Builder  
 - linux os (custom built or provided image)
 - alpaca markets api account (free paper trading account)
