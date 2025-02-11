@@ -49,6 +49,9 @@ module DE10_Nano_Default(
 //=======================================================
 //  REG/WIRE declarations
 //=======================================================
+reg [23:0] clk_divider;
+wire slow_clk;
+
 reg [7:0] Cont;
 
 //hdmi
@@ -68,6 +71,15 @@ assign GPIO_0  		=	36'hzzzzzzzz;
 assign GPIO_1  		=	36'hzzzzzzzz;
 
 always @(posedge FPGA_CLK1_50 or negedge KEY[0]) begin
+    if (!KEY[0])
+        clk_divider <= 0;
+    else
+        clk_divider <= clk_divider + 1;
+end
+
+assign slow_clk = clk_divider[23]; // Adjust bit selection for desired blinking rate
+
+always @(posedge slow_clk or negedge KEY[0]) begin
     if (!KEY[0])
          Cont <= 0;
     else
