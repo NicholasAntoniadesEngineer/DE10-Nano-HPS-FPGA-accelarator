@@ -39,16 +39,6 @@ wire slow_clk;            // Divided clock signal for LED blinking
 
 reg [7:0] Cont;          // 8-bit counter for LED pattern
 
-// HDMI color signal declarations
-wire [7:0] hdmi_b;       // Blue color channel
-wire [7:0] hdmi_g;       // Green color channel
-wire [7:0] hdmi_r;       // Red color channel
-wire       disp_clk;     // Display clock
-wire       disp_de;      // Display enable
-wire       disp_hs;      // Horizontal sync
-wire       disp_vs;      // Vertical sync
-wire       DLY_RST;      // Delayed reset signal
-
 //=======================================================
 //  Implementation
 //=======================================================
@@ -89,9 +79,11 @@ Reset_Delay	r0	(
     .iCLK(FPGA_CLK1_50),
     .oRESET(DLY_RST)
 );
+
 // PLL for clock generation
 sys_pll u_sys_pll (
    .refclk(FPGA_CLK1_50),    // Input 50MHz clock
    .rst(1'b0),               // No reset
    .outclk_0(pll_1536k),     // Output clock for audio
+);
 endmodule
