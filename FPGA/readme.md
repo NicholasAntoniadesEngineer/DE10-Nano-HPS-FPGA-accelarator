@@ -17,5 +17,5 @@
 - This batch file is supplied by Terasic and is located in the examples folder.
 - The batch call utility quarthps_cpf.exe is used to convert the .sof into .rbf.
 
-## Test set up
+## Test set up example
 3 GPIOS on the FPGA side and if they are triggerered, they trigger intterupts on the HPS side which in term trigger different blocks of logic in the code. Potentially 3 different led patterns.
