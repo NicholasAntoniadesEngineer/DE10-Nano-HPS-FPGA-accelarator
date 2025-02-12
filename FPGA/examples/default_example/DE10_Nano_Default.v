@@ -21,21 +21,6 @@ module DE10_Nano_Default(
     input           		FPGA_CLK2_50,  // 50MHz clock input 2
     input           		FPGA_CLK3_50,  // 50MHz clock input 3
 
-    //////////// HDMI Interface //////////
-    // HDMI communication and video signal pins
-    inout           		HDMI_I2C_SCL,  // I2C Clock for HDMI configuration
-    inout           		HDMI_I2C_SDA,  // I2C Data for HDMI configuration
-    inout           		HDMI_I2S,      // HDMI Audio I2S data
-    inout           		HDMI_LRCLK,    // Audio Left/Right Clock
-    inout           		HDMI_MCLK,     // Audio Master Clock
-    inout           		HDMI_SCLK,     // Audio Bit Clock
-    output          		HDMI_TX_CLK,   // HDMI Pixel Clock
-    output          		HDMI_TX_DE,    // Data Enable signal
-    output    [23:0]		HDMI_TX_D,     // 24-bit RGB video data
-    output          		HDMI_TX_HS,    // Horizontal Sync
-    input           		HDMI_TX_INT,   // HDMI Interrupt
-    output          		HDMI_TX_VS,    // Vertical Sync
-
     //////////// Push Buttons //////////
     input      [1:0]		KEY,           // Two push buttons
 
@@ -104,53 +89,9 @@ Reset_Delay	r0	(
     .iCLK(FPGA_CLK1_50),
     .oRESET(DLY_RST)
 );
-
-// HDMI System Configuration
-assign reset_n = 1'b1;   // Global reset signal (active low)
-
 // PLL for clock generation
 sys_pll u_sys_pll (
    .refclk(FPGA_CLK1_50),    // Input 50MHz clock
    .rst(1'b0),               // No reset
    .outclk_0(pll_1536k),     // Output clock for audio
-   .outclk_1(disp_clk)       // Output clock for display
-);
-	
-// HDMI Configuration via I2C
-I2C_HDMI_Config u_I2C_HDMI_Config (
-    .iCLK(FPGA_CLK1_50),
-    .iRST_N(reset_n),
-    .I2C_SCLK(HDMI_I2C_SCL),
-    .I2C_SDAT(HDMI_I2C_SDA),
-    .HDMI_TX_INT(HDMI_TX_INT)
-);
-
-// VGA Controller for HDMI output
-vga_controller hdmi_ins(
-    .iRST_n(DLY_RST),
-    .iVGA_CLK(disp_clk),
-    .oBLANK_n(disp_de),
-    .oHS(disp_hs),
-    .oVS(disp_vs),
-    .b_data(hdmi_b),
-    .g_data(hdmi_g),
-    .r_data(hdmi_r)
-);	
-							 
-// Connect HDMI output signals							 
-assign HDMI_TX_CLK = disp_clk;
-assign HDMI_TX_D   = {hdmi_r,hdmi_g,hdmi_b};  // Combine RGB channels
-assign HDMI_TX_DE  = disp_de;
-assign HDMI_TX_HS  = disp_hs;
-assign HDMI_TX_VS  = disp_vs;
-	
-// Audio Interface configuration	
-AUDIO_IF u_AVG(
-    .clk(!KEY[0]&pll_1536k),  // Audio clock gated by KEY[0]
-    .reset_n(reset_n),
-    .sclk(HDMI_SCLK),
-    .lrclk(HDMI_LRCLK),
-    .i2s(HDMI_I2S)
-);
-
 endmodule
