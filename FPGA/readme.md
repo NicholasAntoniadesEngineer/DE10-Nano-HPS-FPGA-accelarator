@@ -1,8 +1,12 @@
-
-## Work FLow
+## Work Flow
 - Framework for code
     - Generated using the DE10-Nano system builder from the cd.
     - Use another default example.   
+- Platform Designer (Qsys)
+    - Open and modify the system in Platform Designer
+    - Configure HPS-FPGA interfaces
+    - Add and configure required IP cores
+    - Generate HDL for the system
 - Development with Quartus prime lite.
     - Customise the generated implementation.
     - Compile the code.
