@@ -138,9 +138,8 @@ target performance metrics:
 ## references
 
 ### OEM documentation
-- [De10-nano downloads](https://download.terasic.com/downloads/cd-rom/de10-nano/ ) 
-- [DE10-Nano System Builder](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=en-us&CategoryNo=167&No=1004)
-- [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=en-us&CategoryNo=167&No=1004)
+- [De10-nano CD download](https://download.terasic.com/downloads/cd-rom/de10-nano/ ) 
+- [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=165&No=1046#contents)
 - [Cyclone V HPS Register Address Map and Definitions](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
 
 ### course material
