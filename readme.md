@@ -37,6 +37,11 @@ low-latency-market-analysis/
 │       ├── build.sh
 │       └── program.sh
 │
+├── examples/
+│   ├── fpga_examples/
+│   ├── hps_examples/
+│   └── hps_fpga_examples/
+│
 └── docs/
     ├── hps/
     └── fpga/
