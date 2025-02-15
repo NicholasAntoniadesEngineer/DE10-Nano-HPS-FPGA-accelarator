@@ -147,13 +147,17 @@ target performance metrics:
 - [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=165&No=1046#contents)
 - [Cyclone V HPS Register Address Map and Definitions](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
 
-### course material
-- [ECE5760 - Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
-- [ECE5760 - FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
-- [ECE5760 - HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherials/linux_index.html)
-- [ECE5760 - Lab 1](https://bpb-us-w2.wpmucdn.com/sites.coecis.cornell.edu/dist/4/81/files/2017/03/ece5760_lab1-18xgakl.pdf)
+### Websites and Repositories
+- [Building embedded linux for the terasic de10-nano](https://bitlog.it/20170820_building_embedded_linux_for_the_terasic_de10-nano.html)
+- [zangman/de10-nano](https://github.com/zangman/de10-nano?tab=readme-ov-file)
 
-### youtube
+### Cornell University ECE5760 course material
+- [Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
+- [FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
+- [HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherials/linux_index.html)
+- [Lab 1](https://bpb-us-w2.wpmucdn.com/sites.coecis.cornell.edu/dist/4/81/files/2017/03/ece5760_lab1-18xgakl.pdf)
+
+### Youtube
 - [Bruce Land - Cornell University](https://www.youtube.com/watch?v=fQAicY9a3DM&list=PLKcjQ_UFkrd7UcOVMm39A6VdMbWWq-e_c)
 - [Hunter Adams - Cornell University](https://www.youtube.com/watch?v=F9IYUOXtlPo)
 
