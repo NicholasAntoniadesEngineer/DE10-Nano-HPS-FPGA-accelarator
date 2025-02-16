@@ -166,6 +166,16 @@ target performance metrics:
 
 # Current objective:
 - SSH into the DE10-Nano HPS
+  - What version of linux is needed.
+  - Flashing the FPGA on start up requires custom Uboot, kernal, and rootfs.
+
 - Understand app/kernel layer HPS/FPGA interaction.
   - Understand GHRD
-  - Implement app layer interactinmg with FPPGA
+  - Implement app layer interactinmg with FPGA
+  - Implement kernel layer interaction with FPGA
+
+- Deeper understanding of embedded linux.
+  - Understand the linux boot process.
+  - Understand the linux rootfs.
+  - Understand the linux kernel.
+  - Understand the linux app.
