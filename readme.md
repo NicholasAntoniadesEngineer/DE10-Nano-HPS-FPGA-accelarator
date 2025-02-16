@@ -164,4 +164,8 @@ target performance metrics:
 - [Hunter Adams - Cornell University](https://www.youtube.com/watch?v=F9IYUOXtlPo)
 
 
-
+# Current objective:
+- SSH into the DE10-Nano HPS
+- Understand app/kernel layer HPS/FPGA interaction.
+  - Understand GHRD
+  - Implement app layer interactinmg with FPPGA
