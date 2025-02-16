@@ -34,9 +34,11 @@ low-latency-market-analysis/
 │   │   │   ├── technical_indicators/
 │   │   │   └── order_book/
 │   └── scripts/
-│       ├── build.sh
-│       └── program.sh
-│
+│   │   ├── build.sh
+│   │   └── program.sh
+│   └── tools/
+│       └──DE10_Nano_SystemBuilder.exe
+│ 
 ├── examples/
 │   ├── fpga_examples/
 │   ├── hps_examples/
