@@ -105,6 +105,8 @@ For a streamlined, production-focused build:
    - Build or download base image
    - Flash to SD card
    - Boot and verify functionality
+   - Expand filesystem
+   - Install SSH tools
 
 2. **Kernel Module Development**
    - Write module code
