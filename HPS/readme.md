@@ -17,7 +17,8 @@ The DE10-Nano's HPS (Hard Processor System) allows you to run a full Linux opera
    - Covers kernel modules, application development, and common issues
 
 3. **HPS and FPGA Communication**
-   - Coming soon...
+   - For setting up communication between HPS and FPGA, see [HPS-FPGA Communication](hps_fpga_communication.md)
+   - Covers bridge setup, device drivers, and example implementations
 
 ## Resources
 

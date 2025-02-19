@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>  // For size_t
 
 // Structure to hold UIO device information
 typedef struct {

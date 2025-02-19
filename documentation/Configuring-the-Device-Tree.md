@@ -9,6 +9,7 @@
 
 - [Summary](#summary)
 - [Steps](#steps)
+  - [Prerequisites](#prerequisites)
   - [Enable the FPGA bridges](#enable-the-fpga-bridges)
   - [Generate the Device Tree Binary](#generate-the-device-tree-binary)
   - [Copy the Device Tree Binary to the DE10-Nano](#copy-the-device-tree-binary-to-the-de10-nano)
@@ -21,15 +22,32 @@ Here we will make some minor changes to the device tree so that we can have the 
 
 ## Steps
 
-### Enable the FPGA bridges
+### Prerequisites
 
-By default the device tree has all the FPGA bridges which allow FPGA and HPS intercommunication disabled. We'll need to enable them.
+Before starting, you'll need to set up your working environment:
 
 ```bash
-# Change into the linux directory.
-cd $DEWD/linux-socfpga
+# Create a working directory
+mkdir -p ~/de10-nano
+cd ~/de10-nano
 
-# Create a new branch for our changes.
+# Set the environment variable
+export DEWD=$(pwd)
+
+# Clone the Linux source code repository if you haven't already
+git clone https://github.com/altera-opensource/linux-socfpga.git
+cd linux-socfpga
+
+# Checkout the recommended branch for DE10-Nano
+git checkout ACDS17.1_REL_GSRD_PR
+```
+
+### Enable the FPGA bridges
+
+Now we can proceed with enabling the FPGA bridges:
+
+```bash
+# Create a new branch for our changes
 git checkout -b my_custom
 ```
 
