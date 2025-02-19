@@ -3,6 +3,7 @@
 
 #include "fpga_uio.h"
 #include <stdbool.h>
+#include <stddef.h>  // For size_t
 
 typedef struct {
     fpga_uio_dev_t* uio_dev;
