@@ -6,15 +6,18 @@ This guide outlines the workflow for developing and deploying custom Linux image
 
 The DE10-Nano's HPS (Hard Processor System) allows you to run a full Linux operating system alongside the FPGA fabric. This enables powerful combinations of software and hardware acceleration.
 
-## Linux HPS image.
+## Getting Started
 
-We support two main development paths for the HPS:
-1. Full Custom Debian Build - For maximum flexibility and control
-2. Yocto-Based Build - For streamlined, production-focused development
+1. **Linux HPS Image**
+   - For building and deploying Linux images, see [Linux HPS Images](linux_hps_image.md)
+   - Includes both Debian and Yocto-based approaches
 
-For detailed instructions on both approaches, including build processes, SD card creation, development workflows, and troubleshooting, see [Linux HPS images](linux_hps_image.md).
+2. **Development Workflow**
+   - For day-to-day development and troubleshooting, see [Development Workflow](development_workflow.md)
+   - Covers kernel modules, application development, and common issues
 
-## HPS and FPGA communication.
+3. **HPS and FPGA Communication**
+   - Coming soon...
 
 ## Resources
 
