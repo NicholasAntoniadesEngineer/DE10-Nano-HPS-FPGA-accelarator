@@ -1,4 +1,6 @@
-# Development Options
+# Linux HPS Images
+
+This guide covers the different approaches for building and deploying Linux images for the DE10-Nano's HPS.
 
 ## 1. Full Custom Debian Build
 For a full-featured development environment with maximum flexibility:
@@ -91,50 +93,3 @@ For a streamlined, production-focused build:
    # Extract rootfs
    tar xf rootfs.tar.gz -C /mount/rootfs/
    ```
-
-## Development Workflow
-
-1. **Initial Setup**
-   - Build or download base image
-   - Flash to SD card
-   - Boot and verify functionality
-
-2. **Kernel Module Development**
-   - Write module code
-   - Cross-compile against target kernel
-   - Copy to target system
-   - Load and test:
-   ```bash
-   insmod mymodule.ko
-   dmesg | tail
-   ```
-
-3. **Application Development**
-   - Set up cross-compilation environment
-   - Build applications
-   - Deploy to target:
-   ```bash
-   scp myapp root@de10-nano:/usr/local/bin/
-   ```
-
-4. **Testing**
-   - Connect via UART (115200 baud)
-   - Default login: root/terasic
-   - Run tests and monitor system logs
-
-## Troubleshooting
-
-1. **Boot Issues**
-   - Check SD card partitioning
-   - Verify preloader and U-Boot locations
-   - Monitor UART output
-
-2. **Kernel Issues**
-   - Check kernel parameters
-   - Verify DTB matches hardware
-   - Review dmesg output
-
-3. **Module Issues**
-   - Verify kernel headers match running kernel
-   - Check module dependencies
-   - Review build errors 
