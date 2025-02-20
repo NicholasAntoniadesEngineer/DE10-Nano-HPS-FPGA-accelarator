@@ -4,10 +4,13 @@
   - Base your design on the GHRD (Generic Hardware Reference Design):
     - The GHRD provides a pre-configured hardware reference for the DE10-Nano.
     - Use it as your default example and foundation for further customization.
-  
-- Platform Designer (Qsys)
+
+The qsys file has the actual low level ip blocks and the connections between them.
+ - You can create your own ip blocks in the qsys file. From hdl files.
+
+- Platform Designer (Qsys - inside of Quartus Prime Lite)
   - **Open and Modify the System in Platform Designer:**
-    - Launch Qsys and load your GHRD-based design.
+    - Launch Qsys and load your design.
   - **Configure HPS-FPGA Interfaces:**
     - Set up the interface parameters between the HPS and FPGA.
   - **Add and Configure Required IP Cores:**
