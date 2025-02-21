@@ -175,22 +175,6 @@ Here's a simple example of controlling FPGA LEDs from the HPS:
    }
    ```
 
-## Troubleshooting
-
-1. **Bridge Communication Issues**
-   - Verify bridge status: `cat /sys/class/fpga_bridge/*/state`
-   - Check device tree configuration
-   - Validate memory mappings
-
-2. **Driver Problems**
-   - Check kernel logs: `dmesg`
-   - Verify driver loading: `lsmod`
-   - Test memory access permissions
-
-3. **FPGA Design Issues**
-   - Validate timing constraints
-   - Check Avalon-MM interface connections
-   - Verify address mappings
 
 ## Resources
 
