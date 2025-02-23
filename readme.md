@@ -1,20 +1,18 @@
 # low-latency-market-analysis
 
-a low-latency market data processing system using the de10 nano (cyclone v soc) platform.
+The goal of this project is to implement a high-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration. 
 
-## Project overview
-
-This project implements a high-performance market data processing system using Altera's Cyclone V FPGA. The system is designed to process market data streams, detect trading opportunities, and execute trades with minimal latency.
+The system will be designed to process market data streams, detect trading opportunities, and execute trades.
 
 ### Key features
 
-- real-time market data processing on fpga fabric
-- hardware-accelerated technical indicator calculations
-- low-latency order execution system
-- integration with alpaca markets api
-- websocket-based market data ingestion
-- custom linux drivers for fpga communication
-- integration of the RFS2 board for wireless communication and networking
+- Real-time market data processing on fpga fabric
+- Hardware-accelerated technical indicator calculations
+- Low-latency order execution system
+- Integration with alpaca markets api
+- Websocket-based market data ingestion
+- Custom linux drivers for fpga communication
+- Integration of the RFS2 board for wireless communication and networking
 
 ## Project structure
 
@@ -62,7 +60,7 @@ low-latency-market-analysis/
 
 ### Build system
 
-each component has its own build and execution scripts:
+Each component has its own build and execution scripts:
 
 #### HPS build system
 - `core0/scripts/build.sh`: compiles market data handling components
@@ -76,58 +74,58 @@ each component has its own build and execution scripts:
 
 ## Hardware requirements
 
-- terasic de10 nano development board
-- ethernet connection
-- microsd card (16gb+ recommended)
-- usb power supply
+- Terasic de10 nano development board
+- Ethernet connection
+- Microsd card (16gb+ recommended)
+- USB power supply
 
 ## Software requirements
 
-- quartus prime lite (free version)
+- Quartus Prime lite (free version)
   - compile the fpga design and and programme fpga
 - DE10-Nano System Builder  
-- linux os (custom built or provided image)
-- alpaca markets api account (free paper trading account)
-- sdcard flashing tool (etcher)
+- Linux os (custom built or provided image)
+- Alpaca markets api account (free paper trading account)
+- Sdcard flashing tool (etcher)
 
 ## System architecture
 
 ### FPGA components
-- market data parser
-- order book management
-- moving average calculation engine
-- momentum indicator processor
-- pattern recognition module
+- Market data parser
+- Order book management
+- Moving average calculation engine
+- Momentum indicator processor
+- Pattern recognition module
 
 ### Software components
-- linux-based control system
-- alpaca markets api interface
-- configuration and monitoring interface
-- trading strategy implementation
-- data logging and analysis tools
+- Linux-based control system
+- Alpaca markets api interface
+- Configuration and monitoring interface
+- Trading strategy implementation
+- Data logging and analysis tools
 
 ## Development roadmap
 
 ### Phase 1: basic infrastructure
-- linux system setup
-- fpga-software communication
-- basic market data ingestion
+- Linux system setup
+- FPGA-software communication
+- Basic market data ingestion
 
 ### Phase 2: fpga development
-- implement market data parser
-- develop technical indicator modules
-- create order book management system
+- Implement market data parser
+- Develop technical indicator modules
+- Create order book management system
 
 ### Phase 3: trading system
-- strategy implementation
-- risk management
-- performance optimization
+- Strategy implementation
+- Risk management
+- Performance optimization
 
 ### Phase 4: Integrate the RFS2 board
-- implement wireless communication
-- add networking capabilities for remote monitoring and control
+- Implement wireless communication
+- Add networking capabilities for remote monitoring and control
 
-## references
+## References
 
 ### OEM documentation
 - [De10-nano CD download](https://download.terasic.com/downloads/cd-rom/de10-nano/ ) 
