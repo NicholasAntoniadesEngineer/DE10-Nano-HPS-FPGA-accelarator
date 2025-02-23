@@ -2,11 +2,11 @@
 
 a low-latency market data processing system using the de10 nano (cyclone v soc) platform.
 
-## project overview
+## Project overview
 
 This project implements a high-performance market data processing system using Altera's Cyclone V FPGA. The system is designed to process market data streams, detect trading opportunities, and execute trades with minimal latency.
 
-### key features
+### Key features
 
 - real-time market data processing on fpga fabric
 - hardware-accelerated technical indicator calculations
@@ -16,7 +16,7 @@ This project implements a high-performance market data processing system using A
 - custom linux drivers for fpga communication
 - integration of the RFS2 board for wireless communication and networking
 
-## project structure
+## Project structure
 
 ```
 low-latency-market-analysis/
@@ -49,7 +49,7 @@ low-latency-market-analysis/
     └── fpga/
 ```
 
-### directory structure explanation
+### Directory structure explanation
 
 - `hps/`: hardware processing system (arm cores) code
   - `core0/`: primary core handling market data ingestion
@@ -60,28 +60,28 @@ low-latency-market-analysis/
   - `src/constraints/`: timing and pin constraints
 - `docs/`: documentation for both hps and fpga components
 
-### build system
+### Build system
 
 each component has its own build and execution scripts:
 
-#### hps build system
+#### HPS build system
 - `core0/scripts/build.sh`: compiles market data handling components
 - `core0/scripts/run.sh`: deploys and runs core0 processes
 - `core1/scripts/build.sh`: compiles strategy execution components
 - `core1/scripts/run.sh`: deploys and runs core1 processes
 
-#### fpga build system
+#### FPGA build system
 - `fpga/scripts/build.sh`: synthesizes and implements fpga design
 - `fpga/scripts/program.sh`: programs the fpga with generated bitstream
 
-## hardware requirements
+## Hardware requirements
 
 - terasic de10 nano development board
 - ethernet connection
 - microsd card (16gb+ recommended)
 - usb power supply
 
-## software requirements
+## Software requirements
 
 - quartus prime lite (free version)
   - compile the fpga design and and programme fpga
@@ -90,57 +90,42 @@ each component has its own build and execution scripts:
 - alpaca markets api account (free paper trading account)
 - sdcard flashing tool (etcher)
 
-## system architecture
+## System architecture
 
-### fpga components
+### FPGA components
 - market data parser
 - order book management
 - moving average calculation engine
 - momentum indicator processor
 - pattern recognition module
 
-### software components
+### Software components
 - linux-based control system
 - alpaca markets api interface
 - configuration and monitoring interface
 - trading strategy implementation
 - data logging and analysis tools
 
-## development roadmap
+## Development roadmap
 
-### phase 1: basic infrastructure
+### Phase 1: basic infrastructure
 - linux system setup
 - fpga-software communication
 - basic market data ingestion
 
-### phase 2: fpga development
+### Phase 2: fpga development
 - implement market data parser
 - develop technical indicator modules
 - create order book management system
 
-### phase 3: trading system
+### Phase 3: trading system
 - strategy implementation
 - risk management
 - performance optimization
 
-### phase 4: Integrate the RFS2 board
+### Phase 4: Integrate the RFS2 board
 - implement wireless communication
 - add networking capabilities for remote monitoring and control
-
-## testing
-
-the system can be tested using:
-- alpaca's paper trading environment
-- historical market data replay
-- simulated market data generation
-
-## performance metrics
-
-target performance metrics:
-- market data processing latency: <1μs
-- order execution latency: <10μs
-- strategy calculation time: <5μs
-
 
 ## references
 
