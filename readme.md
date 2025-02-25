@@ -146,19 +146,3 @@ Each component has its own build and execution scripts:
 - [Bruce Land - Cornell University](https://www.youtube.com/watch?v=fQAicY9a3DM&list=PLKcjQ_UFkrd7UcOVMm39A6VdMbWWq-e_c)
 - [Hunter Adams - Cornell University](https://www.youtube.com/watch?v=F9IYUOXtlPo)
 
-
-# Current objective:
-- SSH into the DE10-Nano HPS
-  - What version of linux is needed.
-  - Flashing the FPGA on start up requires custom Uboot, kernal, and rootfs.
-
-- Understand app/kernel layer HPS/FPGA interaction.
-  - Understand GHRD
-  - Implement app layer interactinmg with FPGA
-  - Implement kernel layer interaction with FPGA
-
-- Deeper understanding of embedded linux.
-  - Understand the linux boot process.
-  - Understand the linux rootfs.
-  - Understand the linux kernel.
-  - Understand the linux app.
