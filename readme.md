@@ -1,8 +1,6 @@
 # low-latency-market-analysis
 
-The goal of this project is to implement a high-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration. 
-
-The system will be designed to process market data streams, detect trading opportunities, and execute trades.
+The goal of this project is to implement a high-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration. The system will be designed to process market data streams, detect trading opportunities, and execute trades.
 
 ### Key features
 
