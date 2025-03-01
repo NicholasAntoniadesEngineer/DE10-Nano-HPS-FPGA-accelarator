@@ -6,7 +6,7 @@
    version="1.0"
    description=""
    tags=""
-   categories="" />
+   categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
    element clk_50
@@ -25,6 +25,14 @@
          type = "int";
       }
    }
+   element hps_0.h2f_lw_axi_clock
+   {
+      datum _tags
+      {
+         value = "";
+         type = "String";
+      }
+   }
    element pio_button
    {
       datum _sortIndex
@@ -37,7 +45,7 @@
    {
       datum baseAddress
       {
-         value = "16";
+         value = "0";
          type = "String";
       }
    }
@@ -53,14 +61,14 @@
    {
       datum baseAddress
       {
-         value = "0";
+         value = "16";
          type = "String";
       }
    }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
- <parameter name="device" value="5CEBA2F17A7" />
+ <parameter name="device" value="5CSEBA6U23I7" />
  <parameter name="deviceFamily" value="Cyclone V" />
  <parameter name="deviceSpeedGrade" value="7" />
  <parameter name="fabricMode" value="QSYS" />
@@ -71,7 +79,7 @@
  <parameter name="hideFromIPCatalog" value="false" />
  <parameter name="lockedInterfaceDefinition" value="" />
  <parameter name="maxAdditionalLatency" value="1" />
- <parameter name="projectName" value="" />
+ <parameter name="projectName" value="DE10_Button_LED.qpf" />
  <parameter name="sopcBorderPoints" value="false" />
  <parameter name="systemHash" value="0" />
  <parameter name="testBenchDutName" value="" />
@@ -79,6 +87,7 @@
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
  <interface name="clk_clk" internal="clk_50.clk_in" type="clock" dir="end" />
+ <interface name="hps_0_h2f_mpu_events" internal="hps_0.h2f_mpu_events" />
  <interface name="memory" internal="hps_0.memory" type="conduit" dir="end" />
  <interface
    name="pio_button_external_connection"
@@ -193,7 +202,7 @@
   <parameter name="EXPORT_AFI_HALF_CLK" value="false" />
   <parameter name="EXTRA_SETTINGS" value="" />
   <parameter name="F2H_AXI_CLOCK_FREQ" value="50000000" />
-  <parameter name="F2H_SDRAM0_CLOCK_FREQ" value="100" />
+  <parameter name="F2H_SDRAM0_CLOCK_FREQ" value="50000000" />
   <parameter name="F2H_SDRAM1_CLOCK_FREQ" value="100" />
   <parameter name="F2H_SDRAM2_CLOCK_FREQ" value="100" />
   <parameter name="F2H_SDRAM3_CLOCK_FREQ" value="100" />
@@ -206,9 +215,9 @@
   <parameter name="F2SCLK_SDRAMCLK_Enable" value="false" />
   <parameter name="F2SCLK_SDRAMCLK_FREQ" value="0" />
   <parameter name="F2SCLK_WARMRST_Enable" value="false" />
-  <parameter name="F2SDRAM_Type" value="" />
-  <parameter name="F2SDRAM_Width" value="" />
-  <parameter name="F2SINTERRUPT_Enable" value="true" />
+  <parameter name="F2SDRAM_Type" value="AXI-3" />
+  <parameter name="F2SDRAM_Width" value="128" />
+  <parameter name="F2SINTERRUPT_Enable" value="false" />
   <parameter name="F2S_Width" value="2" />
   <parameter name="FIX_READ_LATENCY" value="8" />
   <parameter name="FORCED_NON_LDC_ADDR_CMD_MEM_CK_INVERT" value="false" />
@@ -331,7 +340,7 @@
   <parameter name="MEM_VERBOSE" value="true" />
   <parameter name="MEM_VOLTAGE" value="1.5V DDR3" />
   <parameter name="MEM_WTCL" value="6" />
-  <parameter name="MPU_EVENTS_Enable" value="true" />
+  <parameter name="MPU_EVENTS_Enable" value="false" />
   <parameter name="MRS_MIRROR_PING_PONG_ATSO" value="false" />
   <parameter name="MULTICAST_EN" value="false" />
   <parameter name="NAND_Mode" value="N/A" />
@@ -441,7 +450,7 @@
   <parameter name="REF_CLK_FREQ_MAX_PARAM" value="0.0" />
   <parameter name="REF_CLK_FREQ_MIN_PARAM" value="0.0" />
   <parameter name="REF_CLK_FREQ_PARAM_VALID" value="false" />
-  <parameter name="S2FCLK_COLDRST_Enable" value="false" />
+  <parameter name="S2FCLK_COLDRST_Enable" value="true" />
   <parameter name="S2FCLK_PENDINGRST_Enable" value="false" />
   <parameter name="S2FCLK_USER0CLK_Enable" value="false" />
   <parameter name="S2FCLK_USER1CLK_Enable" value="false" />
@@ -576,7 +585,7 @@
   <parameter name="desired_sdmmc_clk_mhz" value="200.0" />
   <parameter name="desired_spi_m_clk_mhz" value="200.0" />
   <parameter name="desired_usb_mp_clk_mhz" value="200.0" />
-  <parameter name="device_name" value="5CEBA2F17A7" />
+  <parameter name="device_name" value="5CSEBA6U23I7" />
   <parameter name="device_pll_info_manual">{320000000 1600000000} {320000000 1000000000} {800000000 400000000 400000000}</parameter>
   <parameter name="eosc1_clk_mhz" value="25.0" />
   <parameter name="eosc2_clk_mhz" value="25.0" />
@@ -660,7 +669,7 @@
    start="hps_0.h2f_lw_axi_master"
    end="pio_button.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x0010" />
+  <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -669,7 +678,7 @@
    start="hps_0.h2f_lw_axi_master"
    end="pio_led.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="baseAddress" value="0x0010" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection kind="clock" version="20.1" start="clk_50.clk" end="pio_button.clk" />
@@ -679,6 +688,11 @@
    version="20.1"
    start="clk_50.clk"
    end="hps_0.f2h_axi_clock" />
+ <connection
+   kind="clock"
+   version="20.1"
+   start="clk_50.clk"
+   end="hps_0.f2h_sdram0_clock" />
  <connection
    kind="clock"
    version="20.1"

@@ -3,13 +3,12 @@
  <debug showDebugMenu="0" />
  <systemtable filter="All Interfaces">
   <columns>
-   <connections preferredWidth="143" />
-   <irq preferredWidth="47" />
+   <connections preferredWidth="127" />
+   <irq preferredWidth="34" />
    <inputclock preferredWidth="93" />
    <export preferredWidth="170" />
   </columns>
  </systemtable>
- <library
-   expandedCategories="Library/Processors and Peripherals,Library/Interface Protocols/PCI Express,Library/Interface Protocols,Library/Processors and Peripherals/Hard Processor Systems,Project,Library" />
- <window width="1457" height="800" x="29" y="241" />
+ <library expandedCategories="Project,Library" />
+ <window width="1457" height="987" x="541" y="132" />
 </preferences>

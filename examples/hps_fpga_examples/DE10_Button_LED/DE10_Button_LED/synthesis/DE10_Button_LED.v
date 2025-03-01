@@ -72,8 +72,6 @@ module DE10_Button_LED (
 	wire   [1:0] mm_interconnect_0_pio_led_s1_address;       // mm_interconnect_0:pio_led_s1_address -> pio_led:address
 	wire         mm_interconnect_0_pio_led_s1_write;         // mm_interconnect_0:pio_led_s1_write -> pio_led:write_n
 	wire  [31:0] mm_interconnect_0_pio_led_s1_writedata;     // mm_interconnect_0:pio_led_s1_writedata -> pio_led:writedata
-	wire  [31:0] hps_0_f2h_irq0_irq;                         // irq_mapper:sender_irq -> hps_0:f2h_irq_p0
-	wire  [31:0] hps_0_f2h_irq1_irq;                         // irq_mapper_001:sender_irq -> hps_0:f2h_irq_p1
 	wire         rst_controller_reset_out_reset;             // rst_controller:reset_out -> [mm_interconnect_0:pio_button_reset_reset_bridge_in_reset_reset, pio_button:reset_n, pio_led:reset_n]
 	wire         rst_controller_001_reset_out_reset;         // rst_controller_001:reset_out -> mm_interconnect_0:hps_0_h2f_lw_axi_master_agent_clk_reset_reset_bridge_in_reset_reset
 
@@ -81,10 +79,7 @@ module DE10_Button_LED (
 		.F2S_Width (2),
 		.S2F_Width (2)
 	) hps_0 (
-		.h2f_mpu_eventi     (),                                //    h2f_mpu_events.eventi
-		.h2f_mpu_evento     (),                                //                  .evento
-		.h2f_mpu_standbywfe (),                                //                  .standbywfe
-		.h2f_mpu_standbywfi (),                                //                  .standbywfi
+		.h2f_cold_rst_n     (),                                //    h2f_cold_reset.reset_n
 		.mem_a              (memory_mem_a),                    //            memory.mem_a
 		.mem_ba             (memory_mem_ba),                   //                  .mem_ba
 		.mem_ck             (memory_mem_ck),                   //                  .mem_ck
@@ -102,6 +97,43 @@ module DE10_Button_LED (
 		.mem_dm             (memory_mem_dm),                   //                  .mem_dm
 		.oct_rzqin          (memory_oct_rzqin),                //                  .oct_rzqin
 		.h2f_rst_n          (hps_0_h2f_reset_reset),           //         h2f_reset.reset_n
+		.f2h_sdram0_clk     (clk_clk_clk),                     //  f2h_sdram0_clock.clk
+		.f2h_sdram0_ARADDR  (),                                //   f2h_sdram0_data.araddr
+		.f2h_sdram0_ARLEN   (),                                //                  .arlen
+		.f2h_sdram0_ARID    (),                                //                  .arid
+		.f2h_sdram0_ARSIZE  (),                                //                  .arsize
+		.f2h_sdram0_ARBURST (),                                //                  .arburst
+		.f2h_sdram0_ARLOCK  (),                                //                  .arlock
+		.f2h_sdram0_ARPROT  (),                                //                  .arprot
+		.f2h_sdram0_ARVALID (),                                //                  .arvalid
+		.f2h_sdram0_ARCACHE (),                                //                  .arcache
+		.f2h_sdram0_AWADDR  (),                                //                  .awaddr
+		.f2h_sdram0_AWLEN   (),                                //                  .awlen
+		.f2h_sdram0_AWID    (),                                //                  .awid
+		.f2h_sdram0_AWSIZE  (),                                //                  .awsize
+		.f2h_sdram0_AWBURST (),                                //                  .awburst
+		.f2h_sdram0_AWLOCK  (),                                //                  .awlock
+		.f2h_sdram0_AWPROT  (),                                //                  .awprot
+		.f2h_sdram0_AWVALID (),                                //                  .awvalid
+		.f2h_sdram0_AWCACHE (),                                //                  .awcache
+		.f2h_sdram0_BRESP   (),                                //                  .bresp
+		.f2h_sdram0_BID     (),                                //                  .bid
+		.f2h_sdram0_BVALID  (),                                //                  .bvalid
+		.f2h_sdram0_BREADY  (),                                //                  .bready
+		.f2h_sdram0_ARREADY (),                                //                  .arready
+		.f2h_sdram0_AWREADY (),                                //                  .awready
+		.f2h_sdram0_RREADY  (),                                //                  .rready
+		.f2h_sdram0_RDATA   (),                                //                  .rdata
+		.f2h_sdram0_RRESP   (),                                //                  .rresp
+		.f2h_sdram0_RLAST   (),                                //                  .rlast
+		.f2h_sdram0_RID     (),                                //                  .rid
+		.f2h_sdram0_RVALID  (),                                //                  .rvalid
+		.f2h_sdram0_WLAST   (),                                //                  .wlast
+		.f2h_sdram0_WVALID  (),                                //                  .wvalid
+		.f2h_sdram0_WDATA   (),                                //                  .wdata
+		.f2h_sdram0_WSTRB   (),                                //                  .wstrb
+		.f2h_sdram0_WREADY  (),                                //                  .wready
+		.f2h_sdram0_WID     (),                                //                  .wid
 		.h2f_axi_clk        (clk_clk_clk),                     //     h2f_axi_clock.clk
 		.h2f_AWID           (),                                //    h2f_axi_master.awid
 		.h2f_AWADDR         (),                                //                  .awaddr
@@ -214,9 +246,7 @@ module DE10_Button_LED (
 		.h2f_lw_RRESP       (hps_0_h2f_lw_axi_master_rresp),   //                  .rresp
 		.h2f_lw_RLAST       (hps_0_h2f_lw_axi_master_rlast),   //                  .rlast
 		.h2f_lw_RVALID      (hps_0_h2f_lw_axi_master_rvalid),  //                  .rvalid
-		.h2f_lw_RREADY      (hps_0_h2f_lw_axi_master_rready),  //                  .rready
-		.f2h_irq_p0         (hps_0_f2h_irq0_irq),              //          f2h_irq0.irq
-		.f2h_irq_p1         (hps_0_f2h_irq1_irq)               //          f2h_irq1.irq
+		.h2f_lw_RREADY      (hps_0_h2f_lw_axi_master_rready)   //                  .rready
 	);
 
 	DE10_Button_LED_pio_button pio_button (
@@ -291,18 +321,6 @@ module DE10_Button_LED (
 		.pio_led_s1_readdata                                                 (mm_interconnect_0_pio_led_s1_readdata),      //                                                              .readdata
 		.pio_led_s1_writedata                                                (mm_interconnect_0_pio_led_s1_writedata),     //                                                              .writedata
 		.pio_led_s1_chipselect                                               (mm_interconnect_0_pio_led_s1_chipselect)     //                                                              .chipselect
-	);
-
-	DE10_Button_LED_irq_mapper irq_mapper (
-		.clk        (),                   //       clk.clk
-		.reset      (),                   // clk_reset.reset
-		.sender_irq (hps_0_f2h_irq0_irq)  //    sender.irq
-	);
-
-	DE10_Button_LED_irq_mapper irq_mapper_001 (
-		.clk        (),                   //       clk.clk
-		.reset      (),                   // clk_reset.reset
-		.sender_irq (hps_0_f2h_irq1_irq)  //    sender.irq
 	);
 
 	altera_reset_controller #(

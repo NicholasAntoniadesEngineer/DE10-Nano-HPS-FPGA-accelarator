@@ -1,7 +1,5 @@
 	DE10_Button_LED u0 (
 		.clk_clk_clk                           (<connected-to-clk_clk_clk>),                           //                        clk_clk.clk
-		.pio_button_external_connection_export (<connected-to-pio_button_external_connection_export>), // pio_button_external_connection.export
-		.pio_led_external_connection_export    (<connected-to-pio_led_external_connection_export>),    //    pio_led_external_connection.export
 		.memory_mem_a                          (<connected-to-memory_mem_a>),                          //                         memory.mem_a
 		.memory_mem_ba                         (<connected-to-memory_mem_ba>),                         //                               .mem_ba
 		.memory_mem_ck                         (<connected-to-memory_mem_ck>),                         //                               .mem_ck
@@ -17,6 +15,8 @@
 		.memory_mem_dqs_n                      (<connected-to-memory_mem_dqs_n>),                      //                               .mem_dqs_n
 		.memory_mem_odt                        (<connected-to-memory_mem_odt>),                        //                               .mem_odt
 		.memory_mem_dm                         (<connected-to-memory_mem_dm>),                         //                               .mem_dm
-		.memory_oct_rzqin                      (<connected-to-memory_oct_rzqin>)                       //                               .oct_rzqin
+		.memory_oct_rzqin                      (<connected-to-memory_oct_rzqin>),                      //                               .oct_rzqin
+		.pio_button_external_connection_export (<connected-to-pio_button_external_connection_export>), // pio_button_external_connection.export
+		.pio_led_external_connection_export    (<connected-to-pio_led_external_connection_export>)     //    pio_led_external_connection.export
 	);
 

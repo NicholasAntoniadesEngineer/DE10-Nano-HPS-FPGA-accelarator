@@ -1,8 +1,6 @@
 
 module DE10_Button_LED (
 	clk_clk_clk,
-	pio_button_external_connection_export,
-	pio_led_external_connection_export,
 	memory_mem_a,
 	memory_mem_ba,
 	memory_mem_ck,
@@ -18,11 +16,11 @@ module DE10_Button_LED (
 	memory_mem_dqs_n,
 	memory_mem_odt,
 	memory_mem_dm,
-	memory_oct_rzqin);	
+	memory_oct_rzqin,
+	pio_button_external_connection_export,
+	pio_led_external_connection_export);	
 
 	input		clk_clk_clk;
-	output		pio_button_external_connection_export;
-	output		pio_led_external_connection_export;
 	output	[12:0]	memory_mem_a;
 	output	[2:0]	memory_mem_ba;
 	output		memory_mem_ck;
@@ -39,4 +37,6 @@ module DE10_Button_LED (
 	output		memory_mem_odt;
 	output		memory_mem_dm;
 	input		memory_oct_rzqin;
+	output		pio_button_external_connection_export;
+	output		pio_led_external_connection_export;
 endmodule
