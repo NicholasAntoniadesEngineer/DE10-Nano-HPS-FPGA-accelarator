@@ -1,88 +1,91 @@
 # DE10-Nano Button-LED Project
 
-This document provides a step-by-step guide to create an FPGA project from scratch for the DE10-Nano board. The project enables the Hard Processor System (HPS) running Linux to detect a button press (KEY0) and drive an LED (LED0) via the FPGA. It includes FPGA code, kernel module code, and application code, with detailed instructions for setting up, compiling, and running each component.
+This document provides a step-by-step guide to create an FPGA design, a kernel module, and an application to detect a button press (KEY0) on the DE10-Nano board using the Hard Processor System (HPS) running Linux and drive an LED (LED0) via the FPGA. The instructions are crafted for Quartus Lite and start from scratch, ensuring the project is correctly configured for the Cyclone V SoC (5CSEBA6U23I7) and named "DE10_nano_button_led."
 
-## Step 1: Create a Quartus Prime Project
+## FPGA Code
 
 ### Overview
-Begin by creating a Quartus Prime project targeting the Cyclone V SoC (5CSEBA6U23I7), the specific device for the DE10-Nano board. This ensures the project is configured with the correct device context from the start.
+The FPGA design uses Intel's Platform Designer to create a system with:
+- A Hard Processor System (HPS) with the lightweight HPS-to-FPGA bridge enabled
+- Two Parallel I/O (PIO) IPs: one for the button (input) and one for the LED (output)
+- A clock source driven by the DE10-Nano's 50 MHz `CLOCK_50`
 
-### Instructions
-1. **Open Quartus Prime**:
-   - Launch Quartus Prime on your computer.
+### Step 1: Create a New Quartus Project
+
+1. **Launch Quartus Lite**:
+   - Open the Quartus Lite software on your computer.
+
 2. **Create a New Project**:
-   - Go to File > New > Quartus Prime Project.
-   - Click "Next" on the introduction page.
-3. **Project Settings**:
-   - **Directory, Name, Top-Level Entity**:
-     - Choose a directory for your project (e.g., ~/DE10_Nano_SoC_GHRD).
-     - Set the project name to DE10_Nano_SoC_GHRD.
-     - Set the top-level design entity to DE10_Nano_SoC_GHRD.
-     - Click "Next".
-   - **Add Files**:
-     - Leave this blank for now (files will be added later).
-     - Click "Next".
-   - **Family, Device & Board Settings**:
-     - Family: Select "Cyclone V".
-     - Devices: Choose "Cyclone V SE" from the dropdown.
-     - Specific Device: Search for and select 5CSEBA6U23I7.
-     - Click "Next".
-   - **EDA Tool Settings**:
-     - Leave the default settings unless you need specific tool integration.
-     - Click "Next".
-   - **Summary**:
-     - Review the summary and click "Finish" to create the project.
+   - Go to File > New Project Wizard.
+   - In the "New Project Wizard":
+     - Project Name: Enter `DE10_nano_button_led`.
+     - Directory: Choose a suitable directory (e.g., `C:\DE10_nano_button_led` or `/home/user/DE10_nano_button_led`).
+     - Click Next.
+   - Device Family: Select Cyclone V.
+   - Device: In the list, find and select `5CSEBA6U23I7` (this is the Cyclone V SoC on the DE10-Nano board).
+   - Click Next through the remaining screens (no files to add yet), then Finish.
 
-## Step 2: Create the Platform Designer System
+   Note: At this stage, Quartus may prompt for a top-level design file. Since we're building from scratch, we'll create it later after Platform Designer work. Skip adding files for now.
 
-### Overview
-Next, use Platform Designer to create a system (.qsys file) that includes the HPS, Parallel I/O (PIO) IPs for the button and LED, and a clock source. This system defines the FPGA hardware interfaced by the HPS.
+### Step 2: Create the Platform Designer System
 
-### Instructions
-1. **Open Platform Designer**:
-   - In Quartus Prime, go to Tools > Platform Designer.
-2. **Create a New System**:
-   - Go to File > New System.
-   - Save the system as de10_nano_system.qsys.
-3. **Add Components**:
+1. **Launch Platform Designer**:
+   - In Quartus Lite, go to Tools > Platform Designer.
+   - Select File > New System.
+   - Save the system as `de10_nano_system.qsys` in your project directory.
+
+2. **Add Components**:
    - **HPS (`hps_0`)**:
-     - In the IP Catalog, search for "Cyclone V Hard Processor System".
-     - Double-click to add it.
-     - In the HPS configuration window, go to the FPGA Interfaces tab and enable "Lightweight HPS-to-FPGA AXI Bridge".
-     - Export `h2f_reset` by checking the box and naming it `hps_0_h2f_reset`.
+     - In the IP Catalog (right panel), search for "Cyclone V Hard Processor System".
+     - Double-click to add it, name it `hps_0`.
+     - In the settings window:
+       - Go to the FPGA Interfaces tab.
+       - Enable "Lightweight HPS-to-FPGA AXI Bridge".
+       - Export the `h2f_reset` signal by double-clicking it and naming it `hps_0_h2f_reset`.
+       - Click Finish.
    - **Clock Source (`clk_50`)**:
-     - In the IP Catalog, search for "Clock Source".
-     - Add it and set the frequency to 50 MHz.
-     - Export `clk_in` as `clk_clk` and `clk_in_reset` as `reset_reset_n`.
+     - Search for "Clock Source" in the IP Catalog.
+     - Add it, set the frequency to 50 MHz.
+     - Export `clk` as `clk_clk` and `reset` as `reset_reset_n`.
    - **Button PIO (`pio_button`)**:
-     - In the IP Catalog, search for "PIO (Parallel I/O)".
-     - Add it, set "Width" to 1 bit and "Direction" to "Input".
-     - Export `pio` as `pio_button_external_connection` and `reset` as `pio_button_reset`.
+     - Search for "PIO (Parallel I/O)".
+     - Add it, configure:
+       - Width: 1 bit.
+       - Direction: Input.
+       - Export `external_connection` as `pio_button_external_connection` and `reset` as `pio_button_reset`.
    - **LED PIO (`pio_led`)**:
-     - In the IP Catalog, search for "PIO".
-     - Add it, set "Width" to 1 bit and "Direction" to "Output".
-     - Export `pio` as `pio_led_external_connection` and `reset` as `pio_led_reset`.
-4. **Make Connections**:
+     - Search for "PIO (Parallel I/O)".
+     - Add it, configure:
+       - Width: 1 bit.
+       - Direction: Output.
+       - Export `external_connection` as `pio_led_external_connection` and `reset` as `pio_led_reset`.
+
+3. **Make Connections**:
    - **Clock Connections**:
-     - Connect `clk_50.clk` to `hps_0.h2f_lw_axi_clock`, `pio_button.clk`, and `pio_led.clk`.
+     - Connect `clk_50.clk` to `hps_0.h2f_lw_axi_clock`, `pio_button.clk`, and `pio_led.clk` (drag lines in the "Connections" column).
    - **Reset Connections**:
-     - Connect `clk_50.clk_reset` to `pio_button.reset` and `pio_led.reset`.
-     - Optionally connect `clk_50.clk_in_reset` to `hps_0.h2f_reset` or tie it high.
+     - Connect `clk_50.reset` to `pio_button.reset` and `pio_led.reset`.
+     - Optionally connect `clk_50.reset` to `hps_0.h2f_reset` or leave it unconnected (we'll tie it high later).
    - **AXI Connections**:
-     - Connect `hps_0.h2f_lw_axi_master` to `pio_button.s1` and assign address 0x0000_0000.
-     - Connect `hps_0.h2f_lw_axi_master` to `pio_led.s1` and assign address 0x0000_0010.
-5. **Generate HDL**:
+     - Connect `hps_0.h2f_lw_axi_master` to `pio_button.s1` and `pio_led.s1`.
+     - Assign base addresses:
+       - Right-click `pio_button.s1`, select Assign Base Address, set to `0x0000`.
+       - Right-click `pio_led.s1`, set to `0x0010`.
+
+4. **Generate HDL**:
    - Go to Generate > Generate HDL.
-   - Select "Verilog" as the HDL language.
-   - Set the output directory to output_files.
-   - Click "Generate" to create the HDL files.
+   - In the dialog:
+     - Output Format: Select Verilog.
+     - Output Directory: Use default (`output_files`) or specify a path.
+     - Click Generate and wait for completion.
 
-## Step 3: Create the Top-Level Verilog File
+### Step 3: Create the Top-Level Verilog File
 
-### Overview
-Create a top-level Verilog file to instantiate the Platform Designer system and connect it to the DE10-Nano's physical pins.
+1. **Create a New Verilog File**:
+   - In Quartus Lite, go to File > New > Verilog HDL File.
+   - Save it as `DE10_Nano_SoC_GHRD.v` in your project directory.
 
-### Top-Level Verilog (`DE10_Nano_SoC_GHRD.v`)
+2. **Add the Following Code**:
 
 ```verilog
 module DE10_Nano_SoC_GHRD (
@@ -105,33 +108,46 @@ module DE10_Nano_SoC_GHRD (
         .hps_0_h2f_reset(hps_reset),
         .pio_button_reset(pio_button_rst),
         .pio_led_reset(pio_led_rst)
-        // Other HPS ports can be connected if needed
+        // Other HPS ports omitted for simplicity
     );
 
-    assign button_in = ~KEY[0];  // Invert KEY0 for logic 1 when pressed
+    assign button_in = ~KEY[0];  // Invert KEY0 (active low) for logic 1 when pressed
     assign LED[0] = led_out;
-    assign LED[3:1] = 3'b000;    // Turn off other LEDs
+    assign LED[3:1] = 3'b000;    // Keep other LEDs off
 
 endmodule
 ```
 
-### Instructions
-1. **Create the Verilog File**:
-   - In Quartus Prime, go to File > New > Verilog HDL File.
-   - Copy and paste the Verilog code above.
-   - Save it as DE10_Nano_SoC_GHRD.v.
-2. **Add to Project**:
+### Step 4: Add Files to the Project
+
+1. **Add Files**:
    - Go to Project > Add/Remove Files in Project.
-   - Add DE10_Nano_SoC_GHRD.v and de10_nano_system.qsys to the project.
+   - Click the ... button, add:
+     - `DE10_Nano_SoC_GHRD.v`
+     - `de10_nano_system.qsys`
+   - Click OK.
 
-## Step 4: Add Pin Assignments
+2. **Set Top-Level Entity**:
+   - Go to Assignments > Settings > General.
+   - Under "Top-level entity," select `DE10_Nano_SoC_GHRD`.
+   - Click OK.
 
-### Overview
-Map the signals in the Verilog file to the physical pins on the DE10-Nano board using pin assignments in the .qsf file.
+### Step 5: Add Pin Assignments
 
-### Pin Assignments (`DE10_Nano_SoC_GHRD.qsf`)
+1. **Open Assignment Editor**:
+   - Go to Assignments > Assignment Editor.
 
-Add these lines to your project's .qsf file:
+2. **Add Pin Assignments**:
+   - Add the following (double-click to create new rows):
+     - To: `CLOCK_50`, Location: `PIN_V11`
+     - To: `KEY[0]`, Location: `PIN_AH17`
+     - To: `KEY[1]`, Location: `PIN_AH16`
+     - To: `LED[0]`, Location: `PIN_AG17`
+     - To: `LED[1]`, Location: `PIN_AF17`
+     - To: `LED[2]`, Location: `PIN_AE17`
+     - To: `LED[3]`, Location: `PIN_AD17`
+
+   Alternatively, edit `DE10_nano_button_led.qsf` directly:
 
 ```tcl
 set_location_assignment PIN_V11  -to CLOCK_50
@@ -143,30 +159,24 @@ set_location_assignment PIN_AE17 -to LED[2]
 set_location_assignment PIN_AD17 -to LED[3]
 ```
 
-### Instructions
-1. **Open the .qsf File**:
-   - In Quartus Prime, go to Assignments > Assignment Editor or edit the .qsf file directly in a text editor.
-2. **Add Assignments**:
-   - In the Assignment Editor, add each pin assignment manually, or paste the lines above into the .qsf file.
+### Step 6: Compile the Project
 
-## Step 5: Compile and Program the FPGA
-
-### Instructions
-1. **Set Top-Level Entity**:
-   - Go to Assignments > Settings > General.
-   - Ensure the top-level entity is DE10_Nano_SoC_GHRD.
-2. **Compile the Project**:
+1. **Start Compilation**:
    - Go to Processing > Start Compilation.
-   - Wait for compilation to complete successfully.
-3. **Program the FPGA**:
-   - Connect the DE10-Nano board to your computer via USB-Blaster.
-   - Go to Tools > Programmer.
-   - Select the generated .sof file and program the FPGA.
+   - Wait for the process to complete. Check for errors in the "Messages" tab.
 
-## Step 6: Kernel Module Code
+### Step 7: Program the FPGA
+
+1. **Open Programmer**:
+   - Go to Tools > Programmer.
+   - Click Hardware Setup, select your USB-Blaster.
+   - Click Add File, select `output_files/DE10_nano_button_led.sof`.
+   - Click Start to program the FPGA.
+
+## Kernel Code
 
 ### Overview
-The kernel module maps the FPGA's memory-mapped registers into kernel space and exposes them via a character device (`/dev/button_led`) for user-space interaction.
+The kernel module maps the FPGA's memory-mapped registers into kernel space and exposes them via a character device (`/dev/button_led`). The addresses are based on the lightweight bridge base (0xFF200000) plus the offsets assigned in Platform Designer (0x0000 for button, 0x0010 for LED).
 
 ### Kernel Module (`button_led.c`)
 
@@ -269,25 +279,30 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 ```
 
-### Instructions
+### Kernel Module Instructions
+
 1. **Setup Environment**:
-   - Access the DE10-Nano's Linux system (e.g., via SSH or console).
-   - Install kernel headers: `sudo apt-get install linux-headers-$(uname -r)` (for Debian-based distros).
+   - Log into the DE10-Nano's Linux system (via SSH or console).
+   - Install kernel headers: `sudo apt-get install linux-headers-$(uname -r)` (Debian-based distros).
+
 2. **Save Files**:
    - Save `button_led.c` and `Makefile` in a directory (e.g., `~/button_led_driver`).
+
 3. **Compile**:
    - Run `make` to build `button_led.ko`.
+
 4. **Load Module**:
    - Run `sudo insmod button_led.ko`.
-   - Verify `/dev/button_led` exists: `ls /dev/button_led`.
+   - Verify: `ls /dev/button_led`.
    - Check logs: `dmesg | grep button_led`.
-5. **Unload (Optional)**:
-   - Run `sudo rmmod button_led` to remove the module.
 
-## Step 7: Application Code
+5. **Unload (Optional)**:
+   - Run `sudo rmmod button_led`.
+
+## Application Code
 
 ### Overview
-The user-space application polls the button state via `/dev/button_led` and toggles LED0 based on whether KEY0 is pressed.
+The user-space application polls the button state via `/dev/button_led` and toggles LED0 when KEY0 is pressed.
 
 ### Application (`button_led_app.c`)
 
@@ -325,44 +340,43 @@ int main() {
                 return 1;
             }
         }
-        usleep(100000);  // Poll every 100ms to avoid overwhelming the system
+        usleep(100000);  // Poll every 100ms
     }
 
-    close(fd);  // Unreachable due to infinite loop, but good practice
+    close(fd);  // Unreachable due to infinite loop
     return 0;
 }
 ```
 
-### Instructions
-1. **Compile the Application**:
-   - Save the code as `button_led_app.c`.
-   - Compile: `gcc -o button_led_app button_led_app.c`.
-2. **Run the Application**:
-   - Run with `sudo ./button_led_app`.
-   - Press KEY0 to toggle LED0.
+### Application Instructions
+
+1. **Compile**:
+   - Save as `button_led_app.c`.
+   - Run: `gcc button_led_app.c -o button_led_app`.
+
+2. **Run**:
+   - Run: `sudo ./button_led_app`.
+   - Press KEY0 to see LED0 turn on; release to turn it off.
 
 ## Full Setup Workflow
 
-1. **Create Quartus Project**:
-   - Set up a new project for the Cyclone V SoC (5CSEBA6U23I7).
-2. **Create Platform Designer System**:
-   - Add HPS, clock, and PIOs; generate HDL.
-3. **Create Top-Level Verilog File**:
-   - Instantiate the system and connect to pins.
-4. **Add Pin Assignments**:
-   - Map signals to physical pins.
-5. **Compile and Program FPGA**:
-   - Compile and program via USB-Blaster.
-6. **Compile and Load Kernel Module**:
-   - Build and insert the kernel module.
-7. **Compile and Run Application**:
-   - Build and run the application.
+1. **FPGA**:
+   - Create the Quartus Lite project "DE10_nano_button_led" for the Cyclone V SoC (5CSEBA6U23I7).
+   - Build the Platform Designer system, generate HDL, and create the top-level Verilog file.
+   - Add files, assign pins, compile, and program the FPGA.
+
+2. **Kernel**:
+   - Compile and load the kernel module on the DE10-Nano's Linux system.
+
+3. **Application**:
+   - Compile and run the application to interact with the button and LED.
 
 ## Notes
 
-- **Address Consistency**: The kernel module uses 0xFF200000 (button) and 0xFF200010 (LED), which align with Platform Designer's Lightweight HPS-to-FPGA bridge base (0xFF200000) plus offsets (0x0000 and 0x0010).
-- **Permissions**: Use sudo for the application due to root access requirements for `/dev/button_led`.
-- **Debugging**: Check kernel logs with `dmesg` and use printf in the application.
-- **Reset**: Reset is tied high here; for robustness, connect KEY1 to `reset_reset_n`.
+- **Quartus Lite**: All IPs (HPS, PIO, Clock Source) are available in Quartus Lite.
+- **Address Consistency**: The kernel module uses 0xFF200000 (button) and 0xFF200010 (LED), matching Platform Designer assignments offset from the lightweight bridge base.
+- **Permissions**: Use sudo for the application due to `/dev/button_led` requiring root access.
+- **Debugging**: Use `dmesg` for kernel logs and application printf outputs.
+- **Reset**: Reset is tied high for simplicity. For robustness, connect KEY1 to `reset_reset_n`.
 
-This setup enables the HPS to detect KEY0 presses and control LED0 via the FPGA.
+This setup ensures the HPS detects KEY0 presses and controls LED0 via the FPGA, starting from a fresh Quartus Lite project.
