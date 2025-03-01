@@ -1,0 +1,143 @@
+Info: Starting: Create block symbol file (.bsf)
+Info: qsys-generate /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED.qsys --block-symbol-file --output-directory=/home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED --family="Cyclone V" --part=5CSEBA6U23I7
+Progress: Loading DE10_Button_LED/DE10_Button_LED.qsys
+Progress: Reading input file
+Progress: Adding clk_50 [clock_source 20.1]
+Progress: Parameterizing module clk_50
+Progress: Adding hps_0 [altera_hps 20.1]
+Progress: Parameterizing module hps_0
+Progress: Adding pio_button [altera_avalon_pio 20.1]
+Progress: Parameterizing module pio_button
+Progress: Adding pio_led [altera_avalon_pio 20.1]
+Progress: Parameterizing module pio_led
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: DE10_Button_LED.hps_0: HPS Main PLL counter settings: n = 0  m = 63
+Info: DE10_Button_LED.hps_0: HPS peripherial PLL counter settings: n = 0  m = 39
+Warning: DE10_Button_LED.hps_0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Warning: DE10_Button_LED.hps_0: set_interface_assignment: Interface "hps_io" does not exist
+Info: qsys-generate succeeded.
+Info: Finished: Create block symbol file (.bsf)
+Info: 
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED.qsys --synthesis=VERILOG --output-directory=/home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis --family="Cyclone V" --part=5CSEBA6U23I7
+Progress: Loading DE10_Button_LED/DE10_Button_LED.qsys
+Progress: Reading input file
+Progress: Adding clk_50 [clock_source 20.1]
+Progress: Parameterizing module clk_50
+Progress: Adding hps_0 [altera_hps 20.1]
+Progress: Parameterizing module hps_0
+Progress: Adding pio_button [altera_avalon_pio 20.1]
+Progress: Parameterizing module pio_button
+Progress: Adding pio_led [altera_avalon_pio 20.1]
+Progress: Parameterizing module pio_led
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: DE10_Button_LED.hps_0: HPS Main PLL counter settings: n = 0  m = 63
+Info: DE10_Button_LED.hps_0: HPS peripherial PLL counter settings: n = 0  m = 39
+Warning: DE10_Button_LED.hps_0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Warning: DE10_Button_LED.hps_0: set_interface_assignment: Interface "hps_io" does not exist
+Info: DE10_Button_LED: Generating DE10_Button_LED "DE10_Button_LED" for QUARTUS_SYNTH
+Info: hps_0: "Running  for module: hps_0"
+Info: hps_0: HPS Main PLL counter settings: n = 0  m = 63
+Info: hps_0: HPS peripherial PLL counter settings: n = 0  m = 39
+Warning: hps_0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Warning: hps_0: set_interface_assignment: Interface "hps_io" does not exist
+Info: hps_0: "DE10_Button_LED" instantiated altera_hps "hps_0"
+Info: pio_button: Starting RTL generation for module 'DE10_Button_LED_pio_button'
+Info: pio_button:   Generation command is [exec /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/bin/perl -I /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/lib -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin/europa -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/common -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=DE10_Button_LED_pio_button --dir=/tmp/alt0148_3156173772404678211.dir/0036_pio_button_gen/ --quartus_dir=/home/nicholas/intelFPGA_lite/20.1/quartus --verilog --config=/tmp/alt0148_3156173772404678211.dir/0036_pio_button_gen//DE10_Button_LED_pio_button_component_configuration.pl  --do_build_sim=0  ]
+Info: pio_button: Done RTL generation for module 'DE10_Button_LED_pio_button'
+Info: pio_button: "DE10_Button_LED" instantiated altera_avalon_pio "pio_button"
+Info: avalon_st_adapter: Inserting error_adapter: error_adapter_0
+Info: avalon_st_adapter_001: Inserting error_adapter: error_adapter_0
+Info: mm_interconnect_0: "DE10_Button_LED" instantiated altera_mm_interconnect "mm_interconnect_0"
+Info: rst_controller: "DE10_Button_LED" instantiated altera_reset_controller "rst_controller"
+Info: fpga_interfaces: "hps_0" instantiated altera_interface_generator "fpga_interfaces"
+Info: hps_io: "hps_0" instantiated altera_hps_io "hps_io"
+Info: pio_button_s1_translator: "mm_interconnect_0" instantiated altera_merlin_slave_translator "pio_button_s1_translator"
+Info: hps_0_h2f_lw_axi_master_agent: "mm_interconnect_0" instantiated altera_merlin_axi_master_ni "hps_0_h2f_lw_axi_master_agent"
+Info: pio_button_s1_agent: "mm_interconnect_0" instantiated altera_merlin_slave_agent "pio_button_s1_agent"
+Info: pio_button_s1_agent_rsp_fifo: "mm_interconnect_0" instantiated altera_avalon_sc_fifo "pio_button_s1_agent_rsp_fifo"
+Info: router: "mm_interconnect_0" instantiated altera_merlin_router "router"
+Info: router_002: "mm_interconnect_0" instantiated altera_merlin_router "router_002"
+Info: hps_0_h2f_lw_axi_master_wr_limiter: "mm_interconnect_0" instantiated altera_merlin_traffic_limiter "hps_0_h2f_lw_axi_master_wr_limiter"
+Info: Reusing file /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis/submodules/altera_avalon_sc_fifo.v
+Info: pio_button_s1_burst_adapter: "mm_interconnect_0" instantiated altera_merlin_burst_adapter "pio_button_s1_burst_adapter"
+Info: Reusing file /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis/submodules/altera_merlin_address_alignment.sv
+Info: Reusing file /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis/submodules/altera_avalon_st_pipeline_base.v
+Info: cmd_demux: "mm_interconnect_0" instantiated altera_merlin_demultiplexer "cmd_demux"
+Info: cmd_mux: "mm_interconnect_0" instantiated altera_merlin_multiplexer "cmd_mux"
+Info: rsp_demux: "mm_interconnect_0" instantiated altera_merlin_demultiplexer "rsp_demux"
+Info: rsp_mux: "mm_interconnect_0" instantiated altera_merlin_multiplexer "rsp_mux"
+Info: Reusing file /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis/submodules/altera_merlin_arbitrator.sv
+Info: avalon_st_adapter: "mm_interconnect_0" instantiated altera_avalon_st_adapter "avalon_st_adapter"
+Error: border: Error during execution of script generate_hps_sdram.tcl: seq: add_fileset_file: No such file /tmp/alt0148_7722043889132396705.dir/0004_seq_gen/hps_AC_ROM.hex
+Error: border: Error during execution of script generate_hps_sdram.tcl: Generation stopped, 3 or more modules remaining
+Error: border: Execution of script generate_hps_sdram.tcl failed
+Error: border: 2025.03.01.16:30:30 Info:
+Error: border: ********************************************************************************************************************
+Error: border: 
+Error: border: Use qsys-generate for a simpler command-line interface for generating IP.
+Error: border: 
+Error: border: Run ip-generate with switch --remove-qsys-generate-warning to prevent this notice from appearing in subsequent runs.
+Error: border: 
+Error: border: ********************************************************************************************************************
+Error: border: 2025.03.01.16:30:39 Warning: Ignored parameter assignment device=5CSEBA6U23I7
+Error: border: 2025.03.01.16:30:39 Warning: Ignored parameter assignment extended_family_support=true
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram: 'Quick' simulation modes are NOT timing accurate. Some simulation memory models may issue warnings or errors
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.seq: This module has no ports or interfaces
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.c0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.p0: p0.scc must be exported, or connected to a matching conduit.
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.as: as.afi_init_cal_req must be exported, or connected to a matching conduit.
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.as: as.tracking must be exported, or connected to a matching conduit.
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.c0: c0.status must be exported, or connected to a matching conduit.
+Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.p0: p0.avl must be connected to an Avalon-MM master
+Error: border: 2025.03.01.16:30:47 Info: hps_sdram: Generating altera_mem_if_hps_emif "hps_sdram" for QUARTUS_SYNTH
+Error: border: 2025.03.01.16:30:51 Info: pll: "hps_sdram" instantiated altera_mem_if_hps_pll "pll"
+Error: border: 2025.03.01.16:30:51 Info: p0: Generating clock pair generator
+Error: border: 2025.03.01.16:30:54 Info: p0: Generating hps_sdram_p0_altdqdqs
+Error: border: 2025.03.01.16:31:09 Info: p0:
+Error: border: 2025.03.01.16:31:09 Info: p0: *****************************
+Error: border: 2025.03.01.16:31:09 Info: p0:
+Error: border: 2025.03.01.16:31:09 Info: p0: Remember to run the hps_sdram_p0_pin_assignments.tcl
+Error: border: 2025.03.01.16:31:09 Info: p0: script after running Synthesis and before Fitting.
+Error: border: 2025.03.01.16:31:09 Info: p0:
+Error: border: 2025.03.01.16:31:09 Info: p0: *****************************
+Error: border: 2025.03.01.16:31:09 Info: p0:
+Error: border: 2025.03.01.16:31:09 Info: p0: "hps_sdram" instantiated altera_mem_if_ddr3_hard_phy_core "p0"
+Error: border: 2025.03.01.16:31:09 Error: seq: add_fileset_file: No such file /tmp/alt0148_7722043889132396705.dir/0004_seq_gen/hps_AC_ROM.hex
+Error: border: while executing
+Error: border: "add_fileset_file $file_name [::alt_mem_if::util::hwtcl_utils::get_file_type $file_name 0] PATH $file_pathname"
+Error: border: ("foreach" body line 4)
+Error: border: invoked from within
+Error: border: "foreach file_pathname $return_files_sw {
+Error: border: 		_dprint 1 "Preparing to add $file_pathname"
+Error: border: 		set file_name [file tail $file_pathname]
+Error: border: 		add_fileset_file $..."
+Error: border: (procedure "generate_sw" line 18)
+Error: border: invoked from within
+Error: border: "generate_sw $name $fileset"
+Error: border: ("if" then script line 4)
+Error: border: invoked from within
+Error: border: "if {[string compare -nocase $fileset QUARTUS_SYNTH] == 0} {
+Error: border: 		set top_level_file "altera_mem_if_hhp_qseq_synth_top.v"
+Error: border: 		add_fileset_file $top_level_fi..."
+Error: border: (procedure "generate_files" line 4)
+Error: border: invoked from within
+Error: border: "generate_files $name QUARTUS_SYNTH"
+Error: border: (procedure "generate_synth" line 3)
+Error: border: invoked from within
+Error: border: "generate_synth altera_mem_if_hhp_qseq_synth_top"
+Error: border: 2025.03.01.16:31:09 Info: seq: "hps_sdram" instantiated altera_mem_if_hhp_ddr3_qseq "seq"
+Error: border: 2025.03.01.16:31:09 Error: Generation stopped, 3 or more modules remaining
+Error: border: 2025.03.01.16:31:09 Info: hps_sdram: Done "hps_sdram" with 7 modules, 33 files
+Info: border: "hps_io" instantiated altera_interface_generator "border"
+Error: Generation stopped, 1 or more modules remaining
+Info: DE10_Button_LED: Done "DE10_Button_LED" with 22 modules, 70 files
+Error: qsys-generate failed with exit code 1: 62 Errors, 4 Warnings
+Info: Finished: Create HDL design files for synthesis
