@@ -33,7 +33,7 @@ preplace inst DE10_Button_LED.hps_0.arm_a9_0 -pg 1
 preplace inst DE10_Button_LED.pio_button -pg 1 -lvl 3 -y 30
 preplace inst DE10_Button_LED.hps_0.arm_gic_0 -pg 1
 preplace inst DE10_Button_LED.hps_0.arm_a9_1 -pg 1
-preplace inst DE10_Button_LED.clk_50 -pg 1 -lvl 2 -y 210
+preplace inst DE10_Button_LED.clk_50 -pg 1 -lvl 2 -y 150
 preplace inst DE10_Button_LED.hps_0.usb0 -pg 1
 preplace inst DE10_Button_LED.hps_0.axi_ocram -pg 1
 preplace inst DE10_Button_LED.hps_0.usb1 -pg 1
@@ -55,13 +55,13 @@ preplace inst DE10_Button_LED.hps_0.timer0 -pg 1
 preplace inst DE10_Button_LED.hps_0.uart1 -pg 1
 preplace inst DE10_Button_LED.hps_0.L2 -pg 1
 preplace inst DE10_Button_LED.hps_0.fpga_interfaces -pg 1
-preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_button.external_connection,(SLAVE)DE10_Button_LED.pio_button_external_connection) 1 0 3 NJ 40 NJ 40 NJ
-preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_led.clk,(SLAVE)hps_0.h2f_lw_axi_clock,(SLAVE)hps_0.h2f_axi_clock,(MASTER)clk_50.clk,(SLAVE)pio_button.clk,(SLAVE)hps_0.f2h_axi_clock) 1 0 3 230 60 NJ 60 820
-preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)DE10_Button_LED.pio_led_external_connection,(SLAVE)pio_led.external_connection) 1 0 3 NJ 280 NJ 280 NJ
-preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)hps_0.memory,(SLAVE)DE10_Button_LED.memory) 1 0 1 NJ
-preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)DE10_Button_LED.clk_clk,(SLAVE)clk_50.clk_in) 1 0 2 NJ 260 NJ
-preplace netloc POINT_TO_POINT<net_container>DE10_Button_LED</net_container>(SLAVE)clk_50.clk_in_reset,(MASTER)hps_0.h2f_reset) 1 1 1 540
-preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(MASTER)clk_50.clk_reset,(SLAVE)pio_led.reset,(SLAVE)pio_button.reset) 1 2 1 800
-preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_button.s1,(MASTER)hps_0.h2f_lw_axi_master,(SLAVE)pio_led.s1) 1 1 2 560 300 840
-levelinfo -pg 1 0 200 1030
-levelinfo -hier DE10_Button_LED 210 350 610 870 1020
+preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_button.external_connection,(SLAVE)DE10_Button_LED.pio_button_external_connection) 1 0 3 NJ 60 NJ 60 NJ
+preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_led.reset,(MASTER)clk_50.clk_reset,(SLAVE)pio_button.reset) 1 2 1 860
+preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(SLAVE)hps_0.h2f_axi_clock,(SLAVE)hps_0.h2f_lw_axi_clock,(SLAVE)pio_button.clk,(SLAVE)hps_0.f2h_axi_clock,(MASTER)clk_50.clk,(SLAVE)pio_led.clk) 1 0 3 230 240 NJ 140 840
+preplace netloc FAN_OUT<net_container>DE10_Button_LED</net_container>(SLAVE)pio_led.s1,(SLAVE)pio_button.s1,(MASTER)hps_0.h2f_lw_axi_master) 1 1 2 NJ 120 880
+preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)DE10_Button_LED.pio_led_external_connection,(SLAVE)pio_led.external_connection) 1 0 3 NJ 320 NJ 260 NJ
+preplace netloc POINT_TO_POINT<net_container>DE10_Button_LED</net_container>(SLAVE)clk_50.clk_in_reset,(MASTER)hps_0.h2f_reset) 1 1 1 580
+preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)clk_50.clk_in,(SLAVE)DE10_Button_LED.clk_clk) 1 0 2 NJ 300 NJ
+preplace netloc EXPORT<net_container>DE10_Button_LED</net_container>(SLAVE)DE10_Button_LED.memory,(SLAVE)hps_0.memory) 1 0 1 NJ
+levelinfo -pg 1 0 200 1090
+levelinfo -hier DE10_Button_LED 210 350 670 930 1080
