@@ -49,7 +49,7 @@ Warning: hps_0: ODT is disabled. Enabling ODT (Mode Register 1) may improve sign
 Warning: hps_0: set_interface_assignment: Interface "hps_io" does not exist
 Info: hps_0: "DE10_Button_LED" instantiated altera_hps "hps_0"
 Info: pio_button: Starting RTL generation for module 'DE10_Button_LED_pio_button'
-Info: pio_button:   Generation command is [exec /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/bin/perl -I /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/lib -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin/europa -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/common -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=DE10_Button_LED_pio_button --dir=/tmp/alt0148_3156173772404678211.dir/0036_pio_button_gen/ --quartus_dir=/home/nicholas/intelFPGA_lite/20.1/quartus --verilog --config=/tmp/alt0148_3156173772404678211.dir/0036_pio_button_gen//DE10_Button_LED_pio_button_component_configuration.pl  --do_build_sim=0  ]
+Info: pio_button:   Generation command is [exec /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/bin/perl -I /home/nicholas/intelFPGA_lite/20.1/quartus/linux64/perl/lib -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin/europa -I /home/nicholas/intelFPGA_lite/20.1/quartus/sopc_builder/bin -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/common -I /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- /home/nicholas/intelFPGA_lite/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=DE10_Button_LED_pio_button --dir=/tmp/alt0149_6890647806776652765.dir/0002_pio_button_gen/ --quartus_dir=/home/nicholas/intelFPGA_lite/20.1/quartus --verilog --config=/tmp/alt0149_6890647806776652765.dir/0002_pio_button_gen//DE10_Button_LED_pio_button_component_configuration.pl  --do_build_sim=0  ]
 Info: pio_button: Done RTL generation for module 'DE10_Button_LED_pio_button'
 Info: pio_button: "DE10_Button_LED" instantiated altera_avalon_pio "pio_button"
 Info: avalon_st_adapter: Inserting error_adapter: error_adapter_0
@@ -75,10 +75,10 @@ Info: rsp_demux: "mm_interconnect_0" instantiated altera_merlin_demultiplexer "r
 Info: rsp_mux: "mm_interconnect_0" instantiated altera_merlin_multiplexer "rsp_mux"
 Info: Reusing file /home/nicholas/Desktop/Github/low-latency-market-analysis/examples/hps_fpga_examples/DE10_Button_LED/DE10_Button_LED/synthesis/submodules/altera_merlin_arbitrator.sv
 Info: avalon_st_adapter: "mm_interconnect_0" instantiated altera_avalon_st_adapter "avalon_st_adapter"
-Error: border: Error during execution of script generate_hps_sdram.tcl: seq: add_fileset_file: No such file /tmp/alt0148_7722043889132396705.dir/0004_seq_gen/hps_AC_ROM.hex
+Error: border: Error during execution of script generate_hps_sdram.tcl: seq: add_fileset_file: No such file /tmp/alt0149_3988513488443338255.dir/0004_seq_gen/hps_AC_ROM.hex
 Error: border: Error during execution of script generate_hps_sdram.tcl: Generation stopped, 3 or more modules remaining
 Error: border: Execution of script generate_hps_sdram.tcl failed
-Error: border: 2025.03.01.16:30:30 Info:
+Error: border: 2025.03.02.16:55:22 Info:
 Error: border: ********************************************************************************************************************
 Error: border: 
 Error: border: Use qsys-generate for a simpler command-line interface for generating IP.
@@ -86,31 +86,31 @@ Error: border:
 Error: border: Run ip-generate with switch --remove-qsys-generate-warning to prevent this notice from appearing in subsequent runs.
 Error: border: 
 Error: border: ********************************************************************************************************************
-Error: border: 2025.03.01.16:30:39 Warning: Ignored parameter assignment device=5CSEBA6U23I7
-Error: border: 2025.03.01.16:30:39 Warning: Ignored parameter assignment extended_family_support=true
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram: 'Quick' simulation modes are NOT timing accurate. Some simulation memory models may issue warnings or errors
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.seq: This module has no ports or interfaces
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.c0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.p0: p0.scc must be exported, or connected to a matching conduit.
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.as: as.afi_init_cal_req must be exported, or connected to a matching conduit.
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.as: as.tracking must be exported, or connected to a matching conduit.
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.c0: c0.status must be exported, or connected to a matching conduit.
-Error: border: 2025.03.01.16:30:47 Warning: hps_sdram.p0: p0.avl must be connected to an Avalon-MM master
-Error: border: 2025.03.01.16:30:47 Info: hps_sdram: Generating altera_mem_if_hps_emif "hps_sdram" for QUARTUS_SYNTH
-Error: border: 2025.03.01.16:30:51 Info: pll: "hps_sdram" instantiated altera_mem_if_hps_pll "pll"
-Error: border: 2025.03.01.16:30:51 Info: p0: Generating clock pair generator
-Error: border: 2025.03.01.16:30:54 Info: p0: Generating hps_sdram_p0_altdqdqs
-Error: border: 2025.03.01.16:31:09 Info: p0:
-Error: border: 2025.03.01.16:31:09 Info: p0: *****************************
-Error: border: 2025.03.01.16:31:09 Info: p0:
-Error: border: 2025.03.01.16:31:09 Info: p0: Remember to run the hps_sdram_p0_pin_assignments.tcl
-Error: border: 2025.03.01.16:31:09 Info: p0: script after running Synthesis and before Fitting.
-Error: border: 2025.03.01.16:31:09 Info: p0:
-Error: border: 2025.03.01.16:31:09 Info: p0: *****************************
-Error: border: 2025.03.01.16:31:09 Info: p0:
-Error: border: 2025.03.01.16:31:09 Info: p0: "hps_sdram" instantiated altera_mem_if_ddr3_hard_phy_core "p0"
-Error: border: 2025.03.01.16:31:09 Error: seq: add_fileset_file: No such file /tmp/alt0148_7722043889132396705.dir/0004_seq_gen/hps_AC_ROM.hex
+Error: border: 2025.03.02.16:55:30 Warning: Ignored parameter assignment device=5CSEBA6U23I7
+Error: border: 2025.03.02.16:55:30 Warning: Ignored parameter assignment extended_family_support=true
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram: 'Quick' simulation modes are NOT timing accurate. Some simulation memory models may issue warnings or errors
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.seq: This module has no ports or interfaces
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.c0: ODT is disabled. Enabling ODT (Mode Register 1) may improve signal integrity
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.p0: p0.scc must be exported, or connected to a matching conduit.
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.as: as.afi_init_cal_req must be exported, or connected to a matching conduit.
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.as: as.tracking must be exported, or connected to a matching conduit.
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.c0: c0.status must be exported, or connected to a matching conduit.
+Error: border: 2025.03.02.16:55:39 Warning: hps_sdram.p0: p0.avl must be connected to an Avalon-MM master
+Error: border: 2025.03.02.16:55:39 Info: hps_sdram: Generating altera_mem_if_hps_emif "hps_sdram" for QUARTUS_SYNTH
+Error: border: 2025.03.02.16:55:43 Info: pll: "hps_sdram" instantiated altera_mem_if_hps_pll "pll"
+Error: border: 2025.03.02.16:55:43 Info: p0: Generating clock pair generator
+Error: border: 2025.03.02.16:55:46 Info: p0: Generating hps_sdram_p0_altdqdqs
+Error: border: 2025.03.02.16:56:01 Info: p0:
+Error: border: 2025.03.02.16:56:01 Info: p0: *****************************
+Error: border: 2025.03.02.16:56:01 Info: p0:
+Error: border: 2025.03.02.16:56:01 Info: p0: Remember to run the hps_sdram_p0_pin_assignments.tcl
+Error: border: 2025.03.02.16:56:01 Info: p0: script after running Synthesis and before Fitting.
+Error: border: 2025.03.02.16:56:01 Info: p0:
+Error: border: 2025.03.02.16:56:01 Info: p0: *****************************
+Error: border: 2025.03.02.16:56:01 Info: p0:
+Error: border: 2025.03.02.16:56:01 Info: p0: "hps_sdram" instantiated altera_mem_if_ddr3_hard_phy_core "p0"
+Error: border: 2025.03.02.16:56:01 Error: seq: add_fileset_file: No such file /tmp/alt0149_3988513488443338255.dir/0004_seq_gen/hps_AC_ROM.hex
 Error: border: while executing
 Error: border: "add_fileset_file $file_name [::alt_mem_if::util::hwtcl_utils::get_file_type $file_name 0] PATH $file_pathname"
 Error: border: ("foreach" body line 4)
@@ -133,11 +133,11 @@ Error: border: "generate_files $name QUARTUS_SYNTH"
 Error: border: (procedure "generate_synth" line 3)
 Error: border: invoked from within
 Error: border: "generate_synth altera_mem_if_hhp_qseq_synth_top"
-Error: border: 2025.03.01.16:31:09 Info: seq: "hps_sdram" instantiated altera_mem_if_hhp_ddr3_qseq "seq"
-Error: border: 2025.03.01.16:31:09 Error: Generation stopped, 3 or more modules remaining
-Error: border: 2025.03.01.16:31:09 Info: hps_sdram: Done "hps_sdram" with 7 modules, 33 files
+Error: border: 2025.03.02.16:56:01 Info: seq: "hps_sdram" instantiated altera_mem_if_hhp_ddr3_qseq "seq"
+Error: border: 2025.03.02.16:56:01 Error: Generation stopped, 3 or more modules remaining
+Error: border: 2025.03.02.16:56:01 Info: hps_sdram: Done "hps_sdram" with 7 modules, 33 files
 Info: border: "hps_io" instantiated altera_interface_generator "border"
 Error: Generation stopped, 1 or more modules remaining
-Info: DE10_Button_LED: Done "DE10_Button_LED" with 22 modules, 70 files
+Info: DE10_Button_LED: Done "DE10_Button_LED" with 22 modules, 69 files
 Error: qsys-generate failed with exit code 1: 62 Errors, 4 Warnings
 Info: Finished: Create HDL design files for synthesis
