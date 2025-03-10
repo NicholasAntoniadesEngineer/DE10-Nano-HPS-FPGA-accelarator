@@ -1,4 +1,4 @@
-# low-latency-market-analysis
+c# low-latency-market-analysis
 
 The goal of this project is to implement a high-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration. The system will be designed to process market data streams, detect trading opportunities, and execute trades.
 
@@ -143,4 +143,9 @@ Each component has its own build and execution scripts:
 ### Youtube
 - [Bruce Land - Cornell University](https://www.youtube.com/watch?v=fQAicY9a3DM&list=PLKcjQ_UFkrd7UcOVMm39A6VdMbWWq-e_c)
 - [Hunter Adams - Cornell University](https://www.youtube.com/watch?v=F9IYUOXtlPo)
+- [Lab 1](https://bpb-us-w2.wpmucdn.com/sites.coecis.cornell.edu/dist/4/81/files/2017/03/ece5760_lab1-18xgakl.pdf)
+
+### Forums
+
+- [Plat form designer not generating HDL](https://community.intel.com/t5/Intel-Quartus-Prime-Software/DE10-Nano-GHRD-failure-to-generate/m-p/228019)
 
