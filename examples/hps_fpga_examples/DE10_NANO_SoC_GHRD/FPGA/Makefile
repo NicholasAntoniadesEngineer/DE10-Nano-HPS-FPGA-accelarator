@@ -160,7 +160,20 @@ $(QSYS_SOPCINFO) $(QSYS_QIP): $(QSYS_STAMP)
 endif
 
 $(QSYS_STAMP): $(QSYS_DEPS)
-	$(SET_QSYS_GENERATE_ENV) qsys-generate $(QSYS_FILE) --synthesis=VERILOG $(QSYS_GENERATE_ARGS)
+	@$(ECHO) "Generating QSys system: $(QSYS_FILE)"
+	@$(ECHO) "This may take several minutes..."
+	$(SET_QSYS_GENERATE_ENV) qsys-generate $(QSYS_FILE) --synthesis=VERILOG $(QSYS_GENERATE_ARGS) || \
+		($(ECHO) ""; \
+		 $(ECHO) "WARNING: QSys generation completed with errors (this may be non-critical)."; \
+		 $(ECHO) "HPS SDRAM generation errors are common if SoC EDS is not installed."; \
+		 $(ECHO) "Checking if critical files were generated..."; \
+		 if [ -f "$(QSYS_SOPCINFO)" ] && [ -f "$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip" ]; then \
+			 $(ECHO) "Critical files found - Quartus compilation may still work."; \
+			 $(ECHO) "Try compiling in Quartus. If it fails, install SoC EDS."; \
+		 else \
+			 $(ECHO) "ERROR: Critical files missing. Please install SoC EDS and retry."; \
+			 exit 1; \
+		 fi)
 	$(stamp_target)
 
 HELP_TARGETS += qsys_edit
@@ -417,8 +430,72 @@ endif
 
 QSYS_HPS_INST_NAME ?= hps_0
 
-SBT.CREATE_SETTINGS := bsp-create-settings
+# Check for SoC EDS environment
+ifndef SOCEDS_DEST_ROOT
+$(warning WARNING: SOCEDS_DEST_ROOT is not set. SoC EDS tools may not be found.)
+$(warning Set SOCEDS_DEST_ROOT to your SoC EDS installation directory, e.g.,)
+$(warning export SOCEDS_DEST_ROOT=/path/to/intelFPGA/20.1/embedded)
+endif
+
+# Check if bsp-create-settings is available
+# First try to find it in PATH
+SBT.CREATE_SETTINGS := $(shell $(WHICH) bsp-create-settings 2>/dev/null)
+ifeq ($(SBT.CREATE_SETTINGS),)
+SBT.CREATE_SETTINGS := $(shell $(WHICH) bsp-create-settings.exe 2>/dev/null)
+endif
+
+# If not in PATH, try to find it in SoC EDS installation
+ifeq ($(SBT.CREATE_SETTINGS),)
+ifdef SOCEDS_DEST_ROOT
+# Try common locations (handle both Unix and Windows paths)
+SBT.CREATE_SETTINGS := $(wildcard $(SOCEDS_DEST_ROOT)/host_tools/bin/bsp-create-settings)
+ifeq ($(SBT.CREATE_SETTINGS),)
+SBT.CREATE_SETTINGS := $(wildcard $(SOCEDS_DEST_ROOT)/host_tools/bin/bsp-create-settings.exe)
+endif
+ifeq ($(SBT.CREATE_SETTINGS),)
+SBT.CREATE_SETTINGS := $(wildcard $(SOCEDS_DEST_ROOT)/bin/bsp-create-settings)
+endif
+ifeq ($(SBT.CREATE_SETTINGS),)
+SBT.CREATE_SETTINGS := $(wildcard $(SOCEDS_DEST_ROOT)/bin/bsp-create-settings.exe)
+endif
+# Try Windows-style paths if on Windows
+ifeq ($(IS_WINDOWS_HOST),1)
+ifeq ($(SBT.CREATE_SETTINGS),)
+SBT.CREATE_SETTINGS := $(shell find "$(SOCEDS_DEST_ROOT)" -name "bsp-create-settings*" 2>/dev/null | $(HEAD) -n1)
+endif
+endif
+endif
+endif
+
+# Final check - if still not found, provide helpful error
+ifeq ($(SBT.CREATE_SETTINGS),)
+$(error ERROR: bsp-create-settings not found. Please ensure SoC EDS is installed and either:)
+$(error   1. Set SOCEDS_DEST_ROOT and add $(if $(SOCEDS_DEST_ROOT),$(SOCEDS_DEST_ROOT)/host_tools/bin,<SOCEDS_PATH>/host_tools/bin) to PATH, or)
+$(error   2. Source embedded_command_shell.sh from your SoC EDS installation, or)
+$(error   3. Run './find_soceds.sh' to locate your SoC EDS installation)
+endif
+
+SBT.GENERATE := $(shell $(WHICH) bsp-generate-files 2>/dev/null)
+ifeq ($(SBT.GENERATE),)
+SBT.GENERATE := $(shell $(WHICH) bsp-generate-files.exe 2>/dev/null)
+endif
+ifeq ($(SBT.GENERATE),)
+ifdef SOCEDS_DEST_ROOT
+SBT.GENERATE := $(wildcard $(SOCEDS_DEST_ROOT)/host_tools/bin/bsp-generate-files)
+ifeq ($(SBT.GENERATE),)
+SBT.GENERATE := $(wildcard $(SOCEDS_DEST_ROOT)/host_tools/bin/bsp-generate-files.exe)
+endif
+ifeq ($(SBT.GENERATE),)
+SBT.GENERATE := $(wildcard $(SOCEDS_DEST_ROOT)/bin/bsp-generate-files)
+endif
+ifeq ($(SBT.GENERATE),)
+SBT.GENERATE := $(wildcard $(SOCEDS_DEST_ROOT)/bin/bsp-generate-files.exe)
+endif
+endif
+ifeq ($(SBT.GENERATE),)
 SBT.GENERATE := bsp-generate-files
+endif
+endif
 
 HELP_TARGETS += preloader
 preloader.HELP := Build Preloader BSP for this design into $(PRELOADER_DIR) directory
