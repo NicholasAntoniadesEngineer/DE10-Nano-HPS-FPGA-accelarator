@@ -243,11 +243,11 @@ set_global_assignment -name QIP_FILE ../ip/vendor/altsource_probe/hps_reset.qip
 # QSys Generated System
 # Platform Designer GUI generates files in: qsys/soc_system/synthesis/
 # Makefile command-line generation puts files in: ../../generated/soc_system/synthesis/
-# The qsys_check.sh script copies GUI files to generated/ when using make
-# This path points to the GUI location (qsys/) which works for both methods:
-# - GUI: Files are directly in qsys/
-# - Make: Script copies qsys/ -> generated/, but .qsf still references qsys/ (files remain there)
-set_global_assignment -name QIP_FILE qsys/soc_system/synthesis/soc_system.qip
+# The qsys_check.sh script ensures files exist in both locations for compatibility
+# This path points to the generated location (used by Makefile)
+# The script also copies files to qsys/ location for GUI compatibility
+# Path is relative to fpga/quartus/ directory (where this .qsf file is located)
+set_global_assignment -name QIP_FILE ../../generated/soc_system/synthesis/soc_system.qip
 
 # HPS DDR3 Pin Assignments TCL Script
 # This script applies termination settings for DDR3L (SSTL-135) and must run after map stage
