@@ -1,151 +1,187 @@
-# low-latency-market-analysis
+# Low-Latency Market Analysis
 
-The goal of this project is to implement a high-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration. The system will be designed to process market data streams, detect trading opportunities, and execute trades.
+High-speed market data processing system using Altera's Cyclone V FPGA for hardware acceleration on the DE10-Nano SoC board.
 
-### Key features
+## Project Overview
 
-- Real-time market data processing on fpga fabric
+This project implements a hardware-accelerated trading system that processes market data streams, detects trading opportunities, and executes trades with minimal latency. The system leverages the DE10-Nano's FPGA fabric for real-time calculations and the HPS (Hard Processor System) for control and communication.
+
+### Key Features
+
+- Real-time market data processing on FPGA fabric
 - Hardware-accelerated technical indicator calculations
 - Low-latency order execution system
-- Integration with alpaca markets api
+- Integration with Alpaca Markets API
 - Websocket-based market data ingestion
-- Custom linux drivers for fpga communication
+- Custom Linux drivers for FPGA communication
 - Integration of the RFS2 board for wireless communication and networking
 
-## Project structure
+## Repository Structure
 
 ```
 low-latency-market-analysis/
-├── hps/
-│   └── linux_image/
-│   │   └── scripts/
-│   │       ├── build.sh
-│   │       └── program.sh
-│   └── market_analysis_application/
-│  
-├── fpga/
-│   ├── src/
-│   │   ├── hdl/
-│   │   │   ├── market_data_parser/
-│   │   │   ├── technical_indicators/
-│   │   │   └── order_book/
-│   └── scripts/
-│   │   ├── build.sh
-│   │   └── program.sh
-│   └── tools/
-│       └──DE10_Nano_SystemBuilder.exe
-│ 
-├── examples/
-│   ├── fpga_examples/
-│   ├── hps_examples/
-│   └── hps_fpga_examples/
-│
-└── docs/
-    ├── hps/
-    └── fpga/
+├── README.md                    # This file
+├── FPGA/                        # FPGA design and build system
+│   ├── Makefile                 # FPGA build system
+│   ├── README.md                # FPGA documentation
+│   ├── hdl/                     # Top-level HDL files
+│   ├── ip/                      # IP cores (custom and vendor)
+│   ├── quartus/                 # Quartus project files
+│   ├── generated/               # Generated QSys files
+│   └── build/                   # Build outputs (SOF, RBF)
+├── HPS/                         # HPS software (ARM applications)
+│   ├── Makefile                 # HPS build system
+│   ├── README.md                # HPS documentation
+│   ├── calculator_test/         # Calculator IP test suite
+│   ├── integration/             # Linux kernel integration tools
+│   └── led_examples/            # LED control examples
+├── Docs/                        # Documentation
+│   ├── setup/                   # Setup and installation guides
+│   ├── development/             # Development workflows
+│   ├── fpga/                    # FPGA-specific documentation
+│   ├── hps/                     # HPS-specific documentation
+│   └── reference/               # Reference materials (PDFs)
+└── examples/                    # Example projects
+    ├── fpga_examples/
+    ├── hps_examples/
+    └── hps_fpga_examples/
 ```
 
-### Directory structure explanation
+## Quick Start
 
-- `hps/`: hardware processing system (arm cores) code
-  - `core0/`: primary core handling market data ingestion
-  - `core1/`: secondary core for strategy execution
-  - `common/`: shared libraries and headers
-- `fpga/`: fpga fabric implementation
-  - `src/hdl/`: verilog/vhdl source files
-  - `src/constraints/`: timing and pin constraints
-- `docs/`: documentation for both hps and fpga components
+### Building FPGA Design
 
-### Build system
+```bash
+# Navigate to FPGA directory
+cd FPGA
 
-Each component has its own build and execution scripts:
+# Build FPGA bitstream
+make sof
 
-#### HPS build system
-- `core0/scripts/build.sh`: compiles market data handling components
-- `core0/scripts/run.sh`: deploys and runs core0 processes
-- `core1/scripts/build.sh`: compiles strategy execution components
-- `core1/scripts/run.sh`: deploys and runs core1 processes
+# Generate RBF file for SD card boot
+make rbf
+```
 
-#### FPGA build system
-- `fpga/scripts/build.sh`: synthesizes and implements fpga design
-- `fpga/scripts/program.sh`: programs the fpga with generated bitstream
+### Building HPS Software
 
-## Hardware requirements
+```bash
+# Navigate to HPS directory
+cd HPS
 
-- Terasic de10 nano development board
+# Build all HPS components
+make
+
+# Or build specific components
+make calculator_test
+make led_examples
+```
+
+### Using Prebuilt Linux Image
+
+1. **Write prebuilt image to SD card**
+2. **Boot DE10-Nano and pull repository**
+3. **Build HPS software:** `cd HPS && make`
+4. **Update FPGA bitstream on SD card:** Copy RBF file to FAT partition
+5. **Run tests:** `./calculator_test`
+
+See [HPS/README.md](HPS/README.md) for detailed instructions.
+
+## Hardware Requirements
+
+- Terasic DE10-Nano development board
 - Ethernet connection
-- Microsd card (16gb+ recommended)
+- MicroSD card (16GB+ recommended)
 - USB power supply
+- USB-to-UART cable (optional, for console)
 
-## Software requirements
+## Software Requirements
 
-- Quartus Prime lite (free version)
-  - compile the fpga design and and programme fpga
-- DE10-Nano System Builder  
-- Linux os (custom built or provided image)
-- Alpaca markets api account (free paper trading account)
-- Sdcard flashing tool (etcher)
+- **Quartus Prime Lite** (free version) - For FPGA design compilation
+- **DE10-Nano System Builder** - For initial system setup
+- **Linux OS** - Custom built or provided image
+- **Alpaca Markets API account** - Free paper trading account available
+- **SD card flashing tool** - Etcher or similar
 
-## System architecture
+## System Architecture
 
-### FPGA components
+### FPGA Components
+
 - Market data parser
 - Order book management
 - Moving average calculation engine
 - Momentum indicator processor
 - Pattern recognition module
+- Calculator IP (current implementation)
 
-### Software components
+### Software Components
+
 - Linux-based control system
-- Alpaca markets api interface
+- Alpaca Markets API interface
 - Configuration and monitoring interface
 - Trading strategy implementation
 - Data logging and analysis tools
 
-## Development roadmap
+## Documentation
 
-### Phase 1: basic infrastructure
+- **[FPGA/README.md](FPGA/README.md)** - FPGA design documentation
+- **[HPS/README.md](HPS/README.md)** - HPS software documentation
+- **[Docs/setup/](Docs/setup/)** - Setup and installation guides
+- **[Docs/development/](Docs/development/)** - Development workflows
+- **[Docs/fpga/](Docs/fpga/)** - FPGA-specific documentation
+- **[Docs/hps/](Docs/hps/)** - HPS-specific documentation
+
+## Development Roadmap
+
+### Phase 1: Basic Infrastructure ✓
 - Linux system setup
 - FPGA-software communication
 - Basic market data ingestion
+- Calculator IP implementation
 
-### Phase 2: fpga development
+### Phase 2: FPGA Development
 - Implement market data parser
 - Develop technical indicator modules
 - Create order book management system
 
-### Phase 3: trading system
+### Phase 3: Trading System
 - Strategy implementation
 - Risk management
 - Performance optimization
 
-### Phase 4: Integrate the RFS2 board
+### Phase 4: RFS2 Integration
 - Implement wireless communication
 - Add networking capabilities for remote monitoring and control
 
+## Build System
+
+Each component has its own Makefile:
+
+- **FPGA:** `cd FPGA && make` - Builds FPGA bitstream
+- **HPS:** `cd HPS && make` - Builds all HPS software components
+
 ## References
 
-### OEM documentation
-- [De10-nano CD download](https://download.terasic.com/downloads/cd-rom/de10-nano/ ) 
+### OEM Documentation
+
+- [DE10-Nano CD Download](https://download.terasic.com/downloads/cd-rom/de10-nano/)
 - [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=165&No=1046#contents)
-- [Cyclone V HPS Register Address Map and Definitions](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
+- [Cyclone V HPS Register Address Map](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
 
-### Websites and Repositories
-- [Building embedded linux for the terasic de10-nano](https://bitlog.it/20170820_building_embedded_linux_for_the_terasic_de10-nano.html)
-- [zangman/de10-nano](https://github.com/zangman/de10-nano?tab=readme-ov-file)
+### Community Resources
 
-### Cornell University ECE5760 course material
+- [Building Embedded Linux for DE10-Nano](https://bitlog.it/20170820_building_embedded_linux_for_the_terasic_de10-nano.html)
+- [zangman/de10-nano](https://github.com/zangman/de10-nano)
+
+### Cornell University ECE5760
+
 - [Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
 - [FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
 - [HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherials/linux_index.html)
-- [Lab 1](https://bpb-us-w2.wpmucdn.com/sites.coecis.cornell.edu/dist/4/81/files/2017/03/ece5760_lab1-18xgakl.pdf)
 
-### Youtube
-- [Bruce Land - Cornell University](https://www.youtube.com/watch?v=fQAicY9a3DM&list=PLKcjQ_UFkrd7UcOVMm39A6VdMbWWq-e_c)
-- [Hunter Adams - Cornell University](https://www.youtube.com/watch?v=F9IYUOXtlPo)
-- [Lab 1](https://bpb-us-w2.wpmucdn.com/sites.coecis.cornell.edu/dist/4/81/files/2017/03/ece5760_lab1-18xgakl.pdf)
+## License
 
-### Forums
+[Add your license information here]
 
-- [Plat form designer not generating HDL](https://community.intel.com/t5/Intel-Quartus-Prime-Software/DE10-Nano-GHRD-failure-to-generate/m-p/228019)
+## Contributing
 
+[Add contribution guidelines here]

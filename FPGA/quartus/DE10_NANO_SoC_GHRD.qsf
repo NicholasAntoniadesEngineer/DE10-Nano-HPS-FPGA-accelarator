@@ -8,8 +8,8 @@ set_global_assignment -name TOP_LEVEL_ENTITY DE10_NANO_SoC_GHRD
 set_global_assignment -name LAST_QUARTUS_VERSION "20.1.1 Lite Edition"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "17:14:54 MARCH 04,2015"
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY ../../build/output_files
-# Note: This .qsf file is in fpga/quartus/, so paths are relative to fpga/quartus/
-# ../ goes up to fpga/, ../../ goes up to root
+# Note: This .qsf file is in quartus/, so paths are relative to quartus/
+# ../ goes up to FPGA root, ../../ goes up to repository root
 #============================================================
 # CLOCK
 #============================================================
@@ -223,18 +223,18 @@ set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
 set_global_assignment -name ECO_REGENERATE_REPORT ON
 set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
 # IP Search Paths - allows Quartus to find custom and vendor IP
-# Note: .qsf is in fpga/quartus/, so ../ goes up to fpga/, then into ip/
+# Note: .qsf is in quartus/, so ../ goes up to FPGA root, then into ip/
 set_global_assignment -name IP_SEARCH_PATHS "../ip/custom;../ip/vendor"
 
 # Timing Constraints
 set_global_assignment -name SDC_FILE DE10_NANO_SOC_GHRD.sdc
 
 # Top-level HDL
-# From fpga/quartus/ -> ../ goes to fpga/ -> hdl/ is in fpga/
+# From quartus/ -> ../ goes to FPGA root -> hdl/ is in FPGA root
 set_global_assignment -name VERILOG_FILE ../hdl/DE10_NANO_SoC_GHRD.v
 
 # Vendor IP
-# From fpga/quartus/ -> ../ goes to fpga/ -> ip/vendor/ is in fpga/
+# From quartus/ -> ../ goes to FPGA root -> ip/vendor/ is in FPGA root
 set_global_assignment -name VERILOG_FILE ../ip/vendor/intr_capturer/intr_capturer.v
 set_global_assignment -name VERILOG_FILE ../ip/vendor/edge_detect/altera_edge_detector.v
 set_global_assignment -name VERILOG_FILE ../ip/vendor/debounce/debounce.v
@@ -246,7 +246,7 @@ set_global_assignment -name QIP_FILE ../ip/vendor/altsource_probe/hps_reset.qip
 # The qsys_check.sh script ensures files exist in both locations for compatibility
 # This path points to the generated location (used by Makefile)
 # The script also copies files to qsys/ location for GUI compatibility
-# Path is relative to fpga/quartus/ directory (where this .qsf file is located)
+# Path is relative to quartus/ directory (where this .qsf file is located)
 set_global_assignment -name QIP_FILE ../../generated/soc_system/synthesis/soc_system.qip
 
 # HPS DDR3 Pin Assignments TCL Script
@@ -258,7 +258,7 @@ set_global_assignment -name QIP_FILE ../../generated/soc_system/synthesis/soc_sy
 # Custom IP - Calculator (with HFT extensions)
 # NOTE: Calculator IP is not currently instantiated in the design
 # Uncomment these lines if you add the calculator to the QSys system or top-level HDL
-# From fpga/quartus/ -> ../ goes to fpga/ -> ip/custom/ is in fpga/
+# From quartus/ -> ../ goes to FPGA root -> ip/custom/ is in FPGA root
 # set_global_assignment -name VERILOG_FILE ../ip/custom/calculator/calculator.v
 # set_global_assignment -name VERILOG_FILE ../ip/custom/calculator/calculator_avalon_mm.v
 # set_global_assignment -name VERILOG_FILE ../ip/custom/calculator/calculator_core.v

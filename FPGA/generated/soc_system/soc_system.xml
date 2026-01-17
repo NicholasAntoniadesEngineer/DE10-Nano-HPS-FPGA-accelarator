@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <deploy
  date="2026.01.17.13:55:16"
- outputDirectory="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/">
+ outputDirectory="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/">
  <perimeter>
   <parameter
      name="AUTO_GENERATION_ID"
@@ -395,195 +395,195 @@
   <parameter name="AUTO_DEVICE_SPEEDGRADE" value="7" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/soc_system.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/soc_system.v"
        type="VERILOG" />
   </generatedFiles>
   <childGeneratedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0.v"
        type="VERILOG" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
        type="VERILOG" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_irq_mapper.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_irq_mapper.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
   </childGeneratedFiles>
   <sourceFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/fpga/quartus/qsys/soc_system.qsys" />
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/quartus/qsys/soc_system.qsys" />
   </sourceFiles>
   <childSourceFiles>
    <file
@@ -2848,183 +2848,183 @@
   <parameter name="CV_MSB_RFIFO_PORT_2" value="5" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0.v"
        type="VERILOG" />
   </generatedFiles>
   <childGeneratedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
        type="VERILOG" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
        attributes="" />
   </childGeneratedFiles>
   <sourceFiles>
@@ -3362,7 +3362,7 @@
   <parameter name="SENDER_IRQ_WIDTH" value="32" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_irq_mapper.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_irq_mapper.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
   </generatedFiles>
@@ -4848,11 +4848,11 @@
   <parameter name="CV_MSB_RFIFO_PORT_2" value="5" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_fpga_interfaces.sdc"
        type="SDC"
        attributes="" />
   </generatedFiles>
@@ -6405,172 +6405,172 @@
   <parameter name="CV_MSB_RFIFO_PORT_2" value="5" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io.v"
        type="VERILOG" />
   </generatedFiles>
   <childGeneratedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
        attributes="" />
   </childGeneratedFiles>
   <sourceFiles>
@@ -8208,167 +8208,167 @@
   <parameter name="CV_MSB_RFIFO_PORT_2" value="5" />
   <generatedFiles>
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altdq_dqs2_acv_connect_to_hard_phy_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_dll_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hard_memory_controller_top_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_hhp_qseq_synth_top.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/altera_mem_if_oct_cyclonev.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_AC_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_inst_ROM.hex"
        type="HEX"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.ppf"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_addr_cmd_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_io_pads.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_hard_memphy.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_acv_ldc.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_altdqdqs.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_clock_pair_generator.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_generic_ddio.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_iss_probe.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_parameters.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_phy_csr.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_pin_map.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_report_timing_core.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_reset_sync.v"
        type="VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_p0_timing.tcl"
        type="OTHER"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps_sdram_pll.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/alt_types.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/emif.pre.xml"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sdram_io.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_ac_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_auto_inst_init.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/sequencer_defines.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/system.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.c"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/sequencer/tclrpt.pre.h"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sv"
        type="SYSTEM_VERILOG"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/soc_system_hps_0_hps_io_border.sdc"
        type="SDC"
        attributes="" />
    <file
-       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/DE10_NANO_SoC_GHRD/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
+       path="C:/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA/generated/soc_system/synthesis/submodules/hps.pre.xml"
        attributes="" />
   </generatedFiles>
   <childGeneratedFiles/>

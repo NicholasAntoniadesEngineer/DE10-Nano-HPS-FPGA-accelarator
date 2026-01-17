@@ -192,9 +192,8 @@ endif
 
 ################################################
 # Directory structure
-FPGA_DIR := fpga
-HDL_DIR := $(FPGA_DIR)/hdl
-QUARTUS_DIR := $(FPGA_DIR)/quartus
+HDL_DIR := hdl
+QUARTUS_DIR := quartus
 QSYS_DIR := $(QUARTUS_DIR)/qsys
 BUILD_DIR := build
 GENERATED_DIR := generated
@@ -422,7 +421,7 @@ else
 fast:
 	@$(ECHO) "ERROR: No QSys file found"
 	@$(ECHO) "Searched: $(QSYS_DIR)/"
-		@$(ECHO) "Please create a QSys file in fpga/quartus/qsys/ directory"
+		@$(ECHO) "Please create a QSys file in quartus/qsys/ directory"
 	@exit 1
 endif
 
@@ -528,7 +527,7 @@ AR_TIMESTAMP := $(if $(SOCEDS_VERSION),$(subst .,_,$(SOCEDS_VERSION))_)$(subst $
 AR_DIR := tgz
 AR_FILE := $(AR_DIR)/$(basename $(firstword $(wildcard *.qpf)))_$(AR_TIMESTAMP).tar.gz
 
-HPS_DIR := hps
+HPS_DIR := ../HPS
 PRELOADER_DIR := $(HPS_DIR)/preloader
 
 AR_REGEX += \
@@ -551,7 +550,7 @@ AR_FILTER_OUT += %_tb.qsys
 # QSys
 # Only require QSYS_FILE for targets that need it (not for clean/scrub/help)
 # Allow QSYS_FILE to be empty - targets will handle it gracefully
-# Search for QSys files in fpga/quartus/qsys/ directory
+# Search for QSys files in quartus/qsys/ directory
 QSYS_FILE := $(firstword \
 	$(wildcard $(QSYS_DIR)/*top*.qsys) \
 	$(wildcard $(QSYS_DIR)/*main*.qsys) \
@@ -640,7 +639,7 @@ endif
 # Quartus II
 
 # Only require QUARTUS_QPF for targets that need it (not for clean)
-# Search for Quartus project files in fpga/quartus/ directory
+# Search for Quartus project files in quartus/ directory
 QUARTUS_QPF := $(firstword \
 	$(wildcard $(QUARTUS_DIR)/*.qpf) \
 )
@@ -663,7 +662,7 @@ else
 QUARTUS_QSF := 
 QUARTUS_BASE := 
 endif
-QUARTUS_HDL_SOURCE := $(wildcard $(HDL_DIR)/*.v $(HDL_DIR)/*.sv $(HDL_DIR)/*.vhd) $(wildcard $(FPGA_DIR)/ip/custom/*/*.v)
+QUARTUS_HDL_SOURCE := $(wildcard $(HDL_DIR)/*.v $(HDL_DIR)/*.sv $(HDL_DIR)/*.vhd) $(wildcard ip/custom/*/*.v)
 QUARTUS_MISC_SOURCE := $(wildcard $(QUARTUS_DIR)/*.stp $(QUARTUS_DIR)/*.sdc)
 
 QUARTUS_PIN_ASSIGNMENTS_STAMP := $(call get_stamp_target,quartus_pin_assignments)
@@ -731,16 +730,16 @@ quartus_apply_tcl_pin_assignments: $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS)
 $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS): quartus_apply_tcl-%: %
 	@$(ECHO) "Applying $<... to $(QUARTUS_QPF)..."
 	@# File path $< is relative to FPGA/ directory (where Makefile runs)
-	@# QUARTUS_DIR is fpga/quartus/ (relative to FPGA/)
-	@# From fpga/quartus/, to reach files in FPGA/:
+	@# QUARTUS_DIR is quartus/ (relative to FPGA/)
+	@# From quartus/, to reach files in FPGA/:
 	@#   - generated/ files: ../../generated/...
-	@#   - qsys/ files: qsys/... (already under fpga/quartus/)
+	@#   - qsys/ files: qsys/... (already under quartus/)
 	@TCL_FILE=""; \
 	if [ -f "$<" ]; then \
 		if echo "$<" | grep -q "^generated/"; then \
 			TCL_FILE="../../$<"; \
-		elif echo "$<" | grep -q "^fpga/quartus/qsys/"; then \
-			TCL_FILE="$$(echo "$<" | sed 's|^fpga/quartus/||')"; \
+		elif echo "$<" | grep -q "^quartus/qsys/"; then \
+			TCL_FILE="$$(echo "$<" | sed 's|^quartus/||')"; \
 		elif echo "$<" | grep -q "^qsys/"; then \
 			TCL_FILE="$<"; \
 		else \

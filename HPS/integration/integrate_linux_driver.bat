@@ -8,8 +8,8 @@ REM ============================================================================
 setlocal enabledelayedexpansion
 
 set SCRIPT_DIR=%~dp0
-set FPGA_ROOT=%SCRIPT_DIR%..\..
-set DRIVER_SRC=%FPGA_ROOT%\hps\calculator_test
+set REPO_ROOT=%SCRIPT_DIR%..\..
+set DRIVER_SRC=%REPO_ROOT%\HPS\calculator_test
 
 set KERNEL_DIR=
 set INTEGRATION_TYPE=userspace
@@ -120,7 +120,7 @@ echo.
 echo NOTE: This is a Windows batch script stub.
 echo For full integration functionality, please use:
 echo   1. The bash script: integrate_linux_driver.sh (on Linux/WSL)
-echo   2. Or manually copy files as documented in docs/LINUX_INTEGRATION.md
+echo   2. Or manually copy files as documented in Docs/hps/linux_driver_development.md
 echo.
 echo Basic file locations:
 echo   Driver header: %DRIVER_SRC%\calculator_driver.h
