@@ -1,0 +1,56 @@
+# ============================================================================
+# Example Makefile for Userspace Calculator Driver
+# ============================================================================
+# Copy this to your build system and customize as needed
+# ============================================================================
+
+CC ?= gcc
+AR ?= ar
+CFLAGS ?= -Wall -Wextra -O2 -fPIC
+LDFLAGS ?= -shared
+
+# Library names
+TARGET_LIB = libcalculator.so
+TARGET_STATIC = libcalculator.a
+
+# Source files
+SOURCES = calculator_driver.c
+OBJECTS = $(SOURCES:.c=.o)
+HEADERS = calculator_driver.h
+
+# Installation paths
+PREFIX ?= /usr
+LIBDIR = $(PREFIX)/lib
+INCLUDEDIR = $(PREFIX)/include
+
+.PHONY: all clean install uninstall
+
+all: $(TARGET_LIB) $(TARGET_STATIC)
+
+$(TARGET_LIB): $(OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $^
+	@echo "Built shared library: $@"
+
+$(TARGET_STATIC): $(OBJECTS)
+	$(AR) rcs $@ $^
+	@echo "Built static library: $@"
+
+%.o: %.c $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJECTS) $(TARGET_LIB) $(TARGET_STATIC)
+
+install: $(TARGET_LIB) $(TARGET_STATIC)
+	install -d $(DESTDIR)$(LIBDIR)
+	install -d $(DESTDIR)$(INCLUDEDIR)
+	install -m 644 $(TARGET_LIB) $(DESTDIR)$(LIBDIR)/
+	install -m 644 $(TARGET_STATIC) $(DESTDIR)$(LIBDIR)/
+	install -m 644 $(HEADERS) $(DESTDIR)$(INCLUDEDIR)/
+	ldconfig
+
+uninstall:
+	rm -f $(DESTDIR)$(LIBDIR)/$(TARGET_LIB)
+	rm -f $(DESTDIR)$(LIBDIR)/$(TARGET_STATIC)
+	rm -f $(DESTDIR)$(INCLUDEDIR)/$(HEADERS)
+	ldconfig

@@ -1,0 +1,21 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target = <&fpga_region>;
+        #address-cells = <1>;
+        #size-cells = <1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            fpga-leds {
+                compatible = "generic-uio";
+                reg = <0xFF200000 0x1000>;
+                interrupt-parent = <&intc>;
+                interrupts = <0 40 4>;
+            };
+        };
+    };
+}; 

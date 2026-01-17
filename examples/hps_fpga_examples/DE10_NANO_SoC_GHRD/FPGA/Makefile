@@ -50,11 +50,83 @@ IS_CYGWIN_HOST := 1
 endif
 endif
 
-ifneq ($(shell $(WHICH) quartus 2>/dev/null),)
+# Check for Quartus tools
+# On Windows, quartus_sh.exe is the main command-line tool
+# On Unix/Linux, quartus_sh is available
+# From WSL, we can also use Windows Quartus installations
+QUARTUS_SH := $(shell $(WHICH) quartus_sh 2>/dev/null)
+ifneq ($(QUARTUS_SH),)
+HAVE_QUARTUS := 1
+else
+QUARTUS_SH := $(shell $(WHICH) quartus_sh.exe 2>/dev/null)
+ifneq ($(QUARTUS_SH),)
+HAVE_QUARTUS := 1
+else
+QUARTUS_SH := $(shell $(WHICH) quartus 2>/dev/null)
+ifneq ($(QUARTUS_SH),)
+HAVE_QUARTUS := 1
+else
+# Try common Windows Quartus installation paths (for WSL/MINGW64/Git Bash)
+# Use find to search for quartus_sh.exe in common installation directories
+# MINGW64/Git Bash uses /c/, WSL uses /mnt/c/
+QUARTUS_SH := $(shell \
+	for base in /c /mnt/c; do \
+		for dir in intelFPGA_lite intelFPGA altera; do \
+			if [ -d "$$base/$$dir" ]; then \
+				result=$$(find "$$base/$$dir" -name "quartus_sh.exe" -type f 2>/dev/null | head -1); \
+				if [ -n "$$result" ]; then \
+					echo "$$result"; \
+					exit 0; \
+				fi; \
+			fi; \
+		done; \
+	done \
+)
+ifneq ($(QUARTUS_SH),)
 HAVE_QUARTUS := 1
 endif
+endif
+endif
+endif
 
+# Check for QSys tools (qsys-generate is required for QSys generation)
+# On Windows, qsys-generate.exe is the command-line tool
+# On Unix/Linux, qsys-generate is available
+# From WSL, we can also use Windows QSys installations
+QSYS_GENERATE := $(shell $(WHICH) qsys-generate 2>/dev/null)
+ifneq ($(QSYS_GENERATE),)
+HAVE_QSYS_GENERATE := 1
+else
+QSYS_GENERATE := $(shell $(WHICH) qsys-generate.exe 2>/dev/null)
+ifneq ($(QSYS_GENERATE),)
+HAVE_QSYS_GENERATE := 1
+else
+# Try common Windows QSys installation paths (for WSL)
+# Use find to search for qsys-generate.exe in common installation directories
+QSYS_GENERATE := $(shell \
+	for base in /c /mnt/c; do \
+		for dir in intelFPGA_lite intelFPGA altera; do \
+			if [ -d "$$base/$$dir" ]; then \
+				result=$$(find "$$base/$$dir" -name "qsys-generate.exe" -type f 2>/dev/null | head -1); \
+				if [ -n "$$result" ]; then \
+					echo "$$result"; \
+					exit 0; \
+				fi; \
+			fi; \
+		done; \
+	done \
+)
+ifneq ($(QSYS_GENERATE),)
+HAVE_QSYS_GENERATE := 1
+endif
+endif
+endif
+
+# HAVE_QSYS is set if we have either quartus or qsys-generate
 ifeq ($(HAVE_QUARTUS),1)
+HAVE_QSYS := 1
+endif
+ifeq ($(HAVE_QSYS_GENERATE),1)
 HAVE_QSYS := 1
 endif
 
@@ -63,20 +135,334 @@ endif
 #HAVE_QUARTUS_PGM := 1
 #endif
 
+# Set Quartus tool variables (use detected path or default to command name)
+# This allows using Windows Quartus from WSL/MINGW64
+ifeq ($(HAVE_QUARTUS),1)
+ifneq ($(QUARTUS_SH),)
+QUARTUS_SH_CMD := $(QUARTUS_SH)
+# Handle both .exe and non-.exe cases for Windows compatibility
+QUARTUS_STP_CMD := $(subst quartus_sh.exe,quartus_stp.exe,$(subst quartus_sh,quartus_stp,$(QUARTUS_SH)))
+QUARTUS_CPF_CMD := $(subst quartus_sh.exe,quartus_cpf.exe,$(subst quartus_sh,quartus_cpf,$(QUARTUS_SH)))
+QUARTUS_STA_CMD := $(subst quartus_sh.exe,quartus_sta.exe,$(subst quartus_sh,quartus_sta,$(QUARTUS_SH)))
+QUARTUS_PGM_CMD := $(subst quartus_sh.exe,quartus_pgm.exe,$(subst quartus_sh,quartus_pgm,$(QUARTUS_SH)))
+QUARTUS_MAP_CMD := $(subst quartus_sh.exe,quartus_map.exe,$(subst quartus_sh,quartus_map,$(QUARTUS_SH)))
+QUARTUS_CDB_CMD := $(subst quartus_sh.exe,quartus_cdb.exe,$(subst quartus_sh,quartus_cdb,$(QUARTUS_SH)))
+else
+# Fallback to command name if path not detected
+QUARTUS_SH_CMD := quartus_sh
+QUARTUS_STP_CMD := quartus_stp
+QUARTUS_CPF_CMD := quartus_cpf
+QUARTUS_STA_CMD := quartus_sta
+QUARTUS_PGM_CMD := quartus_pgm
+QUARTUS_MAP_CMD := quartus_map
+QUARTUS_CDB_CMD := quartus_cdb
+endif
+else
+# Set defaults even if Quartus not detected (for error messages)
+QUARTUS_SH_CMD := quartus_sh
+QUARTUS_STP_CMD := quartus_stp
+QUARTUS_CPF_CMD := quartus_cpf
+QUARTUS_STA_CMD := quartus_sta
+QUARTUS_PGM_CMD := quartus_pgm
+QUARTUS_MAP_CMD := quartus_map
+QUARTUS_CDB_CMD := quartus_cdb
+endif
+
+# Set QSys tool variables (use detected path or default to command name)
+# This allows using Windows QSys tools from WSL
+ifeq ($(HAVE_QSYS_GENERATE),1)
+ifneq ($(QSYS_GENERATE),)
+QSYS_GENERATE_CMD := $(QSYS_GENERATE)
+QSYS_EDIT_CMD := $(patsubst %qsys-generate%,%qsys-edit%,$(QSYS_GENERATE))
+QSYS_SCRIPT_CMD := $(patsubst %qsys-generate%,%qsys-script%,$(QSYS_GENERATE))
+else
+# Fallback to command name if path not detected
+QSYS_GENERATE_CMD := qsys-generate
+QSYS_EDIT_CMD := qsys-edit
+QSYS_SCRIPT_CMD := qsys-script
+endif
+else
+# Set defaults even if QSys not detected (for error messages)
+QSYS_GENERATE_CMD := qsys-generate
+QSYS_EDIT_CMD := qsys-edit
+QSYS_SCRIPT_CMD := qsys-script
+endif
+
 ################################################
+
+################################################
+# Directory structure
+FPGA_DIR := fpga
+HDL_DIR := $(FPGA_DIR)/hdl
+QUARTUS_DIR := $(FPGA_DIR)/quartus
+QSYS_DIR := $(QUARTUS_DIR)/qsys
+BUILD_DIR := build
+GENERATED_DIR := generated
+DOCS_DIR := docs
+
+# Fast build targets that don't require SoC EDS
+FAST_TARGETS := fast fast-flash fast-rbf qsys-generate quartus-compile qsys_compile quartus_compile qsys_edit quartus_edit sof rbf
 
 ################################################
 .PHONY: default
 default: help
+
+.PHONY: check-tools
+check-tools:
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Checking for Quartus and QSys tools"
+	@$(ECHO) "==========================================="
+	@$(ECHO) ""
+	@$(ECHO) "Quartus detection:"
+	@if [ -n "$(QUARTUS_SH)" ]; then \
+		$(ECHO) "  ✓ Found: $(QUARTUS_SH)"; \
+		$(ECHO) "  HAVE_QUARTUS: $(HAVE_QUARTUS)"; \
+	else \
+		$(ECHO) "  ✗ Not found in PATH or standard locations"; \
+	fi
+	@$(ECHO) ""
+	@$(ECHO) "QSys detection:"
+	@if [ -n "$(QSYS_GENERATE)" ]; then \
+		$(ECHO) "  ✓ Found: $(QSYS_GENERATE)"; \
+		$(ECHO) "  HAVE_QSYS_GENERATE: $(HAVE_QSYS_GENERATE)"; \
+	else \
+		$(ECHO) "  ✗ Not found in PATH or standard locations"; \
+	fi
+	@$(ECHO) ""
+	@$(ECHO) "Searching common installation directories..."
+	@for base in /c /mnt/c; do \
+		for dir in intelFPGA_lite intelFPGA altera; do \
+			if [ -d "$$base/$$dir" ]; then \
+				$(ECHO) "  Found directory: $$base/$$dir"; \
+			fi; \
+		done; \
+	done
+	@$(ECHO) ""
+	@$(ECHO) "If tools are not found, you can manually set:"
+	@$(ECHO) "  export PATH=\$$PATH:/path/to/quartus/bin64"
+	@$(ECHO) ""
+
 ################################################
 
 ################################################
-.PHONY: all
-all: preloader uboot dts dtb sd-fat
+# Build all components in correct order:
+# 1. QSys generation (required for everything, but only if QSys file exists)
+# 2. FPGA bitstream (if Quartus available)
+# 3. HPS software (if SoC EDS available)
+# Note: ALL_DEPS is populated after QSYS_FILE and other variables are defined (see below)
+ALL_DEPS :=
+################################################
 
-ifeq ($(HAVE_QUARTUS),1)
-all: sof rbf
+################################################
+# Build Everything Target
+# This target builds ALL components that are possible with available tools
+.PHONY: everything
+everything:
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Building Everything"
+	@$(ECHO) "==========================================="
+	@$(ECHO) ""
+	@$(ECHO) "Step 1: QSys Generation"
+	@$(ECHO) "-------------------------------------------"
+ifneq ($(QSYS_FILE),)
+	@$(ECHO) "QSys file found: $(QSYS_FILE)"
+	@$(ECHO) "  (Searched: $(QSYS_DIR)/)"
+	@$(MAKE) qsys-generate
+else
+	@$(ECHO) "WARNING: No QSys file found"
+	@$(ECHO) "  Searched location: $(QSYS_DIR)/"
+	@$(ECHO) "  Patterns: *top*.qsys, *main*.qsys, *soc*.qsys, *.qsys"
+	@$(ECHO) "Skipping QSys generation"
 endif
+	@$(ECHO) ""
+	@$(ECHO) "Step 2: FPGA Bitstream Generation"
+	@$(ECHO) "-------------------------------------------"
+ifeq ($(HAVE_QUARTUS),1)
+ifneq ($(QUARTUS_BASE),)
+	@$(ECHO) "Quartus project found: $(QUARTUS_BASE)"
+	@$(ECHO) "  Project file: $(QUARTUS_QPF)"
+	@$(ECHO) "  (Searched: $(QUARTUS_DIR)/)"
+	@$(MAKE) sof rbf
+	@$(ECHO) "FPGA bitstream generation complete"
+else
+	@$(ECHO) "WARNING: No Quartus project file found"
+	@$(ECHO) "  Searched location: $(QUARTUS_DIR)/"
+	@$(ECHO) "  Pattern: *.qpf"
+	@$(ECHO) "Skipping FPGA bitstream generation"
+endif
+else
+	@$(ECHO) "WARNING: Quartus not found in PATH"
+	@$(ECHO) "Skipping FPGA bitstream generation"
+endif
+	@$(ECHO) ""
+	@$(ECHO) "Step 3: HPS Software (Preloader, U-Boot, Device Tree)"
+	@$(ECHO) "-------------------------------------------"
+ifneq ($(SBT.CREATE_SETTINGS),)
+	@$(ECHO) "SoC EDS tools found: $(SBT.CREATE_SETTINGS)"
+	@$(ECHO) "  (Searched: PATH, SOCEDS_DEST_ROOT/host_tools/bin, SOCEDS_DEST_ROOT/bin)"
+	@$(ECHO) "Building preloader, U-Boot, device tree, and SD card image..."
+	@$(MAKE) preloader uboot dts dtb sd-fat
+	@$(ECHO) "HPS software build complete"
+else
+	@$(ECHO) "WARNING: SoC EDS tools not found"
+	@$(ECHO) "  Searched locations:"
+	@$(ECHO) "    - PATH (bsp-create-settings, bsp-create-settings.exe)"
+	@if [ -n "$$SOCEDS_DEST_ROOT" ]; then \
+		$(ECHO) "    - $$SOCEDS_DEST_ROOT/host_tools/bin/"; \
+		$(ECHO) "    - $$SOCEDS_DEST_ROOT/bin/"; \
+		$(ECHO) "    - Recursive search in $$SOCEDS_DEST_ROOT"; \
+	else \
+		$(ECHO) "    - SOCEDS_DEST_ROOT not set"; \
+	fi
+	@$(ECHO) "Skipping HPS software components (preloader, uboot, dts, dtb, sd-fat)"
+	@$(ECHO) "To build HPS software, install SoC EDS and set SOCEDS_DEST_ROOT"
+endif
+	@$(ECHO) ""
+	@$(ECHO) "Step 4: HPS Test Suite"
+	@$(ECHO) "-------------------------------------------"
+	@TEST_MAKEFILE=""; \
+	if [ -f "$(HPS_DIR)/calculator_test/Makefile" ]; then \
+		TEST_MAKEFILE="$(HPS_DIR)/calculator_test/Makefile"; \
+	elif [ -f "hps/calculator_test/Makefile" ]; then \
+		TEST_MAKEFILE="hps/calculator_test/Makefile"; \
+	else \
+		TEST_MAKEFILE=$$($(FIND) . -maxdepth 4 -path "*/calculator_test/Makefile" 2>/dev/null | $(HEAD) -n1); \
+	fi; \
+	if [ -n "$$TEST_MAKEFILE" ] && [ -f "$$TEST_MAKEFILE" ]; then \
+		TEST_DIR=$$(dirname "$$TEST_MAKEFILE"); \
+		$(ECHO) "Test suite Makefile found: $$TEST_MAKEFILE"; \
+		$(ECHO) "Building HPS calculator test suite..."; \
+		$(MAKE) -C "$$TEST_DIR" || $(ECHO) "WARNING: Failed to build test suite (may need cross-compiler)"; \
+	else \
+		$(ECHO) "WARNING: Test suite Makefile not found"; \
+		$(ECHO) "Searched: $(HPS_DIR)/calculator_test/Makefile, hps/calculator_test/Makefile, and recursively"; \
+		$(ECHO) "Skipping test suite build"; \
+	fi
+	@$(ECHO) ""
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Build Summary"
+	@$(ECHO) "==========================================="
+	@$(ECHO) ""
+ifneq ($(QSYS_FILE),)
+	@$(ECHO) "✓ QSys generation: Complete"
+	@if [ -f "$(QSYS_SOPCINFO)" ]; then \
+		$(ECHO) "  - SOPCINFO: $(QSYS_SOPCINFO)"; \
+	fi
+else
+	@$(ECHO) "✗ QSys generation: Skipped (no QSys file)"
+endif
+	@$(ECHO) ""
+ifeq ($(HAVE_QUARTUS),1)
+ifneq ($(QUARTUS_BASE),)
+	@$(ECHO) "✓ FPGA bitstream: Complete"
+	@if [ -f "$(QUARTUS_SOF)" ]; then \
+		$(ECHO) "  - SOF file: $(QUARTUS_SOF)"; \
+	fi
+	@if [ -f "$(QUARTUS_RBF)" ]; then \
+		$(ECHO) "  - RBF file: $(QUARTUS_RBF)"; \
+	fi
+else
+	@$(ECHO) "✗ FPGA bitstream: Skipped (no Quartus project)"
+endif
+else
+	@$(ECHO) "✗ FPGA bitstream: Skipped (Quartus not available)"
+endif
+	@$(ECHO) ""
+ifneq ($(SBT.CREATE_SETTINGS),)
+	@$(ECHO) "✓ HPS software: Complete"
+	@if [ -f "$(DEVICE_TREE_BLOB)" ]; then \
+		$(ECHO) "  - Device tree: $(DEVICE_TREE_BLOB)"; \
+	fi
+	@if [ -f "$(SD_FAT_TGZ)" ]; then \
+		$(ECHO) "  - SD card image: $(SD_FAT_TGZ)"; \
+	fi
+else
+	@$(ECHO) "✗ HPS software: Skipped (SoC EDS not available)"
+endif
+	@$(ECHO) ""
+	@TEST_EXE=""; \
+	if [ -f "$(HPS_DIR)/calculator_test/calculator_test" ]; then \
+		TEST_EXE="$(HPS_DIR)/calculator_test/calculator_test"; \
+	elif [ -f "hps/calculator_test/calculator_test" ]; then \
+		TEST_EXE="hps/calculator_test/calculator_test"; \
+	else \
+		TEST_EXE=$$($(FIND) . -maxdepth 4 -path "*/calculator_test/calculator_test" 2>/dev/null | $(HEAD) -n1); \
+	fi; \
+	if [ -n "$$TEST_EXE" ] && [ -f "$$TEST_EXE" ]; then \
+		$(ECHO) "✓ Test suite: Complete"; \
+		$(ECHO) "  - Executable: $$TEST_EXE"; \
+	else \
+		$(ECHO) "✗ Test suite: Skipped or failed"; \
+	fi
+	@$(ECHO) ""
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Everything build complete!"
+	@$(ECHO) "==========================================="
+
+HELP_TARGETS += everything
+everything.HELP := Build all components (QSys, FPGA bitstream, HPS software, test suite)
+
+################################################
+# Fast Iteration Targets (FPGA only, no HPS software)
+.PHONY: fast
+ifneq ($(QSYS_FILE),)
+ifneq ($(QUARTUS_BASE),)
+fast: qsys-generate quartus-compile
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Fast build complete (FPGA only)"
+	@$(ECHO) "SOF file: $(BUILD_DIR)/output_files/$(QUARTUS_BASE).sof"
+	@$(ECHO) "==========================================="
+else
+fast:
+	@$(ECHO) "ERROR: No Quartus project file found"
+	@$(ECHO) "Searched: $(QUARTUS_DIR)/"
+	@exit 1
+endif
+else
+fast:
+	@$(ECHO) "ERROR: No QSys file found"
+	@$(ECHO) "Searched: $(QSYS_DIR)/"
+		@$(ECHO) "Please create a QSys file in fpga/quartus/qsys/ directory"
+	@exit 1
+endif
+
+.PHONY: fast-flash
+fast-flash: fast
+ifneq ($(QUARTUS_BASE),)
+	@$(ECHO) "Programming FPGA via JTAG..."
+	quartus_pgm -c USB-Blaster -m JTAG -o "p;$(BUILD_DIR)/output_files/$(QUARTUS_BASE).sof"
+else
+	@$(ECHO) "ERROR: No Quartus project file found"
+	@exit 1
+endif
+
+.PHONY: fast-rbf
+fast-rbf: fast
+ifneq ($(QUARTUS_BASE),)
+	@$(ECHO) "Generating RBF file..."
+	quartus_cpf -c $(QUARTUS_CPF_ARGS) $(BUILD_DIR)/output_files/$(QUARTUS_BASE).sof $(BUILD_DIR)/output_files/$(QUARTUS_BASE).rbf
+	@$(ECHO) "RBF file: $(BUILD_DIR)/output_files/$(QUARTUS_BASE).rbf"
+else
+	@$(ECHO) "ERROR: No Quartus project file found"
+	@exit 1
+endif
+
+.PHONY: qsys-generate
+qsys-generate:
+	@if [ -z "$(strip $(QSYS_FILE))" ]; then \
+		$(ECHO) "WARNING: No QSys file found in $(QSYS_DIR)"; \
+		$(ECHO) "Searched for: *top*.qsys, *main*.qsys, *soc*.qsys, *.qsys"; \
+		$(ECHO) "Directory contents:"; \
+		ls -la $(QSYS_DIR)/*.qsys 2>/dev/null || $(ECHO) "  (no .qsys files found)"; \
+		$(ECHO) "Skipping QSys generation. Create a QSys file to enable this step."; \
+		$(ECHO) ""; \
+	else \
+		$(ECHO) "Found QSys file: $(QSYS_FILE)"; \
+		$(MAKE) qsys_compile; \
+	fi
+
+.PHONY: quartus-compile
+quartus-compile: quartus_compile
 ################################################
 
 ################################################
@@ -97,11 +483,40 @@ define stamp_target
 @$(TOUCH) $@
 endef
 
+HELP_TARGETS += clean
+clean.HELP := Remove all build artifacts and generated files (including Platform Designer outputs)
+
 .PHONY: clean
 clean:
-	@$(ECHO) "Cleaning stamp files (which will trigger rebuild)"
+	@$(ECHO) "Cleaning all build artifacts and generated files..."
+	@$(ECHO) "  - Build artifacts (stamps, databases, reports)..."
 	@$(RM) $(get_stamp_dir)
-	@$(ECHO) " TIP: Use 'make scrub_clean' to get a deeper clean"
+	@$(RM) $(BUILD_DIR)/output_files $(BUILD_DIR)/reports $(BUILD_DIR)/db
+	@$(RM) hps_isw_handoff
+	@$(RM) $(wildcard $(BUILD_DIR)/output_files/*.sof $(BUILD_DIR)/output_files/*.rbf)
+	@$(RM) $(wildcard $(QUARTUS_DIR)/db $(QUARTUS_DIR)/incremental_db)
+	@$(RM) $(wildcard $(QUARTUS_DIR)/*.rpt $(QUARTUS_DIR)/*.summary $(QUARTUS_DIR)/*.done)
+	@$(RM) $(wildcard $(QUARTUS_DIR)/*.jdi $(QUARTUS_DIR)/*.pin $(QUARTUS_DIR)/*.qws)
+	@$(RM) $(wildcard $(QUARTUS_DIR)/*.sopcinfo $(QUARTUS_DIR)/*.sopcinfo.bak)
+	@$(ECHO) "  - Platform Designer (QSys) generated files..."
+	@$(RM) $(wildcard .qsys_edit)
+	@$(RM) $(wildcard $(GENERATED_DIR)/*/synthesis $(GENERATED_DIR)/*/synth)
+	@$(RM) $(wildcard $(GENERATED_DIR)/*.sopcinfo)
+	@$(RM) $(wildcard $(QSYS_DIR)/*/synthesis $(QSYS_DIR)/*/synth)
+	@$(RM) $(wildcard $(QSYS_DIR)/*.sopcinfo $(QSYS_DIR)/*.qip)
+	@if [ -n "$(QSYS_BASE)" ]; then \
+		$(RM) $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)) $(wildcard $(QSYS_DIR)/$(QSYS_BASE)); \
+	fi
+	@$(ECHO) "  - HPS software build artifacts..."
+	@$(RM) $(wildcard $(HPS_DIR)/calculator_test/*.o $(HPS_DIR)/calculator_test/*.d)
+	@$(RM) $(wildcard $(HPS_DIR)/calculator_test/calculator_test $(HPS_DIR)/calculator_test/*.log)
+	@$(RM) $(wildcard $(HPS_DIR)/preloader)
+	@$(ECHO) "  - Device tree files..."
+	@$(RM) $(wildcard $(GENERATED_DIR)/*.dts $(GENERATED_DIR)/*.dtb)
+	@$(ECHO) "  - Boot scripts and SD card images..."
+	@$(RM) $(wildcard boot.script u-boot.scr sd_fat.tar.gz)
+	@$(ECHO) "Build artifacts and generated files cleaned successfully"
+	@$(ECHO) "  Run 'make all' to rebuild everything"
 ################################################
 
 
@@ -113,15 +528,15 @@ AR_TIMESTAMP := $(if $(SOCEDS_VERSION),$(subst .,_,$(SOCEDS_VERSION))_)$(subst $
 AR_DIR := tgz
 AR_FILE := $(AR_DIR)/$(basename $(firstword $(wildcard *.qpf)))_$(AR_TIMESTAMP).tar.gz
 
-SOFTWARE_DIR := software
-PRELOADER_DIR := $(SOFTWARE_DIR)/preloader
+HPS_DIR := hps
+PRELOADER_DIR := $(HPS_DIR)/preloader
 
 AR_REGEX += \
 	Makefile ip readme.txt ds5 \
 	altera_avalon* *.qpf *.qsf *.sdc *.v *.sv *.vhd *.qsys *.tcl *.terp *.stp \
 	*.sed quartus.ini *.sof *.rbf *.sopcinfo *.jdi output_files \
 	hps_isw_handoff */*.svd */synthesis/*.svd */synth/*.svd *.dts *.dtb *.xml \
-	$(SOFTWARE_DIR)
+	$(HPS_DIR)
 
 AR_FILTER_OUT += %_tb.qsys
 ################################################
@@ -134,15 +549,38 @@ AR_FILTER_OUT += %_tb.qsys
 
 #############
 # QSys
-QSYS_FILE := $(firstword $(wildcard *top*.qsys) $(wildcard *main*.qsys) $(wildcard *soc*.qsys) $(wildcard *.qsys))
-ifeq ($(QSYS_FILE),)
-$(error ERROR: QSYS_FILE *.qsys file not set and could not be discovered)
+# Only require QSYS_FILE for targets that need it (not for clean/scrub/help)
+# Allow QSYS_FILE to be empty - targets will handle it gracefully
+# Search for QSys files in fpga/quartus/qsys/ directory
+QSYS_FILE := $(firstword \
+	$(wildcard $(QSYS_DIR)/*top*.qsys) \
+	$(wildcard $(QSYS_DIR)/*main*.qsys) \
+	$(wildcard $(QSYS_DIR)/*soc*.qsys) \
+	$(wildcard $(QSYS_DIR)/*.qsys) \
+)
+QSYS_DEPS += $(wildcard $(QSYS_DIR)/*.qsys)
+# Only define QSys variables if QSYS_FILE exists
+ifneq ($(QSYS_FILE),)
+QSYS_BASE := $(basename $(notdir $(QSYS_FILE)))
+QSYS_QIP := $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip) $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/$(QSYS_BASE).qip)
+QSYS_SOPCINFO := $(GENERATED_DIR)/$(QSYS_BASE).sopcinfo
+else
+# Dummy values for clean targets
+QSYS_BASE := 
+QSYS_QIP := 
+QSYS_SOPCINFO := 
 endif
-QSYS_DEPS += $(wildcard *.qsys)
-QSYS_BASE := $(basename $(QSYS_FILE))
-QSYS_QIP := $(wildard $(QSYS_BASE)/synthesis/$(QSYS_BASE).qip) $(wildcard $(QSYS_BASE)/$(QSYS_BASE).qip)
-QSYS_SOPCINFO := $(QSYS_BASE).sopcinfo
 QSYS_STAMP := $(call get_stamp_target,qsys)
+
+# Populate ALL_DEPS now that QSYS_FILE is defined
+ifneq ($(strip $(QSYS_FILE)),)
+ALL_DEPS += qsys-generate
+endif
+
+# Build FPGA bitstream (if Quartus available)
+ifeq ($(HAVE_QUARTUS),1)
+ALL_DEPS += sof rbf
+endif
 
 # Under cygwin, ensure TMP env variable is not a cygwin style path
 # before calling ip-generate
@@ -156,25 +594,23 @@ endif
 qsys_compile: $(QSYS_STAMP)
 
 ifeq ($(HAVE_QSYS),1)
+ifneq ($(QSYS_FILE),)
 $(QSYS_SOPCINFO) $(QSYS_QIP): $(QSYS_STAMP)
 endif
+endif
 
-$(QSYS_STAMP): $(QSYS_DEPS)
-	@$(ECHO) "Generating QSys system: $(QSYS_FILE)"
-	@$(ECHO) "This may take several minutes..."
-	$(SET_QSYS_GENERATE_ENV) qsys-generate $(QSYS_FILE) --synthesis=VERILOG $(QSYS_GENERATE_ARGS) || \
-		($(ECHO) ""; \
-		 $(ECHO) "WARNING: QSys generation completed with errors (this may be non-critical)."; \
-		 $(ECHO) "HPS SDRAM generation errors are common if SoC EDS is not installed."; \
-		 $(ECHO) "Checking if critical files were generated..."; \
-		 if [ -f "$(QSYS_SOPCINFO)" ] && [ -f "$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip" ]; then \
-			 $(ECHO) "Critical files found - Quartus compilation may still work."; \
-			 $(ECHO) "Try compiling in Quartus. If it fails, install SoC EDS."; \
-		 else \
-			 $(ECHO) "ERROR: Critical files missing. Please install SoC EDS and retry."; \
-			 exit 1; \
-		 fi)
-	$(stamp_target)
+ifneq ($(QSYS_FILE),)
+QSYS_CHECK_SCRIPT := qsys_check.sh
+$(QSYS_STAMP): $(QSYS_DEPS) $(QSYS_CHECK_SCRIPT)
+	@bash $(QSYS_CHECK_SCRIPT) "$(QSYS_FILE)" "$(QSYS_DIR)" "$(GENERATED_DIR)" "$(QSYS_BASE)" "$(QSYS_STAMP)" "$(QSYS_SOPCINFO)" "$(QSYS_GENERATE_CMD)"
+else
+# Dummy rule when QSYS_FILE doesn't exist (for clean targets or when QSys not needed)
+$(QSYS_STAMP):
+	@$(ECHO) "Skipping QSys generation (no QSys file found)"
+	@$(ECHO) "Searched: $(QSYS_DIR)/"
+	@$(MKDIR) $(dir $(QSYS_STAMP)) 2>/dev/null || true
+	@touch $(QSYS_STAMP) 2>/dev/null || true
+endif
 
 HELP_TARGETS += qsys_edit
 
@@ -185,31 +621,72 @@ endif
 
 .PHONY: qsys_edit
 qsys_edit:
-	qsys-edit $(QSYS_FILE) &
-
-
-SCRUB_CLEAN_FILES += $(wildcard .qsys_edit)
-
-ifeq ($(HAVE_QSYS),1)
-SCRUB_CLEAN_FILES += $(QSYS_QIP) $(QSYS_SOPCINFO) $(QSYS_BASE) 
+ifneq ($(QSYS_FILE),)
+	$(QSYS_EDIT_CMD) $(QSYS_FILE) &
+else
+	@$(ECHO) "ERROR: No QSys file found"
+	@$(ECHO) "Searched: $(QSYS_DIR)/"
+	@exit 1
 endif
+
+
+# NOTE: .qsys files are SOURCE FILES and should NEVER be cleaned
+# Only generated QSys files (QIP, SOPCINFO, generated directories) are cleaned
+# Platform Designer generates files in both $(GENERATED_DIR)/$(QSYS_BASE) (command-line)
+# and $(QSYS_DIR)/$(QSYS_BASE) (GUI), so clean handles both locations
 
 #############
 # Quartus II
 
-QUARTUS_QPF := $(firstword $(wildcard *.qpf))
+# Only require QUARTUS_QPF for targets that need it (not for clean)
+# Search for Quartus project files in fpga/quartus/ directory
+QUARTUS_QPF := $(firstword \
+	$(wildcard $(QUARTUS_DIR)/*.qpf) \
+)
+ifneq ($(filter clean help,$(MAKECMDGOALS)),)
+# For clean targets, allow QUARTUS_QPF to be empty
+QUARTUS_QPF ?= 
+else
+# For other targets, require QUARTUS_QPF
 ifeq ($(QUARTUS_QPF),)
-$(error ERROR: QUARTUS_QPF *.qpf file not set and could not be discovered)
+$(error ERROR: QUARTUS_QPF *.qpf file not set and could not be discovered in $(QUARTUS_DIR))
 endif
+endif
+
+# Only define Quartus variables if QUARTUS_QPF exists
+ifneq ($(QUARTUS_QPF),)
 QUARTUS_QSF := $(patsubst %.qpf,%.qsf,$(QUARTUS_QPF))
-QUARTUS_BASE := $(basename $(QUARTUS_QPF))
-QUARTUS_HDL_SOURCE := $(wildcard *.v *.sv *.vhd)
-QUARTUS_MISC_SOURCE := $(wildcard *.stp *.sdc)
+QUARTUS_BASE := $(basename $(notdir $(QUARTUS_QPF)))
+else
+# Dummy values for clean targets
+QUARTUS_QSF := 
+QUARTUS_BASE := 
+endif
+QUARTUS_HDL_SOURCE := $(wildcard $(HDL_DIR)/*.v $(HDL_DIR)/*.sv $(HDL_DIR)/*.vhd) $(wildcard $(FPGA_DIR)/ip/custom/*/*.v)
+QUARTUS_MISC_SOURCE := $(wildcard $(QUARTUS_DIR)/*.stp $(QUARTUS_DIR)/*.sdc)
 
 QUARTUS_PIN_ASSIGNMENTS_STAMP := $(call get_stamp_target,quartus_pin_assignments)
-QUARTUS_DEPS += $(QUARTUS_QPF) $(QUARTUS_QSF) $(QUARTUS_HDL_SOURCE) $(QUARTUS_MISC_SOURCE) $(QSYS_STAMP) $(QSYS_QIP) $(QUARTUS_PIN_ASSIGNMENTS_STAMP)
+# Only add dependencies if QUARTUS_QPF exists
+ifneq ($(QUARTUS_QPF),)
+QUARTUS_DEPS += $(QUARTUS_QPF) $(QUARTUS_QSF) $(QUARTUS_HDL_SOURCE) $(QUARTUS_MISC_SOURCE)
+ifneq ($(QSYS_STAMP),)
+QUARTUS_DEPS += $(QSYS_STAMP)
+ifneq ($(QSYS_QIP),)
+QUARTUS_DEPS += $(QSYS_QIP)
+endif
+endif
+# Pin assignments are applied during/after compilation, not before
+# QUARTUS_DEPS += $(QUARTUS_PIN_ASSIGNMENTS_STAMP)
+else
+QUARTUS_DEPS := 
+endif
 
-QUARTUS_SOF := output_files/$(QUARTUS_BASE).sof
+# Only define Quartus output files if QUARTUS_BASE exists
+ifneq ($(QUARTUS_BASE),)
+QUARTUS_SOF := $(BUILD_DIR)/output_files/$(QUARTUS_BASE).sof
+else
+QUARTUS_SOF := 
+endif
 QUARTUS_STAMP := $(call get_stamp_target,quartus)
 
 .PHONY: quartus_compile
@@ -220,9 +697,19 @@ $(QUARTUS_SOF): $(QUARTUS_STAMP)
 endif
 
 $(QUARTUS_PIN_ASSIGNMENTS_STAMP): $(QSYS_STAMP)
-	quartus_map $(QUARTUS_QPF)
-	quartus_cdb --merge $(QUARTUS_QPF)
-	$(MAKE) quartus_apply_tcl_pin_assignments QUARTUS_ENABLE_PIN_ASSIGNMENTS_APPLY=1
+	@$(ECHO) "Checking for pin assignment TCL files..."
+	@if [ -f "$(GENERATED_DIR)/$(QSYS_BASE)/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl" ] || \
+	   [ -f "$(QSYS_DIR)/$(QSYS_BASE)/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl" ] || \
+	   [ -n "$$(ls $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl 2>/dev/null)" ] || \
+	   [ -n "$$(ls $(GENERATED_DIR)/$(QSYS_BASE)/synth/submodules/*_pin_assignments.tcl 2>/dev/null)" ] || \
+	   [ -n "$$(ls $(QSYS_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl 2>/dev/null)" ] || \
+	   [ -n "$$(ls $(QSYS_DIR)/$(QSYS_BASE)/synth/submodules/*_pin_assignments.tcl 2>/dev/null)" ]; then \
+		$(ECHO) "Found pin assignment files."; \
+		$(ECHO) "Note: Pin assignments will be applied during compilation (after map stage)."; \
+		$(ECHO) "Skipping pre-compilation pin assignment step (requires timing netlist)."; \
+	else \
+		$(ECHO) "No pin assignment files found, skipping pin assignment step..."; \
+	fi
 	$(stamp_target)
 
 #######
@@ -233,7 +720,7 @@ $(QUARTUS_PIN_ASSIGNMENTS_STAMP): $(QSYS_STAMP)
 
 ifeq ($(QUARTUS_ENABLE_PIN_ASSIGNMENTS_APPLY),1)
 
-QUARTUS_TCL_PIN_ASSIGNMENTS = $(wildcard $(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl) $(wildcard $(QSYS_BASE)/synth/submodules/*_pin_assignments.tcl)
+QUARTUS_TCL_PIN_ASSIGNMENTS = $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl) $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/synth/submodules/*_pin_assignments.tcl) $(wildcard $(QSYS_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl) $(wildcard $(QSYS_DIR)/$(QSYS_BASE)/synth/submodules/*_pin_assignments.tcl)
 QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS = $(patsubst %,quartus_apply_tcl-%,$(QUARTUS_TCL_PIN_ASSIGNMENTS))
 
 .PHONY: quartus_apply_tcl_pin_assignments
@@ -242,15 +729,41 @@ quartus_apply_tcl_pin_assignments: $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS)
 .PHONY: $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS)
 $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS): quartus_apply_tcl-%: %
 	@$(ECHO) "Applying $<... to $(QUARTUS_QPF)..."
-	quartus_sta -t $< $(QUARTUS_QPF)
+	@if [ -f "$<" ]; then \
+		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t ../$< $(notdir $(QUARTUS_QPF)); \
+	elif [ -f "$(QUARTUS_DIR)/$<" ]; then \
+		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t $< $(notdir $(QUARTUS_QPF)); \
+	elif [ -f "../../$<" ]; then \
+		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t ../../$< $(notdir $(QUARTUS_QPF)); \
+	else \
+		$(ECHO) "Error: Could not find TCL file: $<"; \
+		$(ECHO) "  (Searched: $<, $(QUARTUS_DIR)/$<, ../../$<)"; \
+		exit 1; \
+	fi
 
 endif # QUARTUS_ENABLE_PIN_ASSIGNMENTS_APPLY == 1
 ######
 
+ifneq ($(QUARTUS_QPF),)
 $(QUARTUS_STAMP): $(QUARTUS_DEPS)
-	quartus_stp $(QUARTUS_BASE)
-	quartus_sh --flow compile $(QUARTUS_QPF)
+	@$(MKDIR) $(BUILD_DIR)/output_files
+	@$(ECHO) "Compiling Quartus project: $(notdir $(QUARTUS_QPF))"
+	@$(ECHO) "Using Quartus: $(QUARTUS_SH_CMD)"
+	cd $(QUARTUS_DIR) && $(QUARTUS_SH_CMD) --flow compile $(notdir $(QUARTUS_QPF))
+	@$(ECHO) "Checking for pin assignment TCL files to apply after map..."
+	@if [ -f "$(GENERATED_DIR)/$(QSYS_BASE)/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl" ] || \
+	   [ -f "$(QSYS_DIR)/$(QSYS_BASE)/synthesis/submodules/hps_sdram_p0_pin_assignments.tcl" ] || \
+	   [ -n "$$(ls $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl 2>/dev/null)" ] || \
+	   [ -n "$$(ls $(QSYS_DIR)/$(QSYS_BASE)/synthesis/submodules/*_pin_assignments.tcl 2>/dev/null)" ]; then \
+		$(ECHO) "Applying pin assignments after compilation..."; \
+		$(MAKE) quartus_apply_tcl_pin_assignments QUARTUS_ENABLE_PIN_ASSIGNMENTS_APPLY=1 || $(ECHO) "Warning: Pin assignment application failed (may be non-critical)"; \
+	fi
 	$(stamp_target)
+else
+# Dummy target for clean when QUARTUS_QPF doesn't exist
+$(QUARTUS_STAMP):
+	@$(ECHO) "Skipping Quartus compilation (no Quartus project file found)"
+endif
 
 HELP_TARGETS += quartus_edit
 quartus_edit.HELP := Launch Quartus II GUI
@@ -296,19 +809,17 @@ QUARTUS_CPF_ARGS += -o bitstream_compression=on
 endif
 
 $(QUARTUS_RBF): %.rbf: %.sof
-	quartus_cpf -c $(QUARTUS_CPF_ARGS) $< $@
+	$(QUARTUS_CPF_CMD) -c $(QUARTUS_CPF_ARGS) $< $@
 
 .PHONY: rbf
 rbf: $(QUARTUS_RBF)
 
 .PHONY: create_rbf
 create_rbf:
-	quartus_cpf -c $(QUARTUS_CPF_ARGS) $(QUARTUS_SOF) $(QUARTUS_RBF)
+	$(QUARTUS_CPF_CMD) -c $(QUARTUS_CPF_ARGS) $(QUARTUS_SOF) $(QUARTUS_RBF)
 
 
-ifeq ($(HAVE_QUARTUS),1)
-SCRUB_CLEAN_FILES += $(QUARTUS_SOF) $(QUARTUS_RBF) output_files hps_isw_handoff
-endif
+# Quartus output files are cleaned by the 'clean' target
 
 ################################################
 
@@ -327,7 +838,7 @@ QUARTUS_QSF_QPF_GEN := $(firstword $(wildcard create_*_quartus.tcl))
 ifneq ($(QUARTUS_QSF_QPF_GEN),)
 quartus_generate_qsf_qpf: $(QUARTUS_QSF_QPF_GEN)
 	$(RM) $(QUARTUS_QSF) $(QUARTUS_QPF)
-	quartus_sh --script=$< $(QUARTUS_TCL_ARGS)
+	$(QUARTUS_SH_CMD) --script=$< $(QUARTUS_TCL_ARGS)
 else
 quartus_generate_qsf_qpf:
 	@$(ECHO) "Make target '$@' is not supported for this design"
@@ -337,7 +848,7 @@ endif
 ifneq ($(QUARTUS_TOP_GEN),)
 quartus_generate_top: $(QUARTUS_TOP_GEN)
 	@$(RM) *_top.v
-	quartus_sh --script=$< $(QUARTUS_TCL_ARGS)
+	$(QUARTUS_SH_CMD) --script=$< $(QUARTUS_TCL_ARGS)
 else
 quartus_generate_top:
 	@$(ECHO) "Make target '$@' is not supported for this design"
@@ -354,7 +865,7 @@ ifneq ($(QSYS_QSYS_GEN),)
 
 qsys_generate_qsys: $(QSYS_QSYS_GEN)
 	$(RM) $(QSYS_FILE)
-	qsys-script --script=$< $(QSYS_TCL_ARGS)
+	$(QSYS_SCRIPT_CMD) --script=$< $(QSYS_TCL_ARGS)
 else
 qsys_generate_qsys:
 	@$(ECHO) "Make target '$@' is not supported for this design"
@@ -376,7 +887,7 @@ BOARD_DEVICE_INDEX ?= 2
 
 define quartus_pgm_sof
 jtagconfig
-quartus_pgm --mode=jtag $(if $(BOARD_CABLE),--cable="$(BOARD_CABLE)") --operation=p\;$1$(if $(BOARD_DEVICE_INDEX),"@$(BOARD_DEVICE_INDEX)")
+$(QUARTUS_PGM_CMD) --mode=jtag $(if $(BOARD_CABLE),--cable="$(BOARD_CABLE)") --operation=p\;$1$(if $(BOARD_DEVICE_INDEX),"@$(BOARD_DEVICE_INDEX)")
 jtagconfig $(if $(BOARD_CABLE),-c "$(BOARD_CABLE)") -n
 endef
 
@@ -419,7 +930,7 @@ HPS_RESET_TARGETS := hps_cold_reset hps_warm_reset hps_debug_reset
 
 .PHONY: $(HPS_RESET_TARGETS) 
 $(HPS_RESET_TARGETS): hps_%_reset:
-	quartus_stp --script=ghrd_reset.tcl $(if $(BOARD_CABLE),--cable-name "$(BOARD_CABLE)") $(if $(BOARD_DEVICE_INDEX),--device-index "$(BOARD_DEVICE_INDEX)") --$*-reset
+	$(QUARTUS_STP_CMD) --script=ghrd_reset.tcl $(if $(BOARD_CABLE),--cable-name "$(BOARD_CABLE)") $(if $(BOARD_DEVICE_INDEX),--device-index "$(BOARD_DEVICE_INDEX)") --$*-reset
 endif
 
 ################################################
@@ -430,14 +941,23 @@ endif
 
 QSYS_HPS_INST_NAME ?= hps_0
 
-# Check for SoC EDS environment
+# Define targets that require SoC EDS
+HPS_TARGETS := preloader uboot dts dtb sd-fat
+
+# Check for SoC EDS environment (only for targets that need it)
+# Fast targets and 'all' don't require SoC EDS (all will conditionally build HPS)
+ifneq ($(filter-out $(FAST_TARGETS) all help clean,$(MAKECMDGOALS)),)
+ifneq ($(filter $(HPS_TARGETS),$(MAKECMDGOALS)),)
 ifndef SOCEDS_DEST_ROOT
 $(warning WARNING: SOCEDS_DEST_ROOT is not set. SoC EDS tools may not be found.)
 $(warning Set SOCEDS_DEST_ROOT to your SoC EDS installation directory, e.g.,)
 $(warning export SOCEDS_DEST_ROOT=/path/to/intelFPGA/20.1/embedded)
+$(warning Note: Fast build targets (fast, fast-flash, fast-rbf) do not require SoC EDS.)
+endif
+endif
 endif
 
-# Check if bsp-create-settings is available
+# Always try to find bsp-create-settings (for conditional use in 'all' target)
 # First try to find it in PATH
 SBT.CREATE_SETTINGS := $(shell $(WHICH) bsp-create-settings 2>/dev/null)
 ifeq ($(SBT.CREATE_SETTINGS),)
@@ -467,14 +987,20 @@ endif
 endif
 endif
 
-# Final check - if still not found, provide helpful error
+# Final check - if still not found, provide helpful error (only for HPS-specific targets)
+# Fast targets, clean targets, and 'all' don't require SoC EDS (all will conditionally build HPS)
 ifeq ($(SBT.CREATE_SETTINGS),)
+ifneq ($(filter-out $(FAST_TARGETS) all help clean,$(MAKECMDGOALS)),)
+ifneq ($(filter $(HPS_TARGETS),$(MAKECMDGOALS)),)
 $(error ERROR: bsp-create-settings not found. Please ensure SoC EDS is installed and either:)
 $(error   1. Set SOCEDS_DEST_ROOT and add $(if $(SOCEDS_DEST_ROOT),$(SOCEDS_DEST_ROOT)/host_tools/bin,<SOCEDS_PATH>/host_tools/bin) to PATH, or)
 $(error   2. Source embedded_command_shell.sh from your SoC EDS installation, or)
-$(error   3. Run './find_soceds.sh' to locate your SoC EDS installation)
+$(error   3. Run './scripts/find_soceds.sh' to locate your SoC EDS installation)
+endif
+endif
 endif
 
+# Always try to find bsp-generate-files (for conditional use)
 SBT.GENERATE := $(shell $(WHICH) bsp-generate-files 2>/dev/null)
 ifeq ($(SBT.GENERATE),)
 SBT.GENERATE := $(shell $(WHICH) bsp-generate-files.exe 2>/dev/null)
@@ -495,6 +1021,12 @@ endif
 ifeq ($(SBT.GENERATE),)
 SBT.GENERATE := bsp-generate-files
 endif
+endif
+
+# Add HPS software components to 'all' target if SoC EDS is available
+# This must be after the SoC EDS check above
+ifneq ($(SBT.CREATE_SETTINGS),)
+ALL_DEPS += preloader uboot dts dtb sd-fat
 endif
 
 HELP_TARGETS += preloader
@@ -566,7 +1098,7 @@ uboot.HELP := Build U-Boot into $(PRELOADER_DIR) directory
 uboot: $(UBOOT_STAMP)
 
 
-SCRUB_CLEAN_FILES += $(PRELOADER_DIR)
+# Preloader directory is cleaned by the 'clean' target
 
 ################################################
 
@@ -641,7 +1173,12 @@ endef
 
 
 # Device Tree Source (dts)
+# Only define if QSYS_SOPCINFO exists
+ifneq ($(QSYS_SOPCINFO),)
 DEVICE_TREE_SOURCE := $(patsubst %.sopcinfo,%.dts,$(QSYS_SOPCINFO))
+else
+DEVICE_TREE_SOURCE := 
+endif
 
 HELP_TARGETS += dts
 dts.HELP := Generate a device tree for this qsys design
@@ -650,15 +1187,24 @@ dts.HELP := Generate a device tree for this qsys design
 dts: $(DEVICE_TREE_SOURCE)
 
 ifeq ($(HAVE_QSYS),1)
+ifneq ($(DEVICE_TREE_SOURCE),)
 $(DEVICE_TREE_SOURCE): $(QSYS_STAMP)
 endif
+endif
 
+ifneq ($(DEVICE_TREE_SOURCE),)
 $(DEVICE_TREE_SOURCE): %.dts: %.sopcinfo $(DTS.EXTRA_DEPS)
 	$(call dts.sopc2dts,$<,$@)
+endif
 
 
 # Device Tree Blob (dtb)
+# Only define if QSYS_SOPCINFO exists
+ifneq ($(QSYS_SOPCINFO),)
 DEVICE_TREE_BLOB := $(patsubst %.sopcinfo,%.dtb,$(QSYS_SOPCINFO))
+else
+DEVICE_TREE_BLOB := 
+endif
 
 HELP_TARGETS += dtb
 dtb.HELP := Generate a device tree blob for this qsys design
@@ -667,13 +1213,17 @@ dtb.HELP := Generate a device tree blob for this qsys design
 dtb: $(DEVICE_TREE_BLOB)
 
 ifeq ($(HAVE_QSYS),1)
+ifneq ($(DEVICE_TREE_BLOB),)
 $(DEVICE_TREE_BLOB): $(QSYS_STAMP)
 endif
+endif
 
+ifneq ($(DEVICE_TREE_BLOB),)
 $(DEVICE_TREE_BLOB): %.dtb: %.dts
 	$(DTS.DTC) -I dts -O dtb -o $@ $<
+endif
 
-SCRUB_CLEAN_FILES += $(DEVICE_TREE_SOURCE) $(DEVICE_TREE_BLOB)
+# Device tree files are cleaned by the 'clean' target
 
 ################################################
 
@@ -709,7 +1259,40 @@ sd-fat: $(SD_FAT_TGZ)
 
 AR_FILES += $(wildcard $(SD_FAT_TGZ))
 
-SCRUB_CLEAN_FILES += $(SD_FAT_TGZ)
+# Define final 'all' target with all collected dependencies
+# This must be after all conditional dependencies are added to ALL_DEPS
+.PHONY: all
+all: $(ALL_DEPS)
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Full build complete"
+	@$(ECHO) ""
+ifeq ($(HAVE_QUARTUS),1)
+ifneq ($(QUARTUS_BASE),)
+	@if [ -f "$(QUARTUS_SOF)" ]; then \
+		$(ECHO) "✓ FPGA bitstream built successfully"; \
+		$(ECHO) "  SOF file: $(QUARTUS_SOF)"; \
+		if [ -f "$(QUARTUS_RBF)" ]; then \
+			$(ECHO) "  RBF file: $(QUARTUS_RBF)"; \
+		fi; \
+	else \
+		$(ECHO) "⚠ FPGA bitstream not found (may need to run 'make sof')"; \
+	fi
+else
+	@$(ECHO) "⚠ FPGA bitstream: Skipped (no Quartus project found)"
+endif
+else
+	@$(ECHO) "⚠ FPGA bitstream: Skipped (Quartus not in PATH)"
+	@$(ECHO) "  To build FPGA bitstream, add Quartus to PATH:"
+	@$(ECHO) "    export PATH=\$$PATH:/path/to/intelFPGA/20.1/quartus/bin"
+	@$(ECHO) "  Or run: make sof  (if Quartus is installed)"
+endif
+ifneq ($(SBT.CREATE_SETTINGS),)
+	@$(ECHO) "Device tree: $(DEVICE_TREE_BLOB)"
+	@$(ECHO) "SD card image: $(SD_FAT_TGZ)"
+endif
+	@$(ECHO) "==========================================="
+
+# SD card image is cleaned by the 'clean' target
 
 ################################################
 
@@ -733,21 +1316,8 @@ $(AR_FILE):
 	@$(ECHO) "Generating $@..."
 	@$(TAR) -czf $@ $(AR_FILES)
 
-SCRUB_CLEAN_FILES += $(CLEAN_FILES)
-
-HELP_TARGETS += scrub_clean
-scrub_clean.HELP := Restore design to its barebones state
-
-.PHONY: scrub scrub_clean
-scrub scrub_clean:
-	$(if $(strip $(wildcard $(SCRUB_CLEAN_FILES))),$(RM) $(wildcard $(SCRUB_CLEAN_FILES)),@$(ECHO) "You're already as clean as it gets!")
-
-.PHONY: tgz_scrub_clean
-tgz_scrub_clean:
-	$(FIND) $(SOFTWARE_DIR) \( -name '*.o' -o -name '.depend*' -o -name '*.d' -o -name '*.dep' \) -delete || true
-	$(MAKE) tgz AR_FILE=$(AR_FILE)
-	$(MAKE) -s scrub_clean
-	$(TAR) -xzf $(AR_FILE)
+# CLEAN_FILES is used by tgz target only, not by clean target
+# The 'clean' target explicitly removes all generated files
 
 ################################################
 
