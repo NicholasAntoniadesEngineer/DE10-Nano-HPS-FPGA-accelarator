@@ -12,6 +12,14 @@ QSYS_GENERATE_CMD="${7:-qsys-generate}"
 # Check if files already exist in expected location
 if [ -f "$QSYS_SOPCINFO" ] && [ -f "$GENERATED_DIR/$QSYS_BASE/synthesis/$QSYS_BASE.qip" ]; then
 	echo "QSys files already exist in $GENERATED_DIR/$QSYS_BASE/"
+	echo "Copying to GUI location ($QSYS_DIR/$QSYS_BASE/) for GUI compatibility..."
+	mkdir -p "$QSYS_DIR/$QSYS_BASE"
+	if [ -d "$GENERATED_DIR/$QSYS_BASE/synthesis" ]; then
+		cp -r "$GENERATED_DIR/$QSYS_BASE/synthesis" "$QSYS_DIR/$QSYS_BASE/" 2>/dev/null || true
+	fi
+	if [ -f "$QSYS_SOPCINFO" ] && [ ! -f "$QSYS_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" ]; then
+		cp "$QSYS_SOPCINFO" "$QSYS_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" 2>/dev/null || true
+	fi
 	echo "Skipping generation (using existing files)"
 	mkdir -p "$(dirname "$QSYS_STAMP")"
 	touch "$QSYS_STAMP"
@@ -80,6 +88,17 @@ echo "This may take several minutes..."
 
 if [ -f "$GENERATED_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" ]; then
 	cp "$GENERATED_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" "$QSYS_SOPCINFO"
+fi
+
+# Copy generated files to GUI location for GUI compatibility
+# This ensures both Makefile and GUI can find the files
+if [ -d "$GENERATED_DIR/$QSYS_BASE/synthesis" ]; then
+	echo "Copying generated files to GUI location ($QSYS_DIR/$QSYS_BASE/) for GUI compatibility..."
+	mkdir -p "$QSYS_DIR/$QSYS_BASE"
+	cp -r "$GENERATED_DIR/$QSYS_BASE/synthesis" "$QSYS_DIR/$QSYS_BASE/" 2>/dev/null || true
+	if [ -f "$QSYS_SOPCINFO" ] && [ ! -f "$QSYS_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" ]; then
+		cp "$QSYS_SOPCINFO" "$QSYS_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo" 2>/dev/null || true
+	fi
 fi
 
 mkdir -p "$(dirname "$QSYS_STAMP")"
