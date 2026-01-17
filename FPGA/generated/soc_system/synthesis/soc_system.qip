@@ -1,7 +1,7 @@
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_TOOL_NAME "Qsys"
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_TOOL_VERSION "20.1"
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_TOOL_ENV "Qsys"
-set_global_assignment -library "soc_system" -name SOPCINFO_FILE [file join $::quartus(qip_path) "../../../fpga/quartus/qsys/soc_system.sopcinfo"]
+set_global_assignment -library "soc_system" -name SOPCINFO_FILE [file join $::quartus(qip_path) "../../quartus/qsys/soc_system.sopcinfo"]
 set_global_assignment -entity "soc_system" -library "soc_system" -name SLD_INFO "QSYS_NAME soc_system HAS_SOPCINFO 1 GENERATION_ID 1768658074"
 set_global_assignment -library "soc_system" -name MISC_FILE [file join $::quartus(qip_path) "../soc_system.cmp"]
 set_global_assignment -library "soc_system" -name SLD_FILE [file join $::quartus(qip_path) "soc_system.regmap"]
@@ -12,7 +12,7 @@ set_global_assignment -entity "soc_system" -library "soc_system" -name IP_TARGET
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_GENERATED_DEVICE_FAMILY "{Cyclone V}"
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_QSYS_MODE "SYSTEM"
 set_global_assignment -name SYNTHESIS_ONLY_QIP ON
-set_global_assignment -library "soc_system" -name MISC_FILE [file join $::quartus(qip_path) "../../../fpga/quartus/qsys/soc_system.qsys"]
+set_global_assignment -library "soc_system" -name MISC_FILE [file join $::quartus(qip_path) "../../quartus/qsys/soc_system.qsys"]
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_COMPONENT_NAME "c29jX3N5c3RlbQ=="
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_COMPONENT_DISPLAY_NAME "c29jX3N5c3RlbQ=="
 set_global_assignment -entity "soc_system" -library "soc_system" -name IP_COMPONENT_REPORT_HIERARCHY "On"

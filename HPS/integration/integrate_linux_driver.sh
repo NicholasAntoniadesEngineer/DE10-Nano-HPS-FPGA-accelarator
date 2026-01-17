@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FPGA_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DRIVER_SRC="$FPGA_ROOT/hps/calculator_test"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DRIVER_SRC="$REPO_ROOT/HPS/calculator_test"
 
 # Default values
 KERNEL_DIR=""

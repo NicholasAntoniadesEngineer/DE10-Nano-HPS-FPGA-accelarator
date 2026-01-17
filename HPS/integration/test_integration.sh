@@ -8,8 +8,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FPGA_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DRIVER_SRC="$FPGA_ROOT/hps/calculator_test"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+FPGA_ROOT="$REPO_ROOT/FPGA"
+DRIVER_SRC="$REPO_ROOT/HPS/calculator_test"
 
 # Colors
 RED='\033[0;31m'
@@ -130,13 +131,13 @@ main() {
     # Test 4: Device tree file exists
     echo "Test 4: Device Tree Files"
     echo "-------------------------"
-    test_file_exists "$FPGA_ROOT/qsys/calculator.dtsi" "Device tree overlay"
+    test_file_exists "$FPGA_ROOT/quartus/qsys/calculator.dtsi" "Device tree overlay"
     echo ""
     
     # Test 5: Documentation exists
     echo "Test 5: Documentation"
     echo "--------------------"
-    test_file_exists "$FPGA_ROOT/docs/LINUX_INTEGRATION.md" "Integration guide"
+    test_file_exists "$REPO_ROOT/Docs/hps/linux_driver_development.md" "Integration guide"
     echo ""
     
     # Summary

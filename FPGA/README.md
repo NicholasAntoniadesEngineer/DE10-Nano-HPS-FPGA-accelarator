@@ -47,7 +47,7 @@ make qsys_edit
 # Or directly:
 qsys-edit
 ```
-Then create your system design and save as `.qsys` file in the `fpga/quartus/qsys/` directory.
+Then create your system design and save as `.qsys` file in the `quartus/qsys/` directory.
 
 #### Method 2: TCL Script (Command-Line, No IDE Required)
 ```bash
@@ -121,13 +121,13 @@ If using Quartus GUI instead of command-line:
 1. **Generate QSys System:**
    - Open Quartus Prime
    - Tools → Platform Designer (or `qsys-edit`)
-   - Open `fpga/quartus/qsys/soc_system.qsys`
+   - Open `quartus/qsys/soc_system.qsys`
    - Click "Generate HDL" button (or File → Generate → Generate HDL)
    - Wait for generation to complete
    - **This creates the `soc_system` module that your top-level design needs**
 
 2. **Compile in Quartus:**
-   - Open `fpga/quartus/DE10_NANO_SoC_GHRD.qpf` in Quartus
+   - Open `quartus/DE10_NANO_SoC_GHRD.qpf` in Quartus
    - Processing → Start Compilation
    - The compilation will now find the `soc_system` entity
 
@@ -284,7 +284,7 @@ The build system automatically searches for required files in multiple locations
 - `fpga/qsys/` directory (priority: *top*.qsys, *main*.qsys, *soc*.qsys, *.qsys)
 
 ### Quartus Project Files
-- `fpga/quartus/` directory (*.qpf)
+- `quartus/` directory (*.qpf)
 
 ### SoC EDS Tools
 - PATH (bsp-create-settings, bsp-generate-files)
@@ -296,7 +296,7 @@ The build system automatically searches for required files in multiple locations
 
 ### QSys file not found
 - **.qsys files are source files** - they must be created first (see "QSys Files" section above)
-- Check if QSys file exists in `fpga/quartus/qsys/` directory
+- Check if QSys file exists in `quartus/qsys/` directory
 - Create one using `make qsys_edit` (GUI) or `make qsys_generate_qsys` (from TCL script)
 - **Note:** `.qsys` files are never cleaned - if missing, they need to be created
 
@@ -353,5 +353,5 @@ The build system automatically searches for required files in multiple locations
 
 - [HPS Software Documentation](hps/README.md)
 - [Calculator Test Suite](hps/calculator_test/README.md)
-- [Calculator IP Core](fpga/ip/custom/calculator/README.md)
+- [Calculator IP Core](ip/custom/calculator/README.md)
 - [Intel Quartus Prime Documentation](https://www.intel.com/content/www/us/en/programmable/documentation/)
