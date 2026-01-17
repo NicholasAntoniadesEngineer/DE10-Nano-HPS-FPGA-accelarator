@@ -560,9 +560,10 @@ QSYS_FILE := $(firstword \
 )
 QSYS_DEPS += $(wildcard $(QSYS_DIR)/*.qsys)
 # Only define QSys variables if QSYS_FILE exists
+# Check both generated/ (command-line) and qsys/ (GUI) locations
 ifneq ($(QSYS_FILE),)
 QSYS_BASE := $(basename $(notdir $(QSYS_FILE)))
-QSYS_QIP := $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip) $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/$(QSYS_BASE).qip)
+QSYS_QIP := $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip) $(wildcard $(GENERATED_DIR)/$(QSYS_BASE)/$(QSYS_BASE).qip) $(wildcard $(QSYS_DIR)/$(QSYS_BASE)/synthesis/$(QSYS_BASE).qip)
 QSYS_SOPCINFO := $(GENERATED_DIR)/$(QSYS_BASE).sopcinfo
 else
 # Dummy values for clean targets
@@ -729,8 +730,23 @@ quartus_apply_tcl_pin_assignments: $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS)
 .PHONY: $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS)
 $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS): quartus_apply_tcl-%: %
 	@$(ECHO) "Applying $<... to $(QUARTUS_QPF)..."
-	@if [ -f "$<" ]; then \
-		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t ../$< $(notdir $(QUARTUS_QPF)); \
+	@# File path $< is relative to FPGA/ directory (where Makefile runs)
+	@# QUARTUS_DIR is fpga/quartus/ (relative to FPGA/)
+	@# From fpga/quartus/, to reach files in FPGA/:
+	@#   - generated/ files: ../../generated/...
+	@#   - qsys/ files: qsys/... (already under fpga/quartus/)
+	@TCL_FILE=""; \
+	if [ -f "$<" ]; then \
+		if echo "$<" | grep -q "^generated/"; then \
+			TCL_FILE="../../$<"; \
+		elif echo "$<" | grep -q "^fpga/quartus/qsys/"; then \
+			TCL_FILE="$$(echo "$<" | sed 's|^fpga/quartus/||')"; \
+		elif echo "$<" | grep -q "^qsys/"; then \
+			TCL_FILE="$<"; \
+		else \
+			TCL_FILE="../../$<"; \
+		fi; \
+		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t "$$TCL_FILE" $(notdir $(QUARTUS_QPF)); \
 	elif [ -f "$(QUARTUS_DIR)/$<" ]; then \
 		cd $(QUARTUS_DIR) && $(QUARTUS_STA_CMD) -t $< $(notdir $(QUARTUS_QPF)); \
 	elif [ -f "../../$<" ]; then \

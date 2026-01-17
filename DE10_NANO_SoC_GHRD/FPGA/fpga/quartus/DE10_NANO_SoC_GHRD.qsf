@@ -241,10 +241,13 @@ set_global_assignment -name VERILOG_FILE ../ip/vendor/debounce/debounce.v
 set_global_assignment -name QIP_FILE ../ip/vendor/altsource_probe/hps_reset.qip
 
 # QSys Generated System
-# From fpga/quartus/ -> qsys/soc_system/synthesis/ is where QSys generates it (GUI location)
-# Command-line generation puts it in ../../generated/soc_system/synthesis/ (Makefile copies GUI files there)
-# Using generated location since that's where the files are after folder reorganization
-set_global_assignment -name QIP_FILE ../../generated/soc_system/synthesis/soc_system.qip
+# Platform Designer GUI generates files in: qsys/soc_system/synthesis/
+# Makefile command-line generation puts files in: ../../generated/soc_system/synthesis/
+# The qsys_check.sh script copies GUI files to generated/ when using make
+# This path points to the GUI location (qsys/) which works for both methods:
+# - GUI: Files are directly in qsys/
+# - Make: Script copies qsys/ -> generated/, but .qsf still references qsys/ (files remain there)
+set_global_assignment -name QIP_FILE qsys/soc_system/synthesis/soc_system.qip
 
 # HPS DDR3 Pin Assignments TCL Script
 # This script applies termination settings for DDR3L (SSTL-135) and must run after map stage
@@ -450,7 +453,6 @@ set_instance_assignment -name IO_STANDARD "SSTL-135" -to HPS_DDR3_DM[2] -tag __h
 set_instance_assignment -name OUTPUT_TERMINATION "SERIES 40 OHM WITH CALIBRATION" -to HPS_DDR3_DM[2] -tag __hps_sdram_p0
 set_instance_assignment -name IO_STANDARD "SSTL-135" -to HPS_DDR3_DM[3] -tag __hps_sdram_p0
 set_instance_assignment -name OUTPUT_TERMINATION "SERIES 40 OHM WITH CALIBRATION" -to HPS_DDR3_DM[3] -tag __hps_sdram_p0
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 
 #============================================================
 # Warning Suppressions
@@ -494,3 +496,4 @@ set_global_assignment -name MESSAGE_DISABLE 332060
 
 # Overwriting clock warning (expected for JTAG clock)
 set_global_assignment -name MESSAGE_DISABLE 332043
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
