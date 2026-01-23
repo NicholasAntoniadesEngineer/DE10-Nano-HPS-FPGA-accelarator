@@ -120,15 +120,15 @@ If using Quartus GUI instead of command-line:
 
 1. **Generate QSys System:**
    - Open Quartus Prime
-   - Tools → Platform Designer (or `qsys-edit`)
+   - Tools, Platform Designer (or `qsys-edit`)
    - Open `quartus/qsys/soc_system.qsys`
-   - Click "Generate HDL" button (or File → Generate → Generate HDL)
+   - Click "Generate HDL" button (or File, Generate, Generate HDL)
    - Wait for generation to complete
    - **This creates the `soc_system` module that your top-level design needs**
 
 2. **Compile in Quartus:**
    - Open `quartus/DE10_NANO_SoC_GHRD.qpf` in Quartus
-   - Processing → Start Compilation
+   - Processing, Start Compilation
    - The compilation will now find the `soc_system` entity
 
 **Important:** Always generate QSys system BEFORE compiling in Quartus. Quartus compilation will fail with "undefined entity soc_system" if QSys generation hasn't been run.
@@ -153,7 +153,7 @@ If using Quartus GUI instead of command-line:
 **Verify installation:**
 ```bash
 cd FPGA && make check-tools
-# Should show: ✓ Found: /path/to/quartus_sh.exe
+# Should show: Found: /path/to/quartus_sh.exe
 ```
 
 ### 2. SoC EDS (Embedded Design Suite) - **REQUIRED FOR STEP 3**
@@ -214,7 +214,7 @@ cd FPGA && make check-tools
 **Verify installation:**
 ```bash
 cd FPGA && make check-tools
-# Should show: ✓ Found: /path/to/bsp-create-settings
+# Should show: Found: /path/to/bsp-create-settings
 ```
 
 **Alternative: Use Prebuilt Binaries**
@@ -347,7 +347,7 @@ The build system automatically searches for required files in multiple locations
 - **Cause:** QSys system has not been generated yet
 - **Solution:** 
   1. Generate QSys system first: `make qsys-generate` OR
-  2. In Quartus GUI: Tools → Platform Designer → Open `fpga/qsys/soc_system.qsys` → Click "Generate HDL"
+  2. In Quartus GUI: Tools, Platform Designer, Open `fpga/qsys/soc_system.qsys`, Click "Generate HDL"
   3. Then compile in Quartus
 - **Remember:** Always generate QSys system BEFORE compiling in Quartus
 

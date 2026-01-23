@@ -4,91 +4,23 @@ Complete step-by-step workflow from building all components to deploying and run
 
 ## Workflow Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         DEVELOPMENT MACHINE                             │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ▼               ▼               ▼
-        ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐
-        │ Build FPGA       │  │ Build HPS    │  │ Prepare      │
-        │ Bitstream        │  │ Software     │  │ Deployment   │
-        └──────────────────┘  └──────────────┘  └──────────────┘
-                    │               │               │
-        ┌───────────┼───────────────┼───────────────┼───────────┐
-        │           │               │               │           │
-        ▼           ▼               ▼               ▼           ▼
-    ┌────────┐ ┌────────┐    ┌──────────┐    ┌──────────┐ ┌──────────┐
-    │Generate│ │Compile │    │Cross-    │    │Build     │ │Deployment│
-    │QSys    │ │Quartus │    │Compile   │    │Userspace │ │Method    │
-    │        │ │        │    │Test Suite│    │Drivers   │ │          │
-    └────────┘ └────────┘    └──────────┘    └──────────┘ └──────────┘
-        │           │               │               │           │
-        └───────────┼───────────────┼───────────────┼───────────┘
-                    │               │               │
-                    ▼               ▼               ▼
-            ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-            │ Create RBF   │ │ Test Suite    │ │ Drivers       │
-            │ File         │ │ Binary        │ │ Binary        │
-            └───────────────┘ └───────────────┘ └───────────────┘
-                    │               │               │
-                    └───────────────┼───────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │  Deployment Method    │
-                        │      (Choose One)     │
-                        └───────────────────────┘
-                                    │
-            ┌───────────────────────┼───────────────────────┐
-            │                       │                       │
-            ▼                       ▼                       ▼
-    ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-    │  SD Card     │      │    JTAG     │      │   Network    │
-    │  (Permanent) │      │ (Temporary) │      │  (Dynamic)   │
-    └──────────────┘      └──────────────┘      └──────────────┘
-            │                       │                       │
-            └───────────────────────┼───────────────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │   DE10-Nano Board     │
-                        └───────────────────────┘
-                                    │
-                                    ▼
-                            ┌───────────────┐
-                            │  Boot Linux   │
-                            └───────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │ Load FPGA Bitstream   │
-                        └───────────────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │   Load Drivers        │
-                        └───────────────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │     Run Tests         │
-                        └───────────────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │  Runtime Control      │
-                        │  & Monitoring         │
-                        └───────────────────────┘
-```
-
 **Workflow Phases:**
-1. **Development Machine** → Build FPGA Bitstream, HPS Software, Prepare Deployment
-2. **Deployment** → Choose method (SD Card, JTAG, or Network) → Transfer to Board
-3. **Board Setup** → Boot Linux → Load FPGA Bitstream → Load Drivers
-4. **Execution** → Run Tests → Runtime Control & Monitoring
+1. **Development Machine** - Build FPGA Bitstream, HPS Software, Prepare Deployment
+2. **Deployment** - Choose method (SD Card, JTAG, or Network), Transfer to Board
+3. **Board Setup** - Boot Linux, Load FPGA Bitstream, Load Drivers
+4. **Execution** - Run Tests, Runtime Control and Monitoring
+
+**Build Outputs:**
+- FPGA: QSys Generation, Quartus Compilation produces RBF file
+- HPS: Cross-compile test suite and userspace drivers
+- Deployment: Choose SD Card (permanent), JTAG (temporary), or Network (dynamic)
+
+**Runtime Sequence:**
+1. Boot Linux on DE10-Nano
+2. Load FPGA Bitstream
+3. Load Drivers
+4. Run Tests
+5. Runtime Control and Monitoring
 
 ## Table of Contents
 
@@ -467,12 +399,12 @@ Calculator driver initialized
   Physical base: 0xFF280000
   Virtual base:  0xb6f80000
 
-✓ Calculator driver initialized successfully
+[OK] Calculator driver initialized successfully
 
 Running 30 test cases...
 
 [Test 1/30] Basic addition: 1.0 + 2.0 = 3.0
-  Status:       ✓ PASS
+  Status:       PASS
 
 [... 29 more tests ...]
 
@@ -484,7 +416,7 @@ Passed:         30
 Failed:         0
 Success rate:   100.0%
 ========================================================================
-✓ ALL TESTS PASSED!
+ALL TESTS PASSED!
 ```
 
 ### 4.2 Run LED Examples

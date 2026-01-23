@@ -13,34 +13,34 @@ The FPGA design uses Intel's Platform Designer to create a system with:
 ### Platform Designer System (`de10_nano_system.qsys`)
 
 1. **Create the System**:
-   - Open Quartus Prime → `Tools > Platform Designer`
-   - Create a new system: `File > New System`, save as `de10_nano_system.qsys`
+   - Open Quartus Prime, Tools, Platform Designer
+   - Create a new system: File, New System, save as `de10_nano_system.qsys`
 
 2. **Add Components**:
    - **HPS (`hps_0`)**:
-     - IP Catalog → "Cyclone V Hard Processor System"
-     - Enable "Lightweight HPS-to-FPGA AXI Bridge" (`FPGA Interfaces` tab)
+     - IP Catalog: "Cyclone V Hard Processor System"
+     - Enable "Lightweight HPS-to-FPGA AXI Bridge" (FPGA Interfaces tab)
      - Export `h2f_reset` as `hps_0_h2f_reset`
    - **Clock Source (`clk_50`)**:
-     - IP Catalog → "Clock Source", set to 50 MHz
+     - IP Catalog: "Clock Source", set to 50 MHz
      - Export `clk_in` as `clk_clk`, `clk_in_reset` as `reset_reset_n`
    - **Button PIO (`pio_button`)**:
-     - IP Catalog → "PIO (Parallel I/O)"
+     - IP Catalog: "PIO (Parallel I/O)"
      - Width: 1 bit, Direction: Input
      - Export `pio` as `pio_button_external_connection`, `reset` as `pio_button_reset`
    - **LED PIO (`pio_led`)**:
-     - IP Catalog → "PIO"
+     - IP Catalog: "PIO"
      - Width: 1 bit, Direction: Output
      - Export `pio` as `pio_led_external_connection`, `reset` as `pio_led_reset`
 
 3. **Connections**:
    - **Clock**:
-     - `clk_50.clk` → `hps_0.h2f_lw_axi_clock`, `pio_button.clk`, `pio_led.clk`
+     - `clk_50.clk` to `hps_0.h2f_lw_axi_clock`, `pio_button.clk`, `pio_led.clk`
    - **Reset**:
-     - `clk_50.clk_reset` → `pio_button.reset`, `pio_led.reset`
-     - `clk_50.clk_in_reset` → `hps_0.h2f_reset` (optional, or tie high)
+     - `clk_50.clk_reset` to `pio_button.reset`, `pio_led.reset`
+     - `clk_50.clk_in_reset` to `hps_0.h2f_reset` (optional, or tie high)
    - **AXI**:
-     - `hps_0.h2f_lw_axi_master` → `pio_button.s1` (address `0xFF200000`), `pio_led.s1` (address `0xFF200010`)
+     - `hps_0.h2f_lw_axi_master` to `pio_button.s1` (address `0xFF200000`), `pio_led.s1` (address `0xFF200010`)
 
 4. **Generate HDL**:
    - `Generate > Generate HDL`, select Verilog, output to `output_files`

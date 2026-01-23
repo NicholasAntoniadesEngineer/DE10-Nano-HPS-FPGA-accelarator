@@ -1,10 +1,10 @@
-# Build System Hierarchy & Component Purposes
+# Build System Hierarchy and Component Purposes
 
-## 🎯 Overview
+## Overview
 
 This document outlines what gets built at each stage of the DE10-Nano build system, organized by Makefile targets and their purposes.
 
-## 📋 Build Hierarchy
+## Build Hierarchy
 
 ### Level 1: Main Project (`HPS/Makefile`)
 
@@ -44,7 +44,7 @@ This document outlines what gets built at each stage of the DE10-Nano build syst
    - **Output**: Preloader binary, U-Boot image, Device Tree Blob
    - **Time**: 2-5 minutes (if SoC EDS available)
    - **Tools**: Intel SoC EDS (bsp-create-settings)
-   - **Status**: ⚠️ **Skipped** (SoC EDS compatibility issues)
+   - **Status**: Skipped (SoC EDS compatibility issues)
 
 4. **Test Suite Compilation** - HPS-FPGA communication tests
    - **Purpose**: Build example applications for hardware validation
@@ -108,42 +108,47 @@ This document outlines what gets built at each stage of the DE10-Nano build syst
 
 ---
 
-## 🔄 Build Dependencies & Data Flow
+## Build Dependencies and Data Flow
 
 ```
 Quartus Project (.qpf)
-        ↓
+        |
+        v
     QSys Generation
-        ↓
-FPGA Bitstream (.rbf) ← Quartus Compilation
-        ↓
+        |
+        v
+FPGA Bitstream (.rbf) <-- Quartus Compilation
+        |
+        v
     Linux Kernel
-        ↓
+        |
+        v
  Debian Rootfs
-        ↓
-  SD Card Image ← Assembly of all components
+        |
+        v
+  SD Card Image <-- Assembly of all components
 ```
 
-## ⚠️ Component Status & Notes
+## Component Status and Notes
 
-### ✅ **Always Built Fresh:**
+### Always Built Fresh
 - FPGA artifact verification (checks existing RBF)
 - Linux kernel compilation
 - Debian root filesystem
 - SD card image assembly
 
-### 🔄 **Conditionally Built (Manual):**
+### Conditionally Built (Manual)
 - FPGA bitstream (requires Quartus: `cd FPGA && make rbf`)
 - QSys generation (requires QSys: `cd FPGA && make qsys-generate`)
 - HPS software (requires SoC EDS: `cd FPGA && make preloader uboot`)
 
-### 📦 **Prebuilt/External:**
+### Prebuilt/External
 - Preloader binary (from DE10-Nano System CD)
 - U-Boot image (from DE10-Nano System CD)
 - Device tree blob (fallback to kernel DTB)
 - FPGA bitstream (reuse existing RBF files)
 
-## 🎯 Quick Reference
+## Quick Reference
 
 | Component | Location | Purpose | Build Time | Dependencies |
 |-----------|----------|---------|------------|--------------|
