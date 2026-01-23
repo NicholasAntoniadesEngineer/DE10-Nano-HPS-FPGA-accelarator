@@ -1,7 +1,8 @@
 // ============================================================================
-// Logging System Implementation
+// Logger Library - Implementation
 // ============================================================================
-// Comprehensive logging with levels, timestamps, and file/line information
+// Comprehensive logging system with levels, timestamps, and file/line info
+// Reusable across all HPS applications
 // ============================================================================
 
 #include <stdio.h>

@@ -12,20 +12,24 @@ CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC = $(CROSS_COMPILE)gcc
 STRIP = $(CROSS_COMPILE)strip
 
+# Library paths
+LOGGER_DIR = ../libs/logger
+
 # Compiler flags
 CFLAGS = -Wall -Wextra -O2 -g
 CFLAGS += -std=gnu99
 CFLAGS += -D_GNU_SOURCE
+CFLAGS += -I$(LOGGER_DIR)
 
 # Linker flags
 LDFLAGS = -lm  # Link math library for fabsf()
 
 # Source files
-SRCS = main.c calculator_driver.c test_cases.c logger.c
-OBJS = $(SRCS:.c=.o)
+SRCS = main.c calculator_driver.c test_cases.c $(LOGGER_DIR)/logger.c
+OBJS = main.o calculator_driver.o test_cases.o logger.o
 
 # Header dependencies
-DEPS = calculator_driver.h test_cases.h logger.h
+DEPS = calculator_driver.h test_cases.h $(LOGGER_DIR)/logger.h
 
 # ============================================================================
 # Build Rules
@@ -49,10 +53,15 @@ $(TARGET): $(OBJS)
 	@echo "  ssh root@<board-ip>"
 	@echo "  ./calculator_test"
 
-# Compile source files
+# Compile local source files
 %.o: %.c $(DEPS)
 	@echo "Compiling $<..."
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile logger library
+logger.o: $(LOGGER_DIR)/logger.c $(LOGGER_DIR)/logger.h
+	@echo "Compiling logger library..."
+	$(CC) $(CFLAGS) -c $(LOGGER_DIR)/logger.c -o $@
 
 # Clean build artifacts
 clean:
@@ -117,7 +126,7 @@ help:
 # ============================================================================
 # Dependencies
 # ============================================================================
-main.o: main.c calculator_driver.h test_cases.h logger.h
-calculator_driver.o: calculator_driver.c calculator_driver.h logger.h
+main.o: main.c calculator_driver.h test_cases.h $(LOGGER_DIR)/logger.h
+calculator_driver.o: calculator_driver.c calculator_driver.h $(LOGGER_DIR)/logger.h
 test_cases.o: test_cases.c test_cases.h
-logger.o: logger.c logger.h
+logger.o: $(LOGGER_DIR)/logger.c $(LOGGER_DIR)/logger.h

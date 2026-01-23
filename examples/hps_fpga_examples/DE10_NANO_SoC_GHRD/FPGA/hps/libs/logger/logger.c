@@ -1,7 +1,8 @@
 // ============================================================================
-// Logging System Implementation
+// Logger Library - Implementation
 // ============================================================================
-// Comprehensive logging with levels, timestamps, and file/line information
+// Comprehensive logging system with levels, timestamps, and file/line info
+// Reusable across all HPS applications
 // ============================================================================
 
 #include <stdio.h>
@@ -16,7 +17,7 @@
 // Static Variables
 // ============================================================================
 static log_level_t current_level = LOG_DEFAULT_LEVEL;
-static FILE *log_output = stderr;
+static FILE *log_output = NULL;  // Initialized to NULL, set to stderr in logger_init
 static bool logging_enabled = true;
 
 // Color codes for terminal output
@@ -35,7 +36,8 @@ void logger_init(log_level_t level, FILE *output_file) {
     log_output = (output_file != NULL) ? output_file : stderr;
     logging_enabled = true;
     
-    LOG_INFO("Logging system initialized (level: %s)", logger_level_name(level));
+    // Note: Can't use LOG_INFO here as it would cause recursion
+    // Logging will be available after this function returns
 }
 
 // ============================================================================
@@ -82,14 +84,14 @@ void logger_format_timestamp(char *buffer, size_t buffer_size) {
     gettimeofday(&tv, NULL);
     tm_info = localtime(&tv.tv_sec);
     
-    snprintf(buffer, buffer_size, "%04d-%02d-%02d %02d:%02d:%02d.%03ld",
+    snprintf(buffer, buffer_size, "%04d-%02d-%02d %02d:%02d:%02d.%03lld",
              tm_info->tm_year + 1900,
              tm_info->tm_mon + 1,
              tm_info->tm_mday,
              tm_info->tm_hour,
              tm_info->tm_min,
              tm_info->tm_sec,
-             tv.tv_usec / 1000);
+             (long long)(tv.tv_usec / 1000));
 }
 
 // ============================================================================
@@ -133,6 +135,9 @@ void logger_log(log_level_t level, const char *file, int line, const char *forma
         return;
     }
     
+    // Ensure log_output is initialized (default to stderr if not set)
+    FILE *output = (log_output != NULL) ? log_output : stderr;
+    
     va_list args;
     char timestamp[64] = "";
     char file_line[128] = "";
@@ -163,25 +168,25 @@ void logger_log(log_level_t level, const char *file, int line, const char *forma
     
     // Print log header
     if (LOG_ENABLE_TIMESTAMP && LOG_ENABLE_FILE_LINE) {
-        fprintf(log_output, "%s[%s] [%s] %s%-5s%s ",
+        fprintf(output, "%s[%s] [%s] %s%-5s%s ",
                 color, timestamp, file_line, color, logger_level_name(level), reset);
     } else if (LOG_ENABLE_TIMESTAMP) {
-        fprintf(log_output, "%s[%s] %s%-5s%s ",
+        fprintf(output, "%s[%s] %s%-5s%s ",
                 color, timestamp, color, logger_level_name(level), reset);
     } else if (LOG_ENABLE_FILE_LINE) {
-        fprintf(log_output, "%s[%s] %s%-5s%s ",
+        fprintf(output, "%s[%s] %s%-5s%s ",
                 color, file_line, color, logger_level_name(level), reset);
     } else {
-        fprintf(log_output, "%s%-5s%s ", color, logger_level_name(level), reset);
+        fprintf(output, "%s%-5s%s ", color, logger_level_name(level), reset);
     }
     
     // Print log message
     va_start(args, format);
-    vfprintf(log_output, format, args);
+    vfprintf(output, format, args);
     va_end(args);
     
-    fprintf(log_output, "\n");
-    fflush(log_output);
+    fprintf(output, "\n");
+    fflush(output);
 }
 
 // ============================================================================
@@ -192,6 +197,9 @@ void logger_hex_dump(log_level_t level, const char *label, const void *data, siz
         return;
     }
     
+    // Ensure log_output is initialized (default to stderr if not set)
+    FILE *output = (log_output != NULL) ? log_output : stderr;
+    
     const uint8_t *bytes = (const uint8_t *)data;
     const char *color = logger_level_color(level);
     const char *reset = (LOG_ENABLE_COLOR && *color) ? COLOR_RESET : "";
@@ -199,40 +207,40 @@ void logger_hex_dump(log_level_t level, const char *label, const void *data, siz
     
     if (LOG_ENABLE_TIMESTAMP) {
         logger_format_timestamp(timestamp, sizeof(timestamp));
-        fprintf(log_output, "%s[%s] %s%-5s%s %s:\n",
+        fprintf(output, "%s[%s] %s%-5s%s %s:\n",
                 color, timestamp, color, logger_level_name(level), reset, label);
     } else {
-        fprintf(log_output, "%s%-5s%s %s:\n",
+        fprintf(output, "%s%-5s%s %s:\n",
                 color, logger_level_name(level), reset, label);
     }
     
     for (size_t i = 0; i < len; i += 16) {
-        fprintf(log_output, "  %04zX: ", i);
+        fprintf(output, "  %04zX: ", i);
         
         // Print hex bytes
         for (size_t j = 0; j < 16; j++) {
             if (i + j < len) {
-                fprintf(log_output, "%02X ", bytes[i + j]);
+                fprintf(output, "%02X ", bytes[i + j]);
             } else {
-                fprintf(log_output, "   ");
+                fprintf(output, "   ");
             }
             if (j == 7) {
-                fprintf(log_output, " ");
+                fprintf(output, " ");
             }
         }
         
-        fprintf(log_output, " |");
+        fprintf(output, " |");
         
         // Print ASCII characters
         for (size_t j = 0; j < 16 && (i + j) < len; j++) {
             char c = bytes[i + j];
-            fprintf(log_output, "%c", (c >= 32 && c < 127) ? c : '.');
+            fprintf(output, "%c", (c >= 32 && c < 127) ? c : '.');
         }
         
-        fprintf(log_output, "|\n");
+        fprintf(output, "|\n");
     }
     
-    fflush(log_output);
+    fflush(output);
 }
 
 // ============================================================================
@@ -243,26 +251,30 @@ void logger_register_dump(log_level_t level, const char *label, volatile uint32_
         return;
     }
     
+    // Ensure log_output is initialized (default to stderr if not set)
+    FILE *output = (log_output != NULL) ? log_output : stderr;
+    
     const char *color = logger_level_color(level);
     const char *reset = (LOG_ENABLE_COLOR && *color) ? COLOR_RESET : "";
     char timestamp[64] = "";
     
     if (LOG_ENABLE_TIMESTAMP) {
         logger_format_timestamp(timestamp, sizeof(timestamp));
-        fprintf(log_output, "%s[%s] %s%-5s%s %s:\n",
+        fprintf(output, "%s[%s] %s%-5s%s %s:\n",
                 color, timestamp, color, logger_level_name(level), reset, label);
     } else {
-        fprintf(log_output, "%s%-5s%s %s:\n",
+        fprintf(output, "%s%-5s%s %s:\n",
                 color, logger_level_name(level), reset, label);
     }
     
     for (size_t i = 0; i < count; i++) {
         uint32_t value = (regs != NULL) ? regs[i] : 0;
-        float float_value = *((float *)&value);
+        float float_value;
+        memcpy(&float_value, &value, sizeof(float));
         
-        fprintf(log_output, "  [%02zX] 0x%08X  %10u  %+.6e  %+.6f\n",
+        fprintf(output, "  [%02zX] 0x%08X  %10u  %+.6e  %+.6f\n",
                 i * 4, value, value, float_value, float_value);
     }
     
-    fflush(log_output);
+    fflush(output);
 }

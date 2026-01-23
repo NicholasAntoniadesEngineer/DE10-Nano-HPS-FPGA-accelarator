@@ -1,11 +1,12 @@
 // ============================================================================
-// Logging System for Calculator Driver and Tests
+// Logger Library - Header
 // ============================================================================
-// Comprehensive logging with levels, timestamps, and file/line information
+// Comprehensive logging system with levels, timestamps, and file/line info
+// Reusable across all HPS applications
 // ============================================================================
 
-#ifndef CALCULATOR_LOGGER_H
-#define CALCULATOR_LOGGER_H
+#ifndef HPS_LOGGER_H
+#define HPS_LOGGER_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -42,12 +43,17 @@ typedef enum {
 #define LOG_DEBUG(fmt, ...)   logger_log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define LOG_TRACE(fmt, ...)   logger_log(LOG_LEVEL_TRACE, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
-// Specialized logging macros
+// Specialized logging macros for register operations
 #define LOG_REG_READ(offset, value)   LOG_DEBUG("REG READ:  offset=0x%02X, value=0x%08X", offset, value)
 #define LOG_REG_WRITE(offset, value)  LOG_DEBUG("REG WRITE: offset=0x%02X, value=0x%08X", offset, value)
-#define LOG_OP_START(op, a, b)         LOG_INFO("OP START:  operation=0x%X, operand_a=%.6f, operand_b=%.6f", op, a, b)
-#define LOG_OP_COMPLETE(op, result)    LOG_INFO("OP COMPLETE: operation=0x%X, result=%.6f", op, result)
-#define LOG_OP_ERROR(op, error_code)   LOG_ERROR("OP ERROR:  operation=0x%X, error_code=0x%08X", op, error_code)
+
+// Specialized logging macros for operations
+#define LOG_OP_START(op, operand_a, operand_b) \
+    LOG_INFO("OP START:  operation=0x%X, operand_a=%.6f, operand_b=%.6f", op, operand_a, operand_b)
+#define LOG_OP_COMPLETE(op, result) \
+    LOG_INFO("OP COMPLETE: operation=0x%X, result=%.6f", op, result)
+#define LOG_OP_ERROR(op, error_code) \
+    LOG_ERROR("OP ERROR:  operation=0x%X, error_code=0x%08X", op, error_code)
 
 // ============================================================================
 // Function Prototypes
@@ -84,10 +90,10 @@ void logger_format_timestamp(char *buffer, size_t buffer_size);
 const char *logger_level_name(log_level_t level);
 
 // ============================================================================
-// Initialization Helper
+// Initialization Helper Macros
 // ============================================================================
 #define LOGGER_INIT_DEFAULT() logger_init(LOG_DEFAULT_LEVEL, stderr)
 #define LOGGER_INIT_FILE(file) logger_init(LOG_DEFAULT_LEVEL, file)
 #define LOGGER_INIT_LEVEL(level) logger_init(level, stderr)
 
-#endif // CALCULATOR_LOGGER_H
+#endif // HPS_LOGGER_H

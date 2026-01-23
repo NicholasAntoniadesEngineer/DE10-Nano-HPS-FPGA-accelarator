@@ -21,10 +21,10 @@ Comprehensive test suite for the hardware calculator IP core. Tests all operatio
 |------|-------------|
 | `main.c` | Test harness with colored output, reporting, and logging |
 | `calculator_driver.c/h` | Memory-mapped I/O driver with comprehensive logging |
-| `logger.c/h` | Logging system (timestamps, levels, dumps) |
 | `test_cases.c/h` | 30 comprehensive basic operation test cases |
 | `hft_test_cases.c/h` | 29 HFT operation test cases |
 | `Makefile` | Cross-compilation build system |
+| `../libs/logger/` | Reusable logging library (timestamps, levels, dumps) |
 
 ## Building
 
@@ -122,7 +122,7 @@ The test suite includes comprehensive logging at multiple levels:
 - **Verbose (-v, DEBUG):** Register reads/writes, operation details
 - **Trace (-vv, TRACE):** Register dumps, hex dumps, all state changes
 
-See **[LOGGING_GUIDE.md](LOGGING_GUIDE.md)** for complete logging documentation.
+See **[Logger Library](../libs/logger/README.md)** for complete logging documentation.
 
 ## Expected Output
 
