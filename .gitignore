@@ -53,7 +53,7 @@ HPS/*/*/*.o
 HPS/*/*/*.d
 HPS/*/*/*.elf
 HPS/*/*/*.bin
-HPS/*/*/*.img
+# HPS/*/*/*.img
 HPS/*/*/*.log
 *.dep
 
