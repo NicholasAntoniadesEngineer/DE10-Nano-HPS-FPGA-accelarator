@@ -1,9 +1,0 @@
-* text=auto
-
-# Shell scripts must use LF for WSL/Linux execution
-*.sh text eol=lf
-*.bash text eol=lf
-
-# Makefiles are executed in WSL/Linux shells
-Makefile text eol=lf
-*.mk text eol=lf
