@@ -91,13 +91,20 @@ This document outlines what gets built at each stage of the DE10-Nano build syst
    - **Inputs**:
      - FPGA bitstream (`.rbf`) - verified/found in step 1
      - Linux kernel (`zImage`)
-     - Device tree (`.dtb`)
+     - Device tree (`.dtb`) - optional, kernel may have built-in DTB
      - Root filesystem (`rootfs.tar.gz`)
-     - Preloader & U-Boot (prebuilt bootloaders)
+     - Preloader & U-Boot (prebuilt bootloaders from `HPS/preloader/`)
    - **Output**: `de10-nano-custom.img` (~4GB bootable image)
    - **Location**: `HPS/linux_image/build/`
-   - **Time**: 2-5 minutes
-   - **Process**: Partition creation, file system setup, bootloader installation
+   - **Time**: 2-3 minutes
+   - **Process**: 
+     1. Create 4GB image file
+     2. Partition (100MB FAT32 boot + ext4 rootfs)
+     3. Format partitions (WSL-compatible offset-based loop devices)
+     4. Copy boot files (kernel, RBF, U-Boot)
+     5. Extract root filesystem
+     6. Flash preloader to raw boot area
+   - **Scripts**: `create_sd_image_wrapper.sh` (simplified entry point), `scripts/create_sd_image.sh` (main logic)
 
 ---
 
@@ -147,15 +154,18 @@ FPGA Bitstream (.rbf) ← Quartus Compilation
 | Rootfs | `rootfs/build/` | User space | 10-20min | Debian repos |
 | SD Image | `build/` | Bootable media | 2-5min | All components |
 
-## 🚀 Build Commands
+## Build Commands
 
 ```bash
-# Complete system
-make everything
+# Complete system (from HPS/linux_image/)
+sudo make linux-image    # Kernel + Rootfs + SD image
 
-# Individual components
-make fpga           # FPGA artifacts only
+# Individual components (from HPS/linux_image/)
+make fpga           # Verify FPGA artifacts (RBF)
 make kernel         # Kernel only
-make rootfs         # Rootfs only
-make sd-image       # SD image only
+sudo make rootfs    # Rootfs only (requires root)
+sudo make sd-image  # SD image only (requires root)
+
+# After SD image creation, write to SD card:
+sudo dd if=build/de10-nano-custom.img of=/dev/sdX bs=4M status=progress conv=fsync
 ```

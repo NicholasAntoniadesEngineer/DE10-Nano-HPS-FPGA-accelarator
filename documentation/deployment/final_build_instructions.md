@@ -1,30 +1,32 @@
-# 🎉 DE10-Nano Build System - FINAL BUILD INSTRUCTIONS
+# DE10-Nano Build System - Final Build Instructions
 
-> 📖 **See Also**: [Build Hierarchy & Component Purposes](build_hierarchy.md) for detailed explanation of what gets built at each stage.
+> **See Also**: [Build Hierarchy & Component Purposes](build_hierarchy.md) for detailed explanation of what gets built at each stage.
 
-## ✅ Prebuilt Bootloader Binaries Ready
+## Prebuilt Bootloader Binaries
 
-Prebuilt bootloader binaries have been copied from your DE10-Nano System CD to the repository:
+Prebuilt bootloader binaries from the DE10-Nano System CD are included in the repository:
 
-- **Preloader:** `HPS/preloader/preloader-mkpimage.bin` (262KB)
-- **U-Boot:** `HPS/preloader/uboot-socfpga/u-boot.img` (238KB)
+- **Preloader:** `HPS/preloader/preloader-mkpimage.bin` (256KB)
+- **U-Boot:** `HPS/preloader/uboot-socfpga/u-boot.img` (233KB)
 
-## 🚀 **Complete Your SD Image Build**
+## Complete SD Image Build
 
-### Step 1: Build Kernel & Rootfs (if not done yet)
+### Step 1: Build Kernel & Rootfs (if not already built)
 ```bash
-cd /mnt/c/Users/nicka/Documents/GitHub/low-latency-market-analysis/HPS/linux_image
+cd HPS/linux_image
 sudo make kernel rootfs
 ```
 
 ### Step 2: Create Complete SD Image
 ```bash
-sudo PRELOADER_BIN=/mnt/c/Users/nicka/Documents/GitHub/low-latency-market-analysis/HPS/preloader/preloader-mkpimage.bin \
-     UBOOT_IMG=/mnt/c/Users/nicka/Documents/GitHub/low-latency-market-analysis/HPS/preloader/uboot-socfpga/u-boot.img \
-     make sd-image
+cd HPS/linux_image
+sudo make sd-image
 ```
 
+The wrapper script automatically detects the preloader and U-Boot binaries.
+
 **Expected Result:** `build/de10-nano-custom.img` (~4GB bootable SD image)
+**Build Time:** ~2-3 minutes (after kernel/rootfs are built)
 
 ## 📋 **Final File Inventory**
 

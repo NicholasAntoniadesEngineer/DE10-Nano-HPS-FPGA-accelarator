@@ -105,10 +105,12 @@ Complete step-by-step workflow from building all components to deploying and run
 ### Hardware Requirements
 
 - Terasic DE10-Nano development board
-- MicroSD card (16GB+ recommended) with prebuilt Linux image
+- MicroSD card (8GB+ recommended)
 - Ethernet cable (for network deployment)
 - USB-to-UART cable (optional, for serial console)
 - USB-Blaster II or compatible JTAG programmer (for JTAG deployment)
+
+> **Building from Scratch?** See [Final Build Instructions](final_build_instructions.md) for creating a bootable SD card image, or [Build Hierarchy](build_hierarchy.md) for understanding the complete build process.
 
 ### Software Requirements
 
@@ -119,14 +121,15 @@ Complete step-by-step workflow from building all components to deploying and run
 
 ### Initial Board Setup
 
-1. **Write Prebuilt Linux Image to SD Card**
+1. **Write Linux Image to SD Card**
    ```bash
-   # Linux
-   sudo dd if=de10-nano-image.img of=/dev/sdX bs=4M status=progress
+   # Using custom-built image (from HPS/linux_image/build/)
+   sudo dd if=HPS/linux_image/build/de10-nano-custom.img of=/dev/sdX bs=4M status=progress conv=fsync
    
-   # Windows
-   # Use Win32DiskImager or similar tool
+   # Windows: Use Win32DiskImager or balenaEtcher
    ```
+   
+   > **Note:** To build the SD image from scratch, see [Final Build Instructions](final_build_instructions.md)
 
 2. **Boot DE10-Nano**
    - Insert SD card
