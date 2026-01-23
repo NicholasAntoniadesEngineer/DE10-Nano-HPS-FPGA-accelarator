@@ -139,21 +139,21 @@ Calculator driver initialized
   Physical base: 0xFF280000
   Virtual base:  0xb6f80000
 
-✓ Calculator driver initialized successfully
+[OK] Calculator driver initialized successfully
 
 Running 30 test cases...
 
 Note: Watch LED[7:0] to see result register bits change in real-time!
 
-────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------
 [Test 1/30] Basic addition: 1.0 + 2.0 = 3.0
-────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------
   Operation:    ADD
   Operand A:    1.000000
   Operand B:    2.000000
   Expected:     3.000000
   Result:       3.000000
-  Status:       ✓ PASS
+  Status:       PASS
 
 [... 29 more tests ...]
 
@@ -165,7 +165,7 @@ Passed:         30
 Failed:         0
 Success rate:   100.0%
 ========================================================================
-✓ ALL TESTS PASSED!
+ALL TESTS PASSED!
 Hardware calculator is functioning correctly.
 ========================================================================
 ```
