@@ -243,7 +243,7 @@ sudo ./calculator_test
 
 **Solutions:**
 1. Program FPGA: `make fast-flash` (from FPGA directory)
-2. Check QSys integration (see `../../documentation/deployment/development_workflow.md`)
+2. Check QSys integration (see `../../documentation/deployment/deployment_workflow.md`)
 3. Verify base address in `generated/soc_system/hps_0.h`
 
 ### Error: "Calculator operation timeout"
@@ -320,5 +320,5 @@ This test suite is provided as part of the DE10-Nano FPGA calculator project.
 ## References
 
 - **FPGA Design:** `../../FPGA/ip/custom/calculator/`
-- **Integration Guide:** `../../documentation/deployment/development_workflow.md`
+- **Integration Guide:** `../../documentation/deployment/deployment_workflow.md`
 - **Register Map:** `../../FPGA/ip/custom/calculator/README.md`

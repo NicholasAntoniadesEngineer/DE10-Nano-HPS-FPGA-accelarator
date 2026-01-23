@@ -76,6 +76,7 @@ tgz/
 *.swo
 *~
 .DS_Store
+*.pro.user
 
 # Stamp Files (Make timestamps)
 stamp/
@@ -84,6 +85,10 @@ stamp/
 __pycache__/
 *.pyc
 *.pyo
+
+# Temporary normalized scripts (created by Makefile for CRLF handling)
+*.normalized.*
+.*.normalized.*
 
 # ============================================================================
 # KEEP THESE FILES (Do NOT ignore)

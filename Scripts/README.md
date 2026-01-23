@@ -187,6 +187,7 @@ cd .. && sudo make sd-image
 
 ## See Also
 
-- `HPS/kernel/README.md` - Kernel build documentation
-- `HPS/rootfs/README.md` - Rootfs build documentation
-- `documentation/implementation/automated_linux_image_build_plan.md` - Implementation plan
+- `HPS/linux_image/kernel/README.md` - Kernel build documentation
+- `HPS/linux_image/rootfs/README.md` - Rootfs build documentation
+- `documentation/deployment/quick_start.md` - Quick start guide
+- `documentation/deployment/deployment_workflow.md` - Detailed deployment workflow

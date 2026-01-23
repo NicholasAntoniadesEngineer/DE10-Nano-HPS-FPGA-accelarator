@@ -25,14 +25,14 @@ sudo ./deploy_image.sh /dev/sdX
 
 ## Preconfigured Features
 
-### ✅ SSH Server
+### SSH Server
 - **Pre-installed**: `openssh-server` package
 - **Pre-configured**: SSH server configured and enabled
 - **Auto-start**: SSH service starts automatically on boot
 - **Root login**: Enabled (for development)
-- **Default password**: `root` (⚠️ **CHANGE AFTER FIRST BOOT!**)
+- **Default password**: `root` (CHANGE AFTER FIRST BOOT)
 
-### ✅ Ethernet (DHCP)
+### Ethernet (DHCP)
 - **Pre-configured**: `eth0` interface configured for DHCP
 - **Auto-start**: Network interface starts automatically on boot
 - **Network service**: Enabled to start on boot
@@ -53,7 +53,7 @@ export STATIC_NETMASK="255.255.255.0"
 # SSH configuration
 export SSH_ENABLED="yes"
 export SSH_ROOT_LOGIN="yes"
-export ROOT_PASSWORD="root"  # ⚠️ Change after first boot!
+export ROOT_PASSWORD="root"  # Change after first boot!
 ```
 
 ## Build Components

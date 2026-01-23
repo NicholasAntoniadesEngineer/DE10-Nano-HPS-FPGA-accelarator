@@ -23,7 +23,7 @@ HPS/
 
 Install dependencies: `sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf flex bison libssl-dev libncurses-dev bc debootstrap qemu-user-static parted dosfstools e2fsprogs make git build-essential`
 
-See [linux_image/BUILD_INSTRUCTIONS.md](linux_image/BUILD_INSTRUCTIONS.md) for complete guide.
+See [documentation/deployment/quick_start.md](../documentation/deployment/quick_start.md) for complete guide.
 
 ### Build Applications (Fast - No Root Required)
 
@@ -190,12 +190,12 @@ make CROSS_COMPILE=
 
 ### Runtime Issues
 
-- **Ethernet not working**: See [`../documentation/hps/ethernet_configuration.md`](../documentation/hps/ethernet_configuration.md)
+- **Ethernet not working**: See [`../documentation/deployment/ethernet_setup.md`](../documentation/deployment/ethernet_setup.md)
 - **FPGA not configured**: See [`../documentation/deployment/deployment_workflow.md`](../documentation/deployment/deployment_workflow.md)
 - **Driver issues**: See [`../documentation/hps/linux_driver_development.md`](../documentation/hps/linux_driver_development.md)
 
 ## See Also
 
 - [Main Project README](../readme.md)
+- [Quick Start Guide](../documentation/deployment/quick_start.md)
 - [Deployment Workflow](../documentation/deployment/deployment_workflow.md)
-- [Development Workflow](../documentation/deployment/development_workflow.md)

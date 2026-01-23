@@ -2,7 +2,7 @@
 
 A complete FPGA-accelerated development environment for the Terasic DE10-Nano board, featuring HPS-FPGA communication, custom Linux kernel, and automated build system.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Windows 10/11 with WSL2
@@ -15,7 +15,7 @@ A complete FPGA-accelerated development environment for the Terasic DE10-Nano bo
 cd HPS && sudo make everything
 ```
 
-### Deploy & Boot
+### Deploy and Boot
 ```bash
 # Flash to SD card (replace /dev/sdX)
 sudo ./scripts/deploy_image.sh /dev/sdX
@@ -24,26 +24,26 @@ sudo ./scripts/deploy_image.sh /dev/sdX
 ssh root@<board-ip>  # Password: root
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-├── FPGA/              # Quartus/QSys FPGA design
-├── HPS/               # Hard Processor System (Linux + applications)
-├── Scripts/           # Build and deployment utilities
-├── documentation/     # Comprehensive build guides
-└── examples/          # FPGA-HPS communication examples
+FPGA/              # Quartus/QSys FPGA design
+HPS/               # Hard Processor System (Linux + applications)
+Scripts/           # Build and deployment utilities
+documentation/     # Comprehensive build guides
+examples/          # FPGA-HPS communication examples
 ```
 
-## 📚 Documentation
+## Documentation
 
-- **[Build Hierarchy & Components](documentation/deployment/build_hierarchy.md)** - What gets built at each stage
-- **[Final Build Instructions](documentation/deployment/final_build_instructions.md)** - Complete SD image creation
-- **[Deployment Workflow](documentation/deployment/deployment_workflow.md)** - Detailed build process
 - **[Quick Start Guide](documentation/deployment/quick_start.md)** - Getting started fast
+- **[Deployment Workflow](documentation/deployment/deployment_workflow.md)** - Detailed build process
+- **[Build Hierarchy](documentation/deployment/build_hierarchy.md)** - What gets built at each stage
+- **[Ethernet Setup](documentation/deployment/ethernet_setup.md)** - Network configuration
 - **[SoC EDS Setup](FPGA/SOC_EDS_SETUP.md)** - Intel SoC EDS configuration
 - **[FPGA-HPS Communication](documentation/hps/hps_fpga_communication.md)** - Hardware interface guide
 
-## 🛠️ Key Features
+## Key Features
 
 - **FPGA Compilation**: Quartus Prime integration with automated bitstream generation
 - **Custom Linux Kernel**: ARM cross-compilation with FPGA drivers
@@ -52,7 +52,7 @@ ssh root@<board-ip>  # Password: root
 - **Cross-Platform**: Windows/WSL compatibility with error recovery
 - **HPS-FPGA Bridge**: Direct hardware communication examples
 
-## 🔗 References
+## References
 
 ### OEM Documentation
 - [DE10-Nano CD Download](https://download.terasic.com/downloads/cd-rom/de10-nano/)
