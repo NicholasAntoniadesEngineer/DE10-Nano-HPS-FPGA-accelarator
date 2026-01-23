@@ -2,6 +2,7 @@
 # Root Filesystem Build Makefile
 # ============================================================================
 # Automated rootfs build with configuration management
+# Supports incremental builds - only rebuilds when source files change
 # ============================================================================
 
 SHELL := /bin/bash
@@ -12,12 +13,19 @@ ROOTFS_TAR := $(CURDIR)/build/rootfs.tar.gz
 BUILD_SCRIPT := $(CURDIR)/build_rootfs.sh
 DEPS_PACKAGES := debootstrap qemu-user-static debian-archive-keyring ca-certificates gnupg wget
 
+# Source files that trigger a rebuild when changed
+ROOTFS_SOURCES := $(BUILD_SCRIPT) \
+                  $(CURDIR)/packages.txt \
+                  $(wildcard $(CURDIR)/configs/network/*) \
+                  $(wildcard $(CURDIR)/configs/ssh/*) \
+                  $(wildcard $(CURDIR)/scripts/*.sh)
+
 # Colors
 GREEN := \033[0;32m
 YELLOW := \033[1;33m
 NC := \033[0m
 
-.PHONY: all rootfs deps deps-check clean help
+.PHONY: all rootfs deps deps-check clean help rebuild force-rebuild check-rebuild
 
 all: rootfs
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -30,12 +38,24 @@ help:
 	@echo "============================"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all     - Build rootfs (default)"
-	@echo "  rootfs  - Build rootfs tarball"
-	@echo "  deps    - Install build-host dependencies (Debian/Ubuntu/WSL)"
-	@echo "  deps-check - Verify build-host dependencies are installed"
-	@echo "  clean   - Clean build artifacts"
-	@echo "  help    - Show this help message"
+	@echo "  all           - Build rootfs if needed (default, incremental)"
+	@echo "  rootfs        - Build rootfs tarball (incremental - skips if up-to-date)"
+	@echo "  rebuild       - Force rebuild rootfs from scratch"
+	@echo "  force-rebuild - Alias for rebuild"
+	@echo "  check-rebuild - Check if rebuild is needed (dry-run)"
+	@echo "  deps          - Install build-host dependencies (Debian/Ubuntu/WSL)"
+	@echo "  deps-check    - Verify build-host dependencies are installed"
+	@echo "  clean         - Clean build artifacts"
+	@echo "  help          - Show this help message"
+	@echo ""
+	@echo "Incremental Build:"
+	@echo "  The build system tracks these source files:"
+	@echo "    - build_rootfs.sh"
+	@echo "    - packages.txt"
+	@echo "    - configs/network/*, configs/ssh/*"
+	@echo "    - scripts/*.sh"
+	@echo "  If none of these have changed since the last build,"
+	@echo "  the existing rootfs.tar.gz will be reused."
 	@echo ""
 	@echo "Configuration:"
 	@echo "  Set environment variables before running:"
@@ -47,6 +67,7 @@ help:
 	@echo ""
 	@echo "Example:"
 	@echo "  make NETWORK_MODE=static STATIC_IP=192.168.1.100 rootfs"
+	@echo "  make rebuild   # Force full rebuild"
 
 rootfs: $(ROOTFS_TAR)
 	@echo -e "$(GREEN)Rootfs built successfully$(NC)"
@@ -92,7 +113,60 @@ deps-check:
 		echo "All build-host dependencies satisfied"; \
 	'
 
-$(ROOTFS_TAR): deps-check $(BUILD_SCRIPT)
+# Check if rebuild is needed by comparing timestamps
+check-rebuild:
+	@if [ ! -f "$(ROOTFS_TAR)" ]; then \
+		echo -e "$(YELLOW)Rebuild needed: rootfs.tar.gz does not exist$(NC)"; \
+		exit 0; \
+	fi; \
+	needs_rebuild=0; \
+	for src in $(ROOTFS_SOURCES); do \
+		if [ -f "$$src" ] && [ "$$src" -nt "$(ROOTFS_TAR)" ]; then \
+			echo -e "$(YELLOW)Rebuild needed: $$src is newer than rootfs.tar.gz$(NC)"; \
+			needs_rebuild=1; \
+		fi; \
+	done; \
+	if [ $$needs_rebuild -eq 0 ]; then \
+		echo -e "$(GREEN)No rebuild needed: rootfs.tar.gz is up-to-date$(NC)"; \
+	fi
+
+# Force rebuild - always rebuilds from scratch
+rebuild: clean
+	@$(MAKE) $(ROOTFS_TAR) FORCE_REBUILD=1
+
+force-rebuild: rebuild
+
+# Main build target with incremental support
+$(ROOTFS_TAR): deps-check $(ROOTFS_SOURCES)
+	@needs_rebuild=0; \
+	if [ ! -f "$(ROOTFS_TAR)" ]; then \
+		echo -e "$(YELLOW)Building rootfs: tarball does not exist$(NC)"; \
+		needs_rebuild=1; \
+	else \
+		for src in $(ROOTFS_SOURCES); do \
+			if [ -f "$$src" ] && [ "$$src" -nt "$(ROOTFS_TAR)" ]; then \
+				echo -e "$(YELLOW)Rebuild triggered by: $$src$(NC)"; \
+				needs_rebuild=1; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if [ "$(FORCE_REBUILD)" = "1" ]; then \
+		echo -e "$(YELLOW)Force rebuild requested$(NC)"; \
+		needs_rebuild=1; \
+	fi; \
+	if [ $$needs_rebuild -eq 0 ]; then \
+		echo -e "$(GREEN)===========================================$(NC)"; \
+		echo -e "$(GREEN)Rootfs is up-to-date - skipping build$(NC)"; \
+		echo -e "$(GREEN)===========================================$(NC)"; \
+		echo -e "$(GREEN)Existing tarball: $(ROOTFS_TAR)$(NC)"; \
+		tarball_size=$$(du -h "$(ROOTFS_TAR)" | cut -f1); \
+		tarball_date=$$(date -r "$(ROOTFS_TAR)" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || stat -c %y "$(ROOTFS_TAR)" 2>/dev/null | cut -d. -f1); \
+		echo -e "$(GREEN)Size: $$tarball_size | Built: $$tarball_date$(NC)"; \
+		echo ""; \
+		echo -e "$(YELLOW)To force rebuild: make rebuild$(NC)"; \
+		exit 0; \
+	fi
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Root Filesystem Build$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"

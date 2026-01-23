@@ -256,13 +256,9 @@ sd-image: fpga
 		$(MAKE) kernel; \
 	else \
 		echo -e "$(GREEN)[OK] Kernel already built$(NC)"; \
-	fi; \
-	if [ ! -f "$(ROOTFS_DIR)/build/rootfs.tar.gz" ]; then \
-		echo -e "$(YELLOW)Rootfs not found, building...$(NC)"; \
-		$(MAKE) rootfs; \
-	else \
-		echo -e "$(GREEN)[OK] Rootfs already built$(NC)"; \
 	fi
+	@echo -e "$(YELLOW)Checking rootfs (incremental build)...$(NC)"
+	@$(MAKE) rootfs
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)SD Card Image Creation$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"

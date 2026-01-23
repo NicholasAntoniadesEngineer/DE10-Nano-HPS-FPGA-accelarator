@@ -36,10 +36,7 @@ examples/          # FPGA-HPS communication examples
 
 ## Documentation
 
-- **[Quick Start Guide](documentation/deployment/quick_start.md)** - Getting started fast
-- **[Deployment Workflow](documentation/deployment/deployment_workflow.md)** - Detailed build process
-- **[Build Hierarchy](documentation/deployment/build_hierarchy.md)** - What gets built at each stage
-- **[Ethernet Setup](documentation/deployment/ethernet_setup.md)** - Network configuration
+- **[Deployment Guide](documentation/deployment/deployment_guide.md)** - Complete build, deployment, and troubleshooting guide
 - **[SoC EDS Setup](FPGA/SOC_EDS_SETUP.md)** - Intel SoC EDS configuration
 - **[FPGA-HPS Communication](documentation/hps/hps_fpga_communication.md)** - Hardware interface guide
 
