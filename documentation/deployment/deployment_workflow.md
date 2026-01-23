@@ -110,7 +110,7 @@ Complete step-by-step workflow from building all components to deploying and run
 - USB-to-UART cable (optional, for serial console)
 - USB-Blaster II or compatible JTAG programmer (for JTAG deployment)
 
-> **Building from Scratch?** See [Final Build Instructions](final_build_instructions.md) for creating a bootable SD card image, or [Build Hierarchy](build_hierarchy.md) for understanding the complete build process.
+> **Building from Scratch?** See [Quick Start Guide](quick_start.md) for minimal build steps, or [Build Hierarchy](build_hierarchy.md) for understanding the complete build process.
 
 ### Software Requirements
 
@@ -129,7 +129,7 @@ Complete step-by-step workflow from building all components to deploying and run
    # Windows: Use Win32DiskImager or balenaEtcher
    ```
    
-   > **Note:** To build the SD image from scratch, see [Final Build Instructions](final_build_instructions.md)
+   > **Note:** To build the SD image from scratch, see [Quick Start Guide](quick_start.md)
 
 2. **Boot DE10-Nano**
    - Insert SD card
@@ -148,7 +148,7 @@ Complete step-by-step workflow from building all components to deploying and run
 
 4. **Configure Network (if needed)**
    - See [Network Configuration](#network-configuration) section below
-   - Or refer to [Ethernet Configuration](ethernet_configure.md) for detailed network setup
+   - Or refer to [Ethernet Setup](ethernet_setup.md) for detailed network setup
 
 ---
 
@@ -582,7 +582,7 @@ ip addr show
 
 **Ethernet via USB-C Dongle (Mac):**
 
-For detailed Ethernet setup via USB-C dongle, see [Ethernet Configuration](ethernet_configure.md).
+For detailed Ethernet setup via USB-C dongle, see [Ethernet Setup](ethernet_setup.md).
 
 **Quick Setup:**
 ```bash
@@ -776,7 +776,7 @@ ssh root@<board-ip> "cat /sys/class/fpga_manager/fpga0/state"
 4. Ping board from development machine: `ping <board-ip>`
 5. Use serial console as fallback to check network status
 6. Check network interface: `ip link show`
-7. See [Ethernet Configuration](ethernet_configure.md) for detailed setup
+7. See [Ethernet Setup](ethernet_setup.md) for detailed setup
 
 ### Test Failures
 
@@ -825,11 +825,11 @@ ssh root@<board-ip> "cat /sys/class/fpga_manager/fpga0/state"
 ## Additional Resources
 
 - **[Quick Start Guide](quick_start.md)** - Minimal steps for first-time deployment
+- **[Build Hierarchy](build_hierarchy.md)** - Understanding the build system components
+- **[Ethernet Setup](ethernet_setup.md)** - Network configuration details
 - **[HPS Software Documentation](../../HPS/README.md)** - HPS software details
 - **[FPGA Build Documentation](../../FPGA/README.md)** - FPGA build system details
-- **[Development Workflow](development_workflow.md)** - General development workflow
-- **[Linux HPS Images](linux_HPS_image.md)** - Building Linux images
 
 ---
 
-**Last Updated:** 2026-01-17
+**Last Updated:** 2026-01-19

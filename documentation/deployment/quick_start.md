@@ -1,143 +1,99 @@
 # DE10-Nano Quick Start Guide
 
-Minimal steps to get your FPGA bitstream and HPS software running on the DE10-Nano board.
+Minimal steps to build, deploy, and run the system on the DE10-Nano board.
 
 ## Prerequisites
 
-- DE10-Nano board with prebuilt Linux image on SD card
-- Development machine with Quartus Prime and ARM cross-compiler
-- Ethernet connection to board (for network deployment)
-- Board IP address (find via router DHCP table or serial console)
+- DE10-Nano development board
+- MicroSD card (8GB+)
+- WSL2 or Linux environment
+- Intel Quartus Prime (for FPGA builds)
+- ARM cross-compiler: `arm-linux-gnueabihf-gcc`
 
-## Quick Start (5 Steps)
+## Quick Build (3 Steps)
 
 ### Step 1: Build FPGA Bitstream
 
 ```bash
 cd FPGA
-make qsys-generate  # Generate QSys system
-make sof            # Compile FPGA design
-make rbf            # Convert to RBF format
+make qsys-generate    # Generate QSys system
+make sof              # Compile FPGA design (~10-15 min)
+make rbf              # Convert to RBF format
 ```
 
-**Output:** `FPGA/build/output_files/DE10_NANO_SoC_GHRD.rbf`
+**Output:** `build/output_files/DE10_NANO_SoC_GHRD.rbf`
 
-### Step 2: Build HPS Software
+### Step 2: Build Linux System
 
 ```bash
-cd HPS
-make
+cd HPS/linux_image
+sudo make kernel      # Build kernel (~10-15 min)
+sudo make rootfs      # Build Debian rootfs (~15-20 min)
 ```
 
-**Output:** `HPS/calculator_test/calculator_test`
-
-### Step 3: Deploy to Board
-
-**Option A: Automated Script (Recommended)**
+### Step 3: Create SD Card Image
 
 ```bash
-# From repository root
-./Scripts/deploy_to_board.sh -i <board-ip>
+cd HPS/linux_image
+sudo make sd-image    # Create bootable image (~2-3 min)
 ```
 
-**Option B: Manual Transfer**
+**Output:** `HPS/linux_image/build/de10-nano-custom.img` (4GB)
+
+## Deploy to SD Card
 
 ```bash
-# Transfer RBF file
-scp FPGA/build/output_files/DE10_NANO_SoC_GHRD.rbf root@<board-ip>:/root/soc_system.rbf
+# Find SD card device
+lsblk
 
-# Transfer test executable
-scp HPS/calculator_test/calculator_test root@<board-ip>:/root/
-
-# Load FPGA bitstream
-ssh root@<board-ip> "echo soc_system.rbf > /sys/class/fpga_manager/fpga0/firmware"
+# Write image (replace /dev/sdX with your device)
+sudo dd if=HPS/linux_image/build/de10-nano-custom.img of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
-### Step 4: Verify FPGA Configuration
+Or on Windows: Use **balenaEtcher** or **Win32DiskImager**.
+
+## Boot and Connect
+
+1. Insert SD card into DE10-Nano
+2. Connect Ethernet cable
+3. Power on board
+4. Wait ~30 seconds for Linux to boot
+
+### Find Board IP
 
 ```bash
-ssh root@<board-ip> "cat /sys/class/fpga_manager/fpga0/state"
-# Should show: "operating"
+# Check router DHCP table, or scan network:
+nmap -sn 192.168.1.0/24
 ```
 
-### Step 5: Run Tests
-
-**Option A: Remote Execution**
-
-```bash
-./Scripts/remote_test.sh -i <board-ip>
-```
-
-**Option B: SSH and Run**
+### SSH Access
 
 ```bash
 ssh root@<board-ip>
-sudo ./calculator_test
+# Password: root
 ```
 
-## Expected Output
+## Run Tests
 
+```bash
+# On the DE10-Nano board
+cd /root
+./calculator_test
 ```
-========================================================================
-                   FPGA CALCULATOR TEST SUITE
-========================================================================
-Hardware-Accelerated Floating Point Calculator Verification
-DE10-Nano SoC - HPS to FPGA Communication Test
-========================================================================
 
-Initializing calculator driver...
-Calculator driver initialized
-  Physical base: 0xFF280000
-  Virtual base:  0xb6f80000
-
-✓ Calculator driver initialized successfully
-
-Running 30 test cases...
-
-[Test 1/30] Basic addition: 1.0 + 2.0 = 3.0
-  Status:       ✓ PASS
-
-[... more tests ...]
-
-========================================================================
-                        TEST SUMMARY
-========================================================================
-Total tests:    30
-Passed:         30
-Failed:         0
-Success rate:   100.0%
-========================================================================
-✓ ALL TESTS PASSED!
-```
+**Expected:** All 30 tests pass (HPS-FPGA communication verified).
 
 ## Troubleshooting
 
-**FPGA not configured:**
-```bash
-# Check state
-ssh root@<board-ip> "cat /sys/class/fpga_manager/fpga0/state"
-
-# Reload if needed
-ssh root@<board-ip> "echo soc_system.rbf > /sys/class/fpga_manager/fpga0/firmware"
-```
-
-**Cannot connect to board:**
-- Check Ethernet cable
-- Verify board is powered on
-- Find IP: Check router DHCP table or use `nmap -sn 192.168.1.0/24`
-- Use serial console as fallback
-
-**Tests fail:**
-- Verify FPGA is configured (see above)
-- Check running as root: `sudo ./calculator_test`
-- Review verbose output: `sudo ./calculator_test -v`
+| Issue | Solution |
+|-------|----------|
+| FPGA not configured | Check `cat /sys/class/fpga_manager/fpga0/state` - should show "operating" |
+| No network | Run `sudo dhclient eth0` to request DHCP |
+| Tests fail | Ensure FPGA is configured and running as root |
+| Build fails | Run `make deps` first to install dependencies |
 
 ## Next Steps
 
-- Read [Deployment Workflow Guide](deploymentWorkflow.md) for detailed information
-- Explore [HPS Software Documentation](../../HPS/README.md)
-- Check [FPGA Build Documentation](../../FPGA/README.md)
-
----
-
-**Last Updated:** 2026-01-17
+- [Deployment Workflow](deployment_workflow.md) - Detailed deployment guide
+- [Build Hierarchy](build_hierarchy.md) - Understanding the build system
+- [Ethernet Setup](ethernet_setup.md) - Network configuration

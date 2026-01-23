@@ -13,10 +13,10 @@ The DE10-Nano SoC combines an ARM-based HPS with an FPGA fabric. Communication b
 ## Prerequisites
 
 Before setting up HPS-FPGA communication, ensure you have:
-1. A working Linux image on the HPS (see [Linux HPS Images](../deployment/linux_HPS_image.md))
-2. Basic understanding of the development workflow (see [Development Workflow](../deployment/development_workflow.md))
+1. A working Linux image on the HPS (see [Quick Start Guide](../deployment/quick_start.md))
+2. Basic understanding of the deployment workflow (see [Deployment Workflow](../deployment/deployment_workflow.md))
 3. Intel Quartus Prime installed on your development machine
-4. Required development tools (Intel SoC EDS, cross-compiler)
+4. Required development tools (cross-compiler)
 
 ## Setup Process
 
