@@ -240,6 +240,42 @@ check-tools:
 	@$(ECHO) "If tools are not found, you can manually set:"
 	@$(ECHO) "  export PATH=\$$PATH:/path/to/quartus/bin64"
 	@$(ECHO) ""
+	@$(ECHO) "SoC EDS detection:"
+	@if [ -n "$(SBT.CREATE_SETTINGS)" ]; then \
+		$(ECHO) "  ✓ Found: $(SBT.CREATE_SETTINGS)"; \
+	else \
+		$(ECHO) "  ✗ Not found"; \
+		if [ -n "$$SOCEDS_DEST_ROOT" ]; then \
+			$(ECHO) "    SOCEDS_DEST_ROOT is set to: $$SOCEDS_DEST_ROOT"; \
+			$(ECHO) "    But bsp-create-settings not found there"; \
+		else \
+			$(ECHO) "    SOCEDS_DEST_ROOT not set"; \
+		fi; \
+		$(ECHO) "    To find SoC EDS installation, run: make soceds-find"; \
+	fi
+	@$(ECHO) ""
+
+.PHONY: soceds-find
+soceds-find:
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Finding SoC EDS Installation"
+	@$(ECHO) "==========================================="
+	@$(ECHO) ""
+	@set -e; \
+		tmp_script="./scripts/.find_soceds.normalized.$$$$"; \
+		trap 'rm -f "$$tmp_script"' EXIT; \
+		tr -d '\r' < "./scripts/find_soceds.sh" > "$$tmp_script" 2>/dev/null || cat "./scripts/find_soceds.sh" > "$$tmp_script"; \
+		chmod +x "$$tmp_script"; \
+		bash "$$tmp_script" || { \
+			$(ECHO) "ERROR: Could not find SoC EDS installation."; \
+			$(ECHO) ""; \
+			$(ECHO) "Install SoC EDS from:"; \
+			$(ECHO) "  https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html"; \
+			$(ECHO) ""; \
+			$(ECHO) "Then set SOCEDS_DEST_ROOT to the 'embedded' directory, e.g.:"; \
+			$(ECHO) "  export SOCEDS_DEST_ROOT=\"/mnt/c/intelFPGA/20.1/embedded\""; \
+			exit 1; \
+		}
 
 ################################################
 
@@ -315,6 +351,7 @@ else
 	fi
 	@$(ECHO) "Skipping HPS software components (preloader, uboot, dts, dtb, sd-fat)"
 	@$(ECHO) "To build HPS software, install SoC EDS and set SOCEDS_DEST_ROOT"
+	@$(ECHO) "Tip (WSL/Windows): run: ./scripts/find_soceds.sh"
 endif
 	@$(ECHO) ""
 	@$(ECHO) "Step 4: HPS Test Suite"
@@ -602,7 +639,12 @@ endif
 ifneq ($(QSYS_FILE),)
 QSYS_CHECK_SCRIPT := qsys_check.sh
 $(QSYS_STAMP): $(QSYS_DEPS) $(QSYS_CHECK_SCRIPT)
-	@bash $(QSYS_CHECK_SCRIPT) "$(QSYS_FILE)" "$(QSYS_DIR)" "$(GENERATED_DIR)" "$(QSYS_BASE)" "$(QSYS_STAMP)" "$(QSYS_SOPCINFO)" "$(QSYS_GENERATE_CMD)"
+	@set -e; \
+	tmp_script="$(QSYS_DIR)/.qsys_check_normalized.$$$$"; \
+	tr -d '\r' < "$(QSYS_CHECK_SCRIPT)" > "$$tmp_script"; \
+	chmod +x "$$tmp_script"; \
+	bash "$$tmp_script" "$(QSYS_FILE)" "$(QSYS_DIR)" "$(GENERATED_DIR)" "$(QSYS_BASE)" "$(QSYS_STAMP)" "$(QSYS_SOPCINFO)" "$(QSYS_GENERATE_CMD)"; \
+	rm -f "$$tmp_script"
 else
 # Dummy rule when QSYS_FILE doesn't exist (for clean targets or when QSys not needed)
 $(QSYS_STAMP):
@@ -640,21 +682,26 @@ endif
 
 # Only require QUARTUS_QPF for targets that need it (not for clean)
 # Search for Quartus project files in quartus/ directory
-QUARTUS_QPF := $(firstword \
+# Note: Command-line QUARTUS_QPF overrides this, so use ?= to allow override
+QUARTUS_QPF ?= $(firstword \
 	$(wildcard $(QUARTUS_DIR)/*.qpf) \
 )
+# Fallback for environments where QUARTUS_DIR expansion is polluted (e.g., CRLF issues on WSL)
+ifeq ($(strip $(QUARTUS_QPF)),)
+QUARTUS_QPF := $(firstword $(wildcard quartus/*.qpf))
+endif
 ifneq ($(filter clean help,$(MAKECMDGOALS)),)
 # For clean targets, allow QUARTUS_QPF to be empty
 QUARTUS_QPF ?= 
 else
 # For other targets, require QUARTUS_QPF
-ifeq ($(QUARTUS_QPF),)
+ifeq ($(strip $(QUARTUS_QPF)),)
 $(error ERROR: QUARTUS_QPF *.qpf file not set and could not be discovered in $(QUARTUS_DIR))
 endif
 endif
 
 # Only define Quartus variables if QUARTUS_QPF exists
-ifneq ($(QUARTUS_QPF),)
+ifneq ($(strip $(QUARTUS_QPF)),)
 QUARTUS_QSF := $(patsubst %.qpf,%.qsf,$(QUARTUS_QPF))
 QUARTUS_BASE := $(basename $(notdir $(QUARTUS_QPF)))
 else
@@ -667,7 +714,7 @@ QUARTUS_MISC_SOURCE := $(wildcard $(QUARTUS_DIR)/*.stp $(QUARTUS_DIR)/*.sdc)
 
 QUARTUS_PIN_ASSIGNMENTS_STAMP := $(call get_stamp_target,quartus_pin_assignments)
 # Only add dependencies if QUARTUS_QPF exists
-ifneq ($(QUARTUS_QPF),)
+ifneq ($(strip $(QUARTUS_QPF)),)
 QUARTUS_DEPS += $(QUARTUS_QPF) $(QUARTUS_QSF) $(QUARTUS_HDL_SOURCE) $(QUARTUS_MISC_SOURCE)
 ifneq ($(QSYS_STAMP),)
 QUARTUS_DEPS += $(QSYS_STAMP)
@@ -759,7 +806,7 @@ $(QUARTUS_TCL_PIN_ASSIGNMENTS_APPLY_TARGETS): quartus_apply_tcl-%: %
 endif # QUARTUS_ENABLE_PIN_ASSIGNMENTS_APPLY == 1
 ######
 
-ifneq ($(QUARTUS_QPF),)
+ifneq ($(strip $(QUARTUS_QPF)),)
 $(QUARTUS_STAMP): $(QUARTUS_DEPS)
 	@$(MKDIR) $(BUILD_DIR)/output_files
 	@$(ECHO) "Compiling Quartus project: $(notdir $(QUARTUS_QPF))"
@@ -1047,7 +1094,7 @@ endif
 HELP_TARGETS += preloader
 preloader.HELP := Build Preloader BSP for this design into $(PRELOADER_DIR) directory
 
-PRELOADER_ID := hps_isw_handoff/$(QSYS_BASE)_$(QSYS_HPS_INST_NAME)/id
+PRELOADER_ID := quartus/hps_isw_handoff/$(QSYS_BASE)_$(QSYS_HPS_INST_NAME)/id
 PRELOADER_DEPS += $(PRELOADER_ID)
 
 ifeq ($(HAVE_QUARTUS),1)
@@ -1083,7 +1130,7 @@ $(PRELOADER_STAMP): $(PRELOADER_DEPS)
 	$(SBT.CREATE_SETTINGS) \
 		--type spl \
 		--bsp-dir $(PRELOADER_DIR) \
-		--preloader-settings-dir "hps_isw_handoff/$(QSYS_BASE)_$(QSYS_HPS_INST_NAME)" \
+		--preloader-settings-dir "quartus/hps_isw_handoff/$(QSYS_BASE)_$(QSYS_HPS_INST_NAME)" \
 		--settings $(PRELOADER_DIR)/settings.bsp \
 		$(PRELOADER_EXTRA_ARGS)
 

@@ -52,11 +52,11 @@ if [ "$USE_LINUX_TEMP" -eq 1 ]; then
     echo -e "${YELLOW}Build directory: $ROOTFS_DIR${NC}"
     echo -e "${YELLOW}Final archive will be: $ROOTFS_TAR${NC}"
 else
-    ROOTFS_DIR="${ROOTFS_DIR:-$SCRIPT_DIR/build/rootfs}"
-    ROOTFS_TAR="${ROOTFS_TAR:-$SCRIPT_DIR/build/rootfs.tar.gz}"
+ROOTFS_DIR="${ROOTFS_DIR:-$SCRIPT_DIR/build/rootfs}"
+ROOTFS_TAR="${ROOTFS_TAR:-$SCRIPT_DIR/build/rootfs.tar.gz}"
 fi
 ROOTFS_DISTRO="${ROOTFS_DISTRO:-debian}"
-ROOTFS_VERSION="${ROOTFS_VERSION:-bullseye}"
+ROOTFS_VERSION="${ROOTFS_VERSION:-stable}"
 ROOTFS_ARCH="${ROOTFS_ARCH:-armhf}"
 PACKAGES_FILE="${PACKAGES_FILE:-$SCRIPT_DIR/packages.txt}"
 CONFIG_DIR="${CONFIG_DIR:-$SCRIPT_DIR/configs}"
@@ -91,10 +91,139 @@ print_error() {
     echo -e "${RED}ERROR: $1${NC}" >&2
 }
 
+print_warning() {
+    echo -e "${YELLOW}WARNING: $1${NC}" >&2
+}
+
+print_banner() {
+    echo -e "${GREEN}===========================================${NC}"
+    echo -e "${GREEN}$1${NC}"
+    echo -e "${GREEN}===========================================${NC}"
+}
+
+url_exists() {
+    local url_to_check="$1"
+
+    if command -v wget &> /dev/null; then
+        wget -q --spider --timeout=15 --tries=1 "$url_to_check"
+        return $?
+    fi
+
+    if command -v curl &> /dev/null; then
+        curl -fsI --max-time 15 "$url_to_check" > /dev/null
+        return $?
+    fi
+
+    return 1
+}
+
+wait_for_host_internet() {
+    local requirement_name="$1"
+    local retry_sleep_seconds="$2"
+    shift 2
+
+    local urls_to_check=("$@")
+    local attempt_count=0
+
+    if [ ${#urls_to_check[@]} -eq 0 ]; then
+        print_error "No URLs provided to internet wait for: $requirement_name"
+        exit 1
+    fi
+
+    print_banner "Internet Check: $requirement_name"
+
+    while true; do
+        attempt_count=$((attempt_count + 1))
+
+        for url_to_check in "${urls_to_check[@]}"; do
+            if url_exists "$url_to_check"; then
+                print_step "Internet OK for $requirement_name (reachable: $url_to_check)"
+                return 0
+            fi
+        done
+
+        print_warning "No internet connectivity for $requirement_name. Waiting for reconnect..."
+        print_warning "Checked: ${urls_to_check[*]}"
+        print_warning "Retrying in ${retry_sleep_seconds}s (attempt ${attempt_count}). Press Ctrl+C to abort."
+        sleep "$retry_sleep_seconds"
+    done
+}
+
+add_apt_source_if_available() {
+    local sources_list_path="$1"
+    local mirror_base_url="$2"
+    local suite_name="$3"
+    local components_list="$4"
+
+    local release_url="${mirror_base_url%/}/dists/${suite_name}/Release"
+    if url_exists "$release_url"; then
+        echo "deb $mirror_base_url $suite_name $components_list" >> "$sources_list_path"
+        return 0
+    fi
+
+    print_step "Skipping apt source (not found): $release_url"
+    return 1
+}
+
+configure_rootfs_apt_sources() {
+    local rootfs_directory="$1"
+    local suite_name="$2"
+    local debian_mirror_url="$3"
+    local components_list="main"
+
+    local apt_dir="$rootfs_directory/etc/apt"
+    local sources_list_path="$apt_dir/sources.list"
+
+    mkdir -p "$apt_dir"
+    : > "$sources_list_path"
+
+    print_step "Configuring apt sources for suite: $suite_name"
+    if ! add_apt_source_if_available "$sources_list_path" "$debian_mirror_url" "$suite_name" "$components_list"; then
+        print_error "Failed to configure required apt source for suite '${suite_name}' from mirror: ${debian_mirror_url}"
+        exit 1
+    fi
+    add_apt_source_if_available "$sources_list_path" "$debian_mirror_url" "${suite_name}-updates" "$components_list" || true
+
+    local security_mirror_url="https://security.debian.org/debian-security"
+    if echo "$debian_mirror_url" | grep -q "archive.debian.org"; then
+        security_mirror_url="https://archive.debian.org/debian-security"
+    fi
+    add_apt_source_if_available "$sources_list_path" "$security_mirror_url" "${suite_name}-security" "$components_list" || true
+
+    if echo "$debian_mirror_url" | grep -q "archive.debian.org"; then
+        print_step "Applying apt settings for archived Debian suite (disable Valid-Until checks)"
+        mkdir -p "$apt_dir/apt.conf.d"
+        cat > "$apt_dir/apt.conf.d/99archive" << 'EOF'
+Acquire::Check-Valid-Until "false";
+EOF
+    fi
+}
+
+copy_text_file_normalized() {
+    local source_file_path="$1"
+    local destination_file_path="$2"
+    local destination_file_mode="$3"
+
+    mkdir -p "$(dirname "$destination_file_path")"
+
+    if ! tr -d '\r' < "$source_file_path" > "$destination_file_path"; then
+        print_error "Failed to copy file: $source_file_path -> $destination_file_path"
+        exit 1
+    fi
+
+    if [ -n "$destination_file_mode" ]; then
+        if ! chmod "$destination_file_mode" "$destination_file_path"; then
+            print_error "Failed to chmod $destination_file_mode: $destination_file_path"
+            exit 1
+        fi
+    fi
+}
+
 check_dependencies() {
     print_step "Checking dependencies..."
     
     local missing=0
+    local host_install_hint="sudo apt-get update && sudo apt-get install -y debootstrap qemu-user-static debian-archive-keyring ca-certificates gnupg wget"
     
     if ! command -v debootstrap &> /dev/null; then
         print_error "debootstrap not found. Install with: sudo apt-get install debootstrap"
@@ -105,6 +234,22 @@ check_dependencies() {
         print_error "qemu-user-static not found. Install with: sudo apt-get install qemu-user-static"
         missing=1
     fi
+
+    if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
+        print_error "Neither wget nor curl found. Install with: sudo apt-get install wget (or curl)"
+        missing=1
+    fi
+
+    if ! command -v gpgv &> /dev/null; then
+        print_error "gpgv not found. Install with: sudo apt-get install gnupg"
+        missing=1
+    fi
+
+    if [ ! -f /usr/share/keyrings/debian-archive-keyring.gpg ]; then
+        print_error "Debian archive keyring not found: /usr/share/keyrings/debian-archive-keyring.gpg"
+        print_error "Install with: sudo apt-get install debian-archive-keyring ca-certificates"
+        missing=1
+    fi
     
     if [ "$EUID" -ne 0 ]; then
         print_error "This script must be run as root (for chroot operations)"
@@ -113,6 +258,8 @@ check_dependencies() {
     fi
     
     if [ $missing -eq 1 ]; then
+        print_error "Build-host dependency installation (Debian/Ubuntu/WSL):"
+        print_error "  $host_install_hint"
         exit 1
     fi
     
@@ -146,7 +293,7 @@ cleanup_rootfs() {
     
     # Only create directory if it's the main ROOTFS_DIR
     if [ "$dir_to_clean" = "$ROOTFS_DIR" ]; then
-        mkdir -p "$ROOTFS_DIR"
+    mkdir -p "$ROOTFS_DIR"
     fi
 }
 
@@ -182,43 +329,61 @@ create_base_system() {
     
     # Try multiple mirrors for reliability
     MIRRORS=(
+        "https://deb.debian.org/debian"
         "http://deb.debian.org/debian"
-        "http://ftp.debian.org/debian"
+        "https://archive.debian.org/debian"
         "http://archive.debian.org/debian"
+        "http://ftp.debian.org/debian"
     )
     
-    DEBOOTSTRAP_SUCCESS=0
+    wait_for_host_internet "debootstrap/apt (base system)" 5 \
+        "https://deb.debian.org" \
+        "https://security.debian.org"
+
     # Enable pipefail to catch debootstrap errors even when piped through tee
     set -o pipefail
+
+    while true; do
+        DEBOOTSTRAP_SUCCESS=0
+        BOOTSTRAP_MIRROR_USED=""
+
+        for MIRROR in "${MIRRORS[@]}"; do
+            print_step "Trying mirror: $MIRROR"
+
+            if ! url_exists "${MIRROR%/}/dists/${ROOTFS_VERSION}/Release"; then
+                print_step "Mirror does not provide suite '${ROOTFS_VERSION}', skipping: $MIRROR"
+                continue
+            fi
     
-    for MIRROR in "${MIRRORS[@]}"; do
-        print_step "Trying mirror: $MIRROR"
-        
-        # Use qemu-debootstrap if available, otherwise use debootstrap with qemu-arm-static
+    # Use qemu-debootstrap if available, otherwise use debootstrap with qemu-arm-static
         # Use buildd variant which includes build dependencies (including libstdc++6)
         # This ensures apt-get has all required libraries
         DEBOOTSTRAP_EXIT=0
-        if command -v qemu-debootstrap &> /dev/null; then
-            qemu-debootstrap \
-                --arch="$ROOTFS_ARCH" \
+    if command -v qemu-debootstrap &> /dev/null; then
+        qemu-debootstrap \
+            --arch="$ROOTFS_ARCH" \
+                --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
+                --include=ca-certificates \
                 --variant=buildd \
                 --verbose \
-                "$ROOTFS_VERSION" \
-                "$ROOTFS_DIR" \
+            "$ROOTFS_VERSION" \
+            "$ROOTFS_DIR" \
                 "$MIRROR" 2>&1 | tee /tmp/debootstrap.log || DEBOOTSTRAP_EXIT=$?
-        else
+    else
             # Copy qemu-arm-static into rootfs before debootstrap
-            if [ -f /usr/bin/qemu-arm-static ]; then
-                mkdir -p "$ROOTFS_DIR/usr/bin"
-                cp /usr/bin/qemu-arm-static "$ROOTFS_DIR/usr/bin/"
-            fi
-            
-            debootstrap \
-                --arch="$ROOTFS_ARCH" \
+        if [ -f /usr/bin/qemu-arm-static ]; then
+            mkdir -p "$ROOTFS_DIR/usr/bin"
+            cp /usr/bin/qemu-arm-static "$ROOTFS_DIR/usr/bin/"
+        fi
+        
+        debootstrap \
+            --arch="$ROOTFS_ARCH" \
+                --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
+                --include=ca-certificates \
                 --variant=buildd \
                 --verbose \
-                "$ROOTFS_VERSION" \
-                "$ROOTFS_DIR" \
+            "$ROOTFS_VERSION" \
+            "$ROOTFS_DIR" \
                 "$MIRROR" 2>&1 | tee /tmp/debootstrap.log || DEBOOTSTRAP_EXIT=$?
         fi
         
@@ -227,6 +392,7 @@ create_base_system() {
            [ -f "$ROOTFS_DIR/usr/bin/apt-get" ] && \
            [ -f "$ROOTFS_DIR/usr/lib/arm-linux-gnueabihf/libstdc++.so.6" ]; then
             DEBOOTSTRAP_SUCCESS=1
+            BOOTSTRAP_MIRROR_USED="$MIRROR"
             break
         else
             if [ $DEBOOTSTRAP_EXIT -ne 0 ]; then
@@ -252,9 +418,20 @@ create_base_system() {
         fi
         
         sleep 2
-    done
+        done
     
-    if [ $DEBOOTSTRAP_SUCCESS -eq 0 ]; then
+        if [ $DEBOOTSTRAP_SUCCESS -eq 1 ]; then
+            break
+        fi
+
+        if ! url_exists "https://deb.debian.org" && ! url_exists "https://security.debian.org"; then
+            print_warning "debootstrap failed while internet appears down. Waiting and retrying..."
+            wait_for_host_internet "debootstrap/apt (retry after reconnect)" 5 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+            continue
+        fi
+
         print_error "debootstrap failed with all mirrors"
         print_error "Last log saved to: /tmp/debootstrap.log"
         print_error ""
@@ -273,9 +450,13 @@ create_base_system() {
         print_error "     - Or use a pre-built rootfs image"
         print_error "     - WSL filesystem performance can cause extraction failures"
         exit 1
-    fi
+    done
     
     echo -e "${GREEN}Base system created${NC}"
+
+    if [ -n "$BOOTSTRAP_MIRROR_USED" ]; then
+        configure_rootfs_apt_sources "$ROOTFS_DIR" "$ROOTFS_VERSION" "$BOOTSTRAP_MIRROR_USED"
+    fi
     
     # Ensure qemu-arm-static is available for chroot operations
     print_step "Setting up qemu-arm-static for chroot..."
@@ -348,16 +529,55 @@ install_packages() {
     
     # Update package lists
     print_step "Updating package lists..."
-    if ! chroot "$ROOTFS_DIR" apt-get update; then
+    while true; do
+        if chroot "$ROOTFS_DIR" apt-get update; then
+            break
+        fi
+
+        if ! url_exists "https://deb.debian.org" && ! url_exists "https://security.debian.org"; then
+            print_warning "apt-get update failed while internet appears down. Waiting and retrying..."
+            wait_for_host_internet "apt-get update (retry after reconnect)" 5 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+            continue
+        fi
+
         print_error "Failed to update package lists"
         print_error "Base system may be incomplete"
         exit 1
-    fi
+    done
     
     # Install packages
     if [ -f "$PACKAGES_FILE" ]; then
-        PACKAGES=$(cat "$PACKAGES_FILE" | grep -v '^#' | grep -v '^$' | tr '\n' ' ')
-        chroot "$ROOTFS_DIR" apt-get install -y $PACKAGES
+        PACKAGES="$(tr -d '\r' < "$PACKAGES_FILE" | grep -v '^[[:space:]]*#' | grep -v '^[[:space:]]*$' | tr '\n' ' ')"
+        if [ -z "$PACKAGES" ]; then
+            print_error "No packages found in: $PACKAGES_FILE"
+            print_error "Ensure the file contains package names and uses Unix line endings (LF) or CRLF-safe content."
+            exit 1
+        fi
+
+        print_step "Installing $(echo "$PACKAGES" | wc -w) packages..."
+        while true; do
+            if chroot "$ROOTFS_DIR" apt-get install -y $PACKAGES; then
+                break
+            fi
+
+            if ! url_exists "https://deb.debian.org" && ! url_exists "https://security.debian.org"; then
+                print_warning "apt-get install failed while internet appears down. Waiting and retrying..."
+                wait_for_host_internet "apt-get install (retry after reconnect)" 5 \
+                    "https://deb.debian.org" \
+                    "https://security.debian.org"
+                continue
+            fi
+
+            print_error "Package installation failed. Checking which packages are unavailable..."
+            for package_name in $PACKAGES; do
+                if ! chroot "$ROOTFS_DIR" /bin/sh -c "apt-cache show '$package_name' 2>/dev/null | grep -q '^Package:'"; then
+                    print_error "Package not found in configured apt sources: $package_name"
+                fi
+            done
+            exit 1
+        done
     fi
     
     # Clean up
@@ -416,7 +636,7 @@ EOF
     
     # Copy custom network config if provided
     if [ -f "$CONFIG_DIR/network/interfaces" ]; then
-        cp "$CONFIG_DIR/network/interfaces" "$ROOTFS_DIR/etc/network/interfaces"
+        copy_text_file_normalized "$CONFIG_DIR/network/interfaces" "$ROOTFS_DIR/etc/network/interfaces" 0644
         echo -e "${GREEN}Using custom network configuration${NC}"
     fi
     
@@ -474,7 +694,7 @@ configure_ssh() {
     mkdir -p "$ROOTFS_DIR/etc/ssh"
     
     if [ -f "$CONFIG_DIR/ssh/sshd_config" ]; then
-        cp "$CONFIG_DIR/ssh/sshd_config" "$ROOTFS_DIR/etc/ssh/sshd_config"
+        copy_text_file_normalized "$CONFIG_DIR/ssh/sshd_config" "$ROOTFS_DIR/etc/ssh/sshd_config" 0644
         echo -e "${GREEN}Using custom SSH configuration${NC}"
     else
         # Default SSH config
@@ -559,12 +779,15 @@ run_post_install_scripts() {
     
     # Run scripts in order
     for script in "$SCRIPTS_DIR"/*.sh; do
-        if [ -f "$script" ] && [ -x "$script" ]; then
-            print_step "Running $(basename $script)..."
+        if [ -f "$script" ]; then
+            print_step "Running $(basename "$script")..."
             # Copy script to rootfs and run in chroot
-            cp "$script" "$ROOTFS_DIR/tmp/"
-            chroot "$ROOTFS_DIR" /bin/bash "/tmp/$(basename $script)" || true
-            rm -f "$ROOTFS_DIR/tmp/$(basename $script)"
+            copy_text_file_normalized "$script" "$ROOTFS_DIR/tmp/$(basename "$script")" 0755
+            if ! chroot "$ROOTFS_DIR" /bin/bash "/tmp/$(basename "$script")"; then
+                print_error "Post-install script failed: $(basename "$script")"
+                exit 1
+            fi
+            rm -f "$ROOTFS_DIR/tmp/$(basename "$script")"
         fi
     done
     
@@ -624,13 +847,13 @@ main() {
     if [ "$USE_LINUX_TEMP" -eq 1 ]; then
         echo -e "${GREEN}Rootfs built in temp directory (cleaned up)${NC}"
     else
-        echo -e "${GREEN}Rootfs directory: $ROOTFS_DIR${NC}"
+    echo -e "${GREEN}Rootfs directory: $ROOTFS_DIR${NC}"
     fi
     echo -e "${GREEN}Rootfs tarball:   $ROOTFS_TAR${NC}"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Create SD card image: cd HPS && ./create_sd_image.sh"
-    echo "  2. Or use unified build: ./Scripts/build_linux_image.sh"
+    echo "  1. Create SD card image: cd HPS/linux_image && sudo make sd-image"
+    echo "  2. Or build everything:  cd HPS && sudo make everything"
 }
 
 # Run main function

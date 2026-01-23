@@ -47,9 +47,86 @@ sudo apt-get install build-essential git bash \
 
 ### Optional Tools
 
-- **Intel Quartus Prime** - For FPGA bitstream generation
-- **Intel SoC EDS** - For preloader and U-Boot build
-- **Device Tree Compiler** - For device tree generation
+#### Intel Quartus Prime (for FPGA bitstream generation)
+
+**Required for:** QSys generation, FPGA compilation, SOF/RBF generation
+
+**Installation:**
+1. Download Quartus Prime from [Intel FPGA Software](https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html)
+2. Install Quartus Prime (Lite Edition is sufficient)
+3. **On Windows/WSL:** The build system automatically detects Windows Quartus installations in:
+   - `C:\intelFPGA_lite\20.1\quartus\`
+   - `C:\intelFPGA\20.1\quartus\`
+4. **On Linux:** Add Quartus to PATH:
+   ```bash
+   export PATH=$PATH:/path/to/intelFPGA/20.1/quartus/bin64
+   ```
+
+**Verify installation:**
+```bash
+cd FPGA && make check-tools
+# Should show: ✓ Found: /path/to/quartus_sh.exe
+```
+
+#### Intel SoC EDS (for preloader and U-Boot build)
+
+**Required for:** Preloader, U-Boot, Device Tree generation, SD card image creation
+
+**Installation:**
+1. Download SoC EDS from [Intel FPGA Software](https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html)
+   - Search for "SoC Embedded Design Suite" matching your Quartus version
+   - Example: `SoC EDS v20.1` for Quartus Prime 20.1
+2. **On Windows:** Run the installer and install to:
+   - `C:\intelFPGA\20.1\embedded` (recommended)
+   - Or `C:\intelFPGA_lite\20.1\embedded` (if using Lite edition)
+3. **On Linux/WSL:** After installation, set environment variable:
+   ```bash
+   export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA/20.1/embedded"
+   # Or if installed to Lite directory:
+   # export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA_lite/20.1/embedded"
+
+   # Add SoC EDS tools to PATH (SoC EDS 20.1 tools are in altera/preloadergen/):
+   export PATH="$PATH:$SOCEDS_DEST_ROOT/host_tools/altera/preloadergen"
+
+   # Source the embedded command shell:
+   source "$SOCEDS_DEST_ROOT/embedded_command_shell.sh"
+   ```
+
+**Auto-detect installation (WSL/Windows):**
+```bash
+cd FPGA
+make soceds-find
+# This will print the exact commands to run
+```
+
+**Verify installation:**
+```bash
+cd FPGA && make check-tools
+# Should show: ✓ Found: /path/to/bsp-create-settings
+```
+
+**Make it permanent (optional):**
+Add to `~/.bashrc`:
+```bash
+export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA/20.1/embedded"
+source "$SOCEDS_DEST_ROOT/embedded_command_shell.sh" 2>/dev/null || true
+```
+
+**Alternative:** If you don't want to install SoC EDS, you can use prebuilt bootloader binaries:
+```bash
+sudo PRELOADER_BIN=/path/to/preloader-mkpimage.bin \
+     UBOOT_IMG=/path/to/u-boot.img \
+     make sd-image
+```
+
+See `FPGA/SOC_EDS_SETUP.md` for detailed SoC EDS installation guide.
+
+#### Device Tree Compiler
+
+Usually included with kernel build tools. If missing:
+```bash
+sudo apt-get install device-tree-compiler
+```
 
 ## Build Process
 

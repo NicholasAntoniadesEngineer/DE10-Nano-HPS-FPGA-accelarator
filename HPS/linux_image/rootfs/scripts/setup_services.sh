@@ -11,14 +11,20 @@ echo "Setting up system services..."
 
 # Enable networking
 if command -v systemctl &> /dev/null; then
-    systemctl enable networking || true
+    systemctl enable networking
     echo "Networking service enabled"
 fi
 
 # Enable SSH (if not already enabled)
 if command -v systemctl &> /dev/null; then
-    systemctl enable ssh || systemctl enable sshd || true
-    echo "SSH service enabled"
+    if systemctl enable ssh; then
+        echo "SSH service enabled"
+    elif systemctl enable sshd; then
+        echo "SSHD service enabled"
+    else
+        echo "ERROR: Failed to enable SSH service" >&2
+        exit 1
+    fi
 fi
 
 # Create /etc/hostname

@@ -39,7 +39,7 @@ dosfstools
 e2fsprogs
 
 # Network time synchronization
-ntpdate
+ntpsec-ntpdate
 
 # Additional utilities
 rsync

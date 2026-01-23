@@ -142,15 +142,18 @@ If using Quartus GUI instead of command-line:
 **Installation:**
 1. Download Quartus Prime from [Intel FPGA Software](https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html)
 2. Install Quartus Prime (Lite Edition is sufficient)
-3. Add Quartus to PATH:
+3. **On Windows/WSL:** The build system automatically detects Windows Quartus installations in:
+   - `C:\intelFPGA_lite\20.1\quartus\`
+   - `C:\intelFPGA\20.1\quartus\`
+4. **On Linux:** Add Quartus to PATH:
    ```bash
-   export PATH=$PATH:/path/to/intelFPGA/20.1/quartus/bin
+   export PATH=$PATH:/path/to/intelFPGA/20.1/quartus/bin64
    ```
 
 **Verify installation:**
 ```bash
-which quartus
-quartus --version
+cd FPGA && make check-tools
+# Should show: ✓ Found: /path/to/quartus_sh.exe
 ```
 
 ### 2. SoC EDS (Embedded Design Suite) - **REQUIRED FOR STEP 3**
@@ -158,34 +161,74 @@ quartus --version
 **Required for:** Preloader, U-Boot, Device Tree generation, SD card image creation
 
 **Installation:**
-1. Download SoC EDS from [Intel FPGA Software](https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html)
-   - Look for "SoC Embedded Design Suite" matching your Quartus version
+
+1. **Download SoC EDS:**
+   - Go to: https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html
+   - Search for "SoC Embedded Design Suite" matching your Quartus version
    - Example: `SoC EDS v20.1` for Quartus Prime 20.1
-2. Extract and install:
+   - File will be something like: `SoCEDS-20.1-*.exe` or `setup_soceds_*.exe`
+
+2. **Install on Windows:**
+   - Run the installer (as Administrator if needed)
+   - Install to a standard location like:
+     - `C:\intelFPGA\20.1\embedded` (recommended)
+     - Or `C:\intelFPGA_lite\20.1\embedded` (if using Lite edition)
+   - Complete the installation (may take 10-20 minutes)
+
+3. **Configure in WSL (after installation):**
+   
+   **Option A: Auto-detect (Recommended)**
    ```bash
-   tar -xzf SoCEDS-*.tar.gz
-   cd SoCEDS-*/
-   ./install
+   cd /mnt/c/Users/nicka/Documents/GitHub/low-latency-market-analysis/FPGA
+   make soceds-find
+   # This will print the exact commands to run
    ```
-3. Set environment variable:
+   
+   **Option B: Manual Setup**
    ```bash
-   export SOCEDS_DEST_ROOT=/path/to/intelFPGA/20.1/embedded
+   # Set environment variable (adjust path to match your installation):
+   export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA/20.1/embedded"
+   # Or if installed to Lite directory:
+   # export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA_lite/20.1/embedded"
+   
+   # Source the embedded command shell (sets up PATH and other variables):
+   source "$SOCEDS_DEST_ROOT/embedded_command_shell.sh"
+   
+   # If the embedded_command_shell.sh doesn't set PATH correctly, manually add it:
+   export PATH="$PATH:$SOCEDS_DEST_ROOT/host_tools/altera/preloadergen"
+
+   # Verify it works:
+   which bsp-create-settings
+   # Should print: /mnt/c/intelFPGA/20.1/embedded/host_tools/altera/preloadergen/bsp-create-settings
    ```
-4. Source the embedded command shell (add to `~/.bashrc`):
+
+4. **Make it permanent (optional):**
+   Add to `~/.bashrc`:
    ```bash
-   source $SOCEDS_DEST_ROOT/env.sh
-   ```
-   Or add to PATH:
-   ```bash
-   export PATH=$PATH:$SOCEDS_DEST_ROOT/host_tools/bin
+   export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA/20.1/embedded"
+   # Ensure SoC EDS tools are in PATH:
+   export PATH="$PATH:$SOCEDS_DEST_ROOT/host_tools/altera/preloadergen"
+   source "$SOCEDS_DEST_ROOT/embedded_command_shell.sh" 2>/dev/null || true
    ```
 
 **Verify installation:**
 ```bash
-which bsp-create-settings
-which bsp-generate-files
-bsp-create-settings --version
+cd FPGA && make check-tools
+# Should show: ✓ Found: /path/to/bsp-create-settings
 ```
+
+**Alternative: Use Prebuilt Binaries**
+
+If you don't want to install SoC EDS, you can use prebuilt bootloader binaries from Terasic's DE10-Nano resources or Intel reference designs:
+
+```bash
+cd HPS/linux_image
+sudo PRELOADER_BIN=/path/to/preloader-mkpimage.bin \
+     UBOOT_IMG=/path/to/u-boot.img \
+     make sd-image
+```
+
+See `SOC_EDS_SETUP.md` for detailed installation guide and troubleshooting.
 
 ### 3. ARM Cross-Compiler (for HPS test suite)
 
@@ -325,8 +368,9 @@ The build system automatically searches for required files in multiple locations
 
 ### SoC EDS tools not found
 - Verify `SOCEDS_DEST_ROOT` is set correctly
-- Check that `bsp-create-settings` is in PATH
-- Source `$SOCEDS_DEST_ROOT/env.sh` or add to PATH manually
+- Check that `bsp-create-settings` is in PATH (SoC EDS 20.1 tools are in `host_tools/altera/preloadergen/`)
+- Manually add to PATH: `export PATH="$PATH:$SOCEDS_DEST_ROOT/host_tools/altera/preloadergen"`
+- Source `$SOCEDS_DEST_ROOT/embedded_command_shell.sh` and check if it sets PATH correctly
 - See installation instructions above
 
 ### Cross-compiler not found

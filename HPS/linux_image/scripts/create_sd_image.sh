@@ -35,7 +35,7 @@ UBOOT_IMG="${UBOOT_IMG:-$HPS_DIR/preloader/uboot-socfpga/u-boot.img}"
 KERNEL_IMAGE="${KERNEL_IMAGE:-$KERNEL_DIR/build/arch/arm/boot/zImage}"
 KERNEL_DTB="${KERNEL_DTB:-$KERNEL_DIR/build/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb}"
 FPGA_DTB="${FPGA_DTB:-$FPGA_DIR/generated/soc_system.dtb}"
-FPGA_RBF="${FPGA_RBF:-$FPGA_DIR/build/output_files/DE10_NANO_SoC_GHRD.rbf}"
+FPGA_RBF="${FPGA_RBF:-}"
 ROOTFS_TAR="${ROOTFS_TAR:-$ROOTFS_DIR/build/rootfs.tar.gz}"
 
 # Partition sizes (MB)
@@ -58,6 +58,58 @@ print_step() {
 
 print_error() {
     echo -e "${RED}ERROR: $1${NC}" >&2
+}
+
+resolve_first_match() {
+    local pattern_to_match="$1"
+
+    shopt -s nullglob
+    local matches=( $pattern_to_match )
+    shopt -u nullglob
+
+    if [ ${#matches[@]} -gt 0 ]; then
+        echo "${matches[0]}"
+        return 0
+    fi
+
+    return 1
+}
+
+resolve_fpga_rbf() {
+    if [ -n "$FPGA_RBF" ] && [ -f "$FPGA_RBF" ]; then
+        return 0
+    fi
+
+    local detected_rbf=""
+
+    detected_rbf="$(resolve_first_match "$FPGA_DIR/build/output_files/"'*.rbf' || true)"
+    if [ -n "$detected_rbf" ] && [ -f "$detected_rbf" ]; then
+        FPGA_RBF="$detected_rbf"
+        return 0
+    fi
+
+    detected_rbf="$(resolve_first_match "$REPO_ROOT/build/output_files/"'*.rbf' || true)"
+    if [ -n "$detected_rbf" ] && [ -f "$detected_rbf" ]; then
+        FPGA_RBF="$detected_rbf"
+        return 0
+    fi
+
+    return 1
+}
+
+resolve_fpga_dtb() {
+    if [ -n "$FPGA_DTB" ] && [ -f "$FPGA_DTB" ]; then
+        return 0
+    fi
+
+    local detected_dtb=""
+    detected_dtb="$(resolve_first_match "$FPGA_DIR/generated/"'*.dtb' || true)"
+    if [ -n "$detected_dtb" ] && [ -f "$detected_dtb" ]; then
+        FPGA_DTB="$detected_dtb"
+        return 0
+    fi
+
+    return 1
 }
 
 check_dependencies() {
@@ -86,9 +138,12 @@ check_dependencies() {
 }
 
 check_files() {
-    print_step "Checking required files..."
+    print_header "Checking Required Build Artifacts"
     
     local missing=0
+
+    resolve_fpga_dtb || true
+    resolve_fpga_rbf || true
     
     # Check preloader
     if [ ! -f "$PRELOADER_BIN" ]; then
@@ -108,7 +163,7 @@ check_files() {
     if [ ! -f "$KERNEL_IMAGE" ]; then
         if [ -f "$FPGA_DIR/generated/soc_system.dtb" ]; then
             print_error "Kernel image not found: $KERNEL_IMAGE"
-            print_error "Build kernel first: cd HPS/kernel && make"
+            print_error "Build kernel first: cd HPS/linux_image/kernel && make"
             print_error "Or use prebuilt kernel image"
             missing=1
         fi
@@ -123,7 +178,10 @@ check_files() {
     
     # Check FPGA bitstream
     if [ ! -f "$FPGA_RBF" ]; then
-        print_error "FPGA RBF not found: $FPGA_RBF"
+        print_error "FPGA RBF not found"
+        print_error "Searched:"
+        print_error "  - $FPGA_DIR/build/output_files/*.rbf"
+        print_error "  - $REPO_ROOT/build/output_files/*.rbf"
         print_error "Build FPGA bitstream first: cd FPGA && make rbf"
         missing=1
     fi
@@ -131,7 +189,7 @@ check_files() {
     # Check rootfs
     if [ ! -f "$ROOTFS_TAR" ]; then
         print_error "Rootfs tarball not found: $ROOTFS_TAR"
-        print_error "Build rootfs first: cd HPS/rootfs && sudo make"
+        print_error "Build rootfs first: cd HPS/linux_image/rootfs && sudo make"
         missing=1
     fi
     

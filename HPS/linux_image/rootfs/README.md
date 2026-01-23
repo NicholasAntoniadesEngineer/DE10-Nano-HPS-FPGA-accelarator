@@ -5,8 +5,12 @@ This directory contains the automated rootfs build system for DE10-Nano.
 ## Quick Start
 
 ```bash
+cd HPS/linux_image/rootfs
+
+# On a fresh Debian/Ubuntu/WSL system, install build-host dependencies first:
+make deps
+
 # Build rootfs (requires root access)
-cd HPS/rootfs
 sudo make
 
 # Or run script directly
@@ -82,11 +86,16 @@ Add scripts to `scripts/` directory. They will be executed in alphabetical order
 Required tools (installed on build host):
 - `debootstrap`
 - `qemu-user-static` or `qemu-debootstrap`
+- `debian-archive-keyring` (for Release signature verification)
+- `ca-certificates` (for HTTPS mirrors)
+- `gnupg` (provides `gpgv`)
+- `wget` or `curl` (mirror preflight checks)
 - Root access (for chroot operations)
 
 Install dependencies:
 ```bash
-sudo apt-get install debootstrap qemu-user-static
+sudo apt-get update
+sudo apt-get install -y debootstrap qemu-user-static debian-archive-keyring ca-certificates gnupg wget
 ```
 
 ## Troubleshooting
@@ -98,7 +107,8 @@ sudo apt-get install debootstrap qemu-user-static
 ### Debootstrap Fails
 - Check network connection
 - Verify Debian mirror is accessible
-- Try different Debian version
+- Default rootfs suite is Debian `stable`. If you explicitly set an older suite (e.g., `bullseye`), it may no longer be on the primary mirrors; the build script will fall back to `archive.debian.org` when needed.
+- To pin to a specific suite, set `ROOTFS_VERSION` (example: `ROOTFS_VERSION=bookworm`)
 
 ### Package Installation Fails
 - Check package names in `packages.txt`

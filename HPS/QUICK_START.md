@@ -2,6 +2,8 @@
 
 ## Prerequisites
 
+### Build Dependencies
+
 Install build dependencies first:
 
 ```bash
@@ -10,6 +12,27 @@ sudo apt-get update && sudo apt-get install -y \
     debootstrap qemu-user-static parted dosfstools e2fsprogs \
     make git build-essential
 ```
+
+### FPGA Tools (Optional but Recommended)
+
+For complete SD image creation, you'll need:
+
+1. **Intel Quartus Prime** - For FPGA bitstream (RBF) generation
+   - Download from: https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html
+   - Install Quartus Prime Lite (free)
+   - **On WSL:** Build system auto-detects Windows installations
+
+2. **Intel SoC EDS** - For preloader and U-Boot bootloader generation
+   - Download from: https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html
+   - Install matching your Quartus version (e.g., SoC EDS 20.1 for Quartus 20.1)
+   - **On WSL:** After installation, run:
+     ```bash
+     cd FPGA && make soceds-find
+     # Follow the printed instructions to set SOCEDS_DEST_ROOT
+     ```
+   - See `FPGA/SOC_EDS_SETUP.md` for detailed installation guide
+
+**Note:** If you don't install SoC EDS, you can still build kernel and rootfs, but you'll need to provide prebuilt bootloader binaries for SD image creation.
 
 ## Build and Flash SD Card
 

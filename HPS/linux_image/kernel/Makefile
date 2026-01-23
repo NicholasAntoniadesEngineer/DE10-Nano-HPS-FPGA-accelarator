@@ -70,32 +70,58 @@ kernel-download: $(KERNEL_DIR)/.git/config
 
 $(KERNEL_DIR)/.git/config:
 	@echo -e "$(YELLOW)Downloading kernel source...$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Kernel Source (Download/Update)$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@set -e; \
+		tmp_check="../scripts/.check_internet.normalized.$$$$"; \
+		trap 'rm -f "$$tmp_check"' EXIT; \
+		tr -d '\r' < "../scripts/check_internet.sh" > "$$tmp_check"; \
+		chmod +x "$$tmp_check"; \
+		"$$tmp_check" --name "kernel sources (git)" --url "https://github.com" --url "https://raw.githubusercontent.com"
 	@if [ -d "$(KERNEL_DIR)" ] && [ -d "$(KERNEL_DIR)/.git" ]; then \
 		echo -e "$(YELLOW)Kernel directory exists, updating...$(NC)"; \
 		cd $(KERNEL_DIR) && \
-		git fetch origin || true; \
+		if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+			echo -e "$(RED)ERROR: $(KERNEL_DIR) exists but is not a git working tree$(NC)"; \
+			echo -e "$(YELLOW)Fix: remove $(KERNEL_DIR) and rerun: make kernel-distclean && make kernel-download$(NC)"; \
+			exit 1; \
+		fi; \
+		if ! git remote get-url origin >/dev/null 2>&1; then \
+			echo -e "$(YELLOW)Kernel remote 'origin' not configured. Setting origin to: $(KERNEL_REPO)$(NC)"; \
+			git remote add origin $(KERNEL_REPO) 2>/dev/null || git remote set-url origin $(KERNEL_REPO) 2>/dev/null || true; \
+		fi; \
+		git fetch origin --tags || true; \
 		BRANCH=""; \
 		for b in $(KERNEL_BRANCH) socfpga-5.15 socfpga-5.10 master main; do \
-			if git show-ref --verify --quiet refs/remotes/origin/$$b 2>/dev/null || \
-			   git show-ref --verify --quiet refs/heads/$$b 2>/dev/null; then \
+			if git show-ref --verify --quiet refs/heads/$$b 2>/dev/null; then \
+				BRANCH="$$b"; \
+				break; \
+			fi; \
+			if git remote get-url origin >/dev/null 2>&1 && git show-ref --verify --quiet refs/remotes/origin/$$b 2>/dev/null; then \
 				BRANCH="$$b"; \
 				break; \
 			fi; \
 		done; \
 		if [ -z "$$BRANCH" ]; then \
 			echo -e "$(YELLOW)No matching branch found, checking available branches...$(NC)"; \
-			BRANCH=$$(git branch -r | grep -E "(socfpga|master|main)" | head -1 | sed 's|origin/||' | tr -d ' '); \
+			if git remote get-url origin >/dev/null 2>&1; then \
+				BRANCH=$$(git branch -r | grep -E "(socfpga|master|main)" | head -1 | sed 's|origin/||' | tr -d ' '); \
+			fi; \
 			if [ -z "$$BRANCH" ]; then \
-				BRANCH=$$(git branch -r | head -1 | sed 's|origin/||' | tr -d ' '); \
+				BRANCH=$$(git branch --list | head -1 | tr -d ' *'); \
+				if [ -z "$$BRANCH" ] && git remote get-url origin >/dev/null 2>&1; then \
+					BRANCH=$$(git branch -r | head -1 | sed 's|origin/||' | tr -d ' '); \
+				fi; \
 			fi; \
 		fi; \
 		if [ -n "$$BRANCH" ]; then \
 			echo -e "$(GREEN)Checking out branch: $$BRANCH$(NC)"; \
 			git checkout -f $$BRANCH 2>/dev/null || \
-			git checkout -f -b $$BRANCH origin/$$BRANCH 2>/dev/null || \
+			(git remote get-url origin >/dev/null 2>&1 && git checkout -f -b $$BRANCH origin/$$BRANCH 2>/dev/null) || \
 			(echo -e "$(YELLOW)Warning: Could not checkout $$BRANCH, trying to reset...$(NC)" && \
-			 git reset --hard origin/$$BRANCH 2>/dev/null || true); \
-			git pull || true; \
+			 (git remote get-url origin >/dev/null 2>&1 && git reset --hard origin/$$BRANCH 2>/dev/null) || true); \
+			(git remote get-url origin >/dev/null 2>&1 && git pull) || true; \
 		fi; \
 		if [ ! -d "$(KERNEL_DIR)/arch" ] || [ ! -f "$(KERNEL_DIR)/Makefile" ]; then \
 			echo -e "$(YELLOW)Kernel files not checked out, forcing checkout...$(NC)"; \
@@ -265,6 +291,12 @@ kernel-clean:
 kernel-distclean: kernel-clean
 	@echo -e "$(YELLOW)Removing kernel source...$(NC)"
 	@if [ -d "$(KERNEL_DIR)" ]; then \
+		echo -e "$(YELLOW)Calculating kernel source size...$(NC)"; \
+		KERNEL_SIZE=$$(du -sh "$(KERNEL_DIR)" 2>/dev/null | cut -f1 || echo "unknown"); \
+		echo -e "$(YELLOW)Removing kernel source directory (size: $$KERNEL_SIZE)...$(NC)"; \
+		echo -e "$(YELLOW)This may take a few minutes for large directories...$(NC)"; \
 		rm -rf $(KERNEL_DIR); \
-		echo -e "$(GREEN)Kernel source removed$(NC)"; \
+		echo -e "$(GREEN)✓ Kernel source removed$(NC)"; \
+	else \
+		echo -e "$(GREEN)✓ Kernel source directory not found (already clean)$(NC)"; \
 	fi

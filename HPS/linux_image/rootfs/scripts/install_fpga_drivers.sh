@@ -13,6 +13,7 @@ echo "Setting up FPGA driver access..."
 UDEV_RULES="/etc/udev/rules.d/99-fpga.rules"
 if [ ! -f "$UDEV_RULES" ]; then
     echo "Creating udev rules for FPGA access..."
+    mkdir -p "$(dirname "$UDEV_RULES")"
     cat > "$UDEV_RULES" << EOF
 # FPGA device access rules
 # Allow access to /dev/mem for FPGA communication

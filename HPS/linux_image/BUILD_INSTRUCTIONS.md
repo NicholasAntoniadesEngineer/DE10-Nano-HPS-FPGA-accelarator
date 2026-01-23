@@ -21,6 +21,70 @@ sudo apt-get update && sudo apt-get install -y \
 arm-linux-gnueabihf-gcc --version && flex --version && debootstrap --version
 ```
 
+### FPGA Tools (For Complete SD Image)
+
+To build a complete bootable SD image, you'll also need:
+
+#### 1. Intel Quartus Prime (for FPGA bitstream)
+
+**Required for:** QSys generation, FPGA compilation, RBF generation
+
+**Installation:**
+1. Download from: https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html
+2. Install Quartus Prime Lite (free edition is sufficient)
+3. **On Windows/WSL:** Build system automatically detects installations in:
+   - `C:\intelFPGA_lite\20.1\quartus\`
+   - `C:\intelFPGA\20.1\quartus\`
+4. **On Linux:** Add to PATH:
+   ```bash
+   export PATH=$PATH:/path/to/intelFPGA/20.1/quartus/bin64
+   ```
+
+**Verify:**
+```bash
+cd ../FPGA && make check-tools
+```
+
+#### 2. Intel SoC EDS (for bootloader components)
+
+**Required for:** Preloader, U-Boot, Device Tree generation
+
+**Installation:**
+1. Download from: https://www.intel.com/content/www/us/en/programmable/downloads/download-center.html
+   - Search for "SoC Embedded Design Suite" matching your Quartus version
+   - Example: SoC EDS 20.1 for Quartus Prime 20.1
+2. **On Windows:** Run installer, install to:
+   - `C:\intelFPGA\20.1\embedded` (recommended)
+   - Or `C:\intelFPGA_lite\20.1\embedded`
+3. **On WSL:** After installation, configure:
+   ```bash
+   cd ../FPGA
+   make soceds-find
+   # Follow the printed instructions to set SOCEDS_DEST_ROOT
+   ```
+   Or manually:
+   ```bash
+   export SOCEDS_DEST_ROOT="/mnt/c/intelFPGA/20.1/embedded"
+   # Add SoC EDS tools to PATH (tools are in altera/preloadergen/ not bin/):
+   export PATH="$PATH:$SOCEDS_DEST_ROOT/host_tools/altera/preloadergen"
+   source "$SOCEDS_DEST_ROOT/embedded_command_shell.sh"
+   ```
+
+**Verify:**
+```bash
+cd ../FPGA && make check-tools
+# Should show: ✓ Found: /path/to/bsp-create-settings
+```
+
+**Alternative:** If you don't install SoC EDS, you can use prebuilt bootloader binaries:
+```bash
+sudo PRELOADER_BIN=/path/to/preloader-mkpimage.bin \
+     UBOOT_IMG=/path/to/u-boot.img \
+     make sd-image
+```
+
+See `../FPGA/SOC_EDS_SETUP.md` for detailed SoC EDS installation guide.
+
 ## Build Process
 
 ### Complete Build (Recommended)

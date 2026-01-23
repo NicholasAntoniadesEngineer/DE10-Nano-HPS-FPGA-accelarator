@@ -20,8 +20,14 @@ mkdir -p /etc/ssh
 
 # Enable SSH service
 if command -v systemctl &> /dev/null; then
-    systemctl enable ssh || systemctl enable sshd || true
-    echo "SSH service enabled"
+    if systemctl enable ssh; then
+        echo "SSH service enabled"
+    elif systemctl enable sshd; then
+        echo "SSHD service enabled"
+    else
+        echo "ERROR: Failed to enable SSH service" >&2
+        exit 1
+    fi
 fi
 
 echo "SSH configuration complete"

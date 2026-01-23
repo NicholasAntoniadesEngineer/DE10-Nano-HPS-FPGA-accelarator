@@ -30,7 +30,7 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m
 
-.PHONY: all help clean \
+.PHONY: all help clean clean-all everything \
         linux-image kernel rootfs sd-image \
         drivers applications calculator_test led_examples
 
@@ -69,10 +69,15 @@ help:
 	@echo "  drivers          - Show driver integration information"
 	@echo ""
 	@echo "Other Targets:"
+	@echo "  everything       - Build everything (applications + Linux image)"
 	@echo "  clean            - Remove all build artifacts"
+	@echo "  clean-all        - Deep clean (removes kernel source too)"
 	@echo "  help             - Show this help message"
 	@echo ""
 	@echo "Examples:"
+	@echo "  # Build everything (applications + Linux image, requires root)"
+	@echo "  sudo make everything"
+	@echo ""
 	@echo "  # Build applications only (fast)"
 	@echo "  make"
 	@echo ""
@@ -81,6 +86,12 @@ help:
 	@echo ""
 	@echo "  # Build complete Linux image (requires root)"
 	@echo "  sudo make linux-image"
+	@echo ""
+	@echo "  # Clean all build artifacts"
+	@echo "  make clean"
+	@echo ""
+	@echo "  # Deep clean (removes kernel source too)"
+	@echo "  sudo make clean-all"
 	@echo ""
 	@echo "  # Build from specific component directory"
 	@echo "  cd linux_image && sudo make all"
@@ -184,19 +195,75 @@ drivers:
 	fi
 
 # ============================================================================
-# Clean Target
+# Everything Target - Build All Components
+# ============================================================================
+
+everything:
+	@echo -e "$(BLUE)===========================================$(NC)"
+	@echo -e "$(BLUE)Building Everything (Applications + Linux Image)$(NC)"
+	@echo -e "$(BLUE)===========================================$(NC)"
+	@echo ""
+	@echo -e "$(YELLOW)Step 1/2: Building applications...$(NC)"
+	@$(MAKE) applications
+	@echo ""
+	@echo -e "$(YELLOW)Step 2/2: Building Linux image (kernel + rootfs + SD card)...$(NC)"
+	@echo -e "$(YELLOW)This may take 30-60 minutes...$(NC)"
+	@$(MAKE) linux-image
+	@echo ""
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Everything built successfully!$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+
+# ============================================================================
+# Clean Targets
 # ============================================================================
 
 clean:
 	@echo -e "$(YELLOW)Cleaning all HPS build artifacts...$(NC)"
+	@echo -e "$(YELLOW)Cleaning Linux image build artifacts...$(NC)"
 	@if [ -f "$(LINUX_IMAGE_DIR)/Makefile" ]; then \
 		$(MAKE) -C $(LINUX_IMAGE_DIR) clean || true; \
+	else \
+		echo -e "$(GREEN)✓ Linux image Makefile not found, skipping$(NC)"; \
 	fi
+	@echo -e "$(YELLOW)Cleaning application build artifacts...$(NC)"
 	@if [ -f "$(APPLICATIONS_DIR)/Makefile" ]; then \
 		$(MAKE) -C $(APPLICATIONS_DIR) clean || true; \
+	else \
+		echo -e "$(GREEN)✓ Applications Makefile not found, skipping$(NC)"; \
 	fi
+	@echo -e "$(YELLOW)Cleaning driver build artifacts...$(NC)"
 	@if [ -f "$(DRIVERS_DIR)/Makefile" ]; then \
 		$(MAKE) -C $(DRIVERS_DIR) clean || true; \
+	else \
+		echo -e "$(GREEN)✓ Drivers Makefile not found, skipping$(NC)"; \
 	fi
+	@echo -e "$(YELLOW)Removing top-level build directory...$(NC)"
 	@rm -rf build
-	@echo -e "$(GREEN)Clean complete$(NC)"
+	@echo -e "$(GREEN)✓ Clean complete$(NC)"
+
+clean-all: clean
+	@echo -e "$(YELLOW)===========================================$(NC)"
+	@echo -e "$(YELLOW)Performing deep clean...$(NC)"
+	@echo -e "$(YELLOW)===========================================$(NC)"
+	@echo -e "$(YELLOW)Step 1/2: Removing kernel source...$(NC)"
+	@if [ -f "$(LINUX_IMAGE_DIR)/kernel/Makefile" ]; then \
+		$(MAKE) -C $(LINUX_IMAGE_DIR)/kernel kernel-distclean || true; \
+	else \
+		echo -e "$(GREEN)✓ Kernel Makefile not found, skipping$(NC)"; \
+	fi
+	@echo ""
+	@echo -e "$(YELLOW)Step 2/2: Cleaning debootstrap cache...$(NC)"
+	@if [ -d "/var/cache/debootstrap" ]; then \
+		CACHE_SIZE=$$(du -sh /var/cache/debootstrap 2>/dev/null | cut -f1 || echo "unknown"); \
+		echo -e "$(YELLOW)Debootstrap cache size: $$CACHE_SIZE$(NC)"; \
+		sudo rm -rf /var/cache/debootstrap/* 2>/dev/null || true; \
+		echo -e "$(GREEN)✓ Debootstrap cache cleaned$(NC)"; \
+	else \
+		echo -e "$(GREEN)✓ Debootstrap cache not found (already clean)$(NC)"; \
+	fi
+	@echo ""
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Deep clean complete!$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(YELLOW)Note: Kernel source will be re-downloaded on next build$(NC)"

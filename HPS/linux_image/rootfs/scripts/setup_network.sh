@@ -24,7 +24,7 @@ fi
 
 # Enable networking service
 if command -v systemctl &> /dev/null; then
-    systemctl enable networking || true
+    systemctl enable networking
 fi
 
 echo "Network configuration complete"
