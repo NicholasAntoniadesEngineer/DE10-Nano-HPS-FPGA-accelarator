@@ -178,10 +178,20 @@ configure_rootfs_apt_sources() {
     : > "$sources_list_path"
 
     print_step "Configuring apt sources for suite: $suite_name"
-    if ! add_apt_source_if_available "$sources_list_path" "$debian_mirror_url" "$suite_name" "$components_list"; then
-        print_error "Failed to configure required apt source for suite '${suite_name}' from mirror: ${debian_mirror_url}"
-        exit 1
-    fi
+    
+    while true; do
+        if add_apt_source_if_available "$sources_list_path" "$debian_mirror_url" "$suite_name" "$components_list"; then
+            break
+        fi
+        
+        print_warning "Failed to configure apt source for suite '${suite_name}' from mirror: ${debian_mirror_url}"
+        wait_for_host_internet "apt source configuration (retry after reconnect)" 2 \
+            "$debian_mirror_url" \
+            "https://deb.debian.org"
+        
+        : > "$sources_list_path"
+    done
+    
     add_apt_source_if_available "$sources_list_path" "$debian_mirror_url" "${suite_name}-updates" "$components_list" || true
 
     local security_mirror_url="https://security.debian.org/debian-security"
@@ -656,8 +666,24 @@ EOF
     # Ensure ifupdown is installed (for /etc/network/interfaces)
     if ! chroot "$ROOTFS_DIR" dpkg -l | grep -q ifupdown; then
         print_step "Installing ifupdown..."
-        chroot "$ROOTFS_DIR" apt-get update
-        chroot "$ROOTFS_DIR" apt-get install -y ifupdown
+        while true; do
+            if chroot "$ROOTFS_DIR" apt-get update; then
+                break
+            fi
+            print_warning "apt-get update failed for ifupdown installation."
+            wait_for_host_internet "apt-get update for ifupdown (retry after reconnect)" 2 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+        done
+        while true; do
+            if chroot "$ROOTFS_DIR" apt-get install -y ifupdown; then
+                break
+            fi
+            print_warning "apt-get install ifupdown failed."
+            wait_for_host_internet "apt-get install ifupdown (retry after reconnect)" 2 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+        done
     fi
     
     # Unmount
@@ -686,8 +712,24 @@ configure_ssh() {
     # Ensure openssh-server is installed (should be in packages.txt)
     if ! chroot "$ROOTFS_DIR" dpkg -l | grep -q openssh-server; then
         print_step "Installing openssh-server..."
-        chroot "$ROOTFS_DIR" apt-get update
-        chroot "$ROOTFS_DIR" apt-get install -y openssh-server
+        while true; do
+            if chroot "$ROOTFS_DIR" apt-get update; then
+                break
+            fi
+            print_warning "apt-get update failed for openssh-server installation."
+            wait_for_host_internet "apt-get update for openssh-server (retry after reconnect)" 2 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+        done
+        while true; do
+            if chroot "$ROOTFS_DIR" apt-get install -y openssh-server; then
+                break
+            fi
+            print_warning "apt-get install openssh-server failed."
+            wait_for_host_internet "apt-get install openssh-server (retry after reconnect)" 2 \
+                "https://deb.debian.org" \
+                "https://security.debian.org"
+        done
     fi
     
     # Configure SSH
