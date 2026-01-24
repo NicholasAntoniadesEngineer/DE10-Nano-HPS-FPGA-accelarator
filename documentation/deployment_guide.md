@@ -97,10 +97,20 @@ sudo make sd-image   # SD image (~2-5min)
 ```
 
 ### Build Features
+- **Incremental builds** (massive time savings - only rebuilds when sources change)
 - **Automatic error recovery** (CRLF normalization, internet checks)
 - **Cross-platform support** (Windows/WSL/Linux path handling)
 - **Flexible targets** (individual component builds)
 - **Dependency management** (`make deps`)
+
+**Check for rebuilds before building:**
+```bash
+# Check if kernel needs rebuild
+cd HPS/linux_image && make check-rebuild
+
+# Check if rootfs needs rebuild
+cd rootfs && make check-rebuild
+```
 
 ### Build Outputs
 
@@ -335,8 +345,15 @@ sudo PRELOADER_BIN=HPS/preloader/preloader-mkpimage.bin \
 ### Recovery Commands
 
 ```bash
-# Complete rebuild
+# Check if rebuild is needed (recommended first step)
+make check-rebuild  # Shows what changed, if anything
+
+# Complete rebuild (when changes detected)
 cd HPS/linux_image && sudo make clean && sudo make linux-image
+
+# Force rebuilds (ignore incremental detection)
+sudo make rebuild   # Force kernel rebuild
+sudo make force-rebuild  # Alias for rebuild
 
 # Component rebuilds
 sudo make clean-kernel && sudo make kernel    # Kernel only
