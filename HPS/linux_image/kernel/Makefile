@@ -2,6 +2,10 @@
 # Linux Kernel Build System for DE10-Nano
 # ============================================================================
 # Automated kernel build with FPGA driver integration
+# Features:
+#   - ccache support for faster rebuilds
+#   - Incremental builds based on source file changes
+#   - Build timing and statistics
 # ============================================================================
 
 SHELL := /bin/bash
@@ -17,12 +21,55 @@ KERNEL_CONFIG := $(CURDIR)/configs/socfpga_defconfig
 
 # Source files that trigger kernel rebuild when changed
 KERNEL_SOURCES := $(KERNEL_CONFIG) \
-                  $(HPS_DIR)/drivers/integration/integrate_linux_driver.sh \
-                  $(wildcard $(HPS_DIR)/applications/calculator_test/*.c) \
-                  $(wildcard $(HPS_DIR)/applications/calculator_test/*.h)
+                  $(HPS_DIR)/drivers/integration/integrate_linux_driver.sh
 
-# Cross-compilation
-CROSS_COMPILE ?= arm-linux-gnueabihf-
+# ============================================================================
+# ccache Support
+# ============================================================================
+# ccache dramatically speeds up kernel rebuilds by caching compiled objects.
+# 
+# How it works:
+#   1. First build: ccache stores compiled .o files indexed by source hash
+#   2. Subsequent builds: ccache returns cached .o if source unchanged
+#   3. After 'make clean': Cache persists, so rebuilds are still fast
+#
+# Performance impact:
+#   - First build: Same time (no cache hits)
+#   - Rebuild after changes: 50-80% faster
+#   - Clean rebuild: 50-80% faster (cache outside build dir)
+#
+# Configuration:
+#   USE_CCACHE=1 : Enable ccache (default if available)
+#   USE_CCACHE=0 : Disable ccache
+#
+# To view ccache statistics: ccache -s
+# To clear ccache: ccache -C
+# ============================================================================
+
+# Detect ccache availability
+CCACHE_PATH := $(shell command -v ccache 2>/dev/null)
+
+# Default: use ccache if available
+USE_CCACHE ?= 1
+
+# Cross-compilation with optional ccache
+CROSS_COMPILE_BASE ?= arm-linux-gnueabihf-
+ifeq ($(USE_CCACHE),1)
+ifneq ($(CCACHE_PATH),)
+    # ccache found and enabled - prepend to cross-compiler
+    CROSS_COMPILE := ccache $(CROSS_COMPILE_BASE)
+    CCACHE_ENABLED := 1
+else
+    # ccache not found - use base compiler
+    CROSS_COMPILE := $(CROSS_COMPILE_BASE)
+    CCACHE_ENABLED := 0
+endif
+else
+    # ccache explicitly disabled
+    CROSS_COMPILE := $(CROSS_COMPILE_BASE)
+    CCACHE_ENABLED := 0
+endif
+
 ARCH := arm
 
 # Paths
@@ -38,7 +85,7 @@ GREEN := \033[0;32m
 YELLOW := \033[1;33m
 NC := \033[0m
 
-.PHONY: all help kernel-download kernel-config kernel-build kernel-modules kernel-clean kernel-integrate-driver check-rebuild rebuild force-rebuild
+.PHONY: all help kernel-download kernel-config kernel-build kernel-modules kernel-clean kernel-integrate-driver check-rebuild rebuild force-rebuild ccache-stats
 
 all: kernel-build
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -47,7 +94,24 @@ all: kernel-build
 	@echo -e "$(GREEN)Kernel image: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage$(NC)"
 	@echo -e "$(GREEN)Device tree:  $(KERNEL_BUILD_DIR)/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb$(NC)"
 	@echo ""
+ifeq ($(CCACHE_ENABLED),1)
+	@echo -e "$(YELLOW)ccache enabled - view stats with: make ccache-stats$(NC)"
+endif
 	@echo -e "$(YELLOW)Tip: Use 'make check-rebuild' to check if rebuild is needed$(NC)"
+
+# Show ccache statistics
+ccache-stats:
+ifeq ($(CCACHE_ENABLED),1)
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)ccache Statistics$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@ccache -s
+else
+	@echo -e "$(YELLOW)ccache is not enabled$(NC)"
+	@echo "To enable ccache:"
+	@echo "  1. Install ccache: sudo apt-get install ccache"
+	@echo "  2. Ensure USE_CCACHE=1 (default)"
+endif
 
 help:
 	@echo "Linux Kernel Build System for DE10-Nano"
@@ -64,6 +128,7 @@ help:
 	@echo "  rebuild            - Force rebuild kernel from scratch"
 	@echo "  force-rebuild      - Alias for rebuild"
 	@echo "  kernel-clean       - Clean build artifacts"
+	@echo "  ccache-stats       - Show ccache statistics"
 	@echo "  help               - Show this help message"
 	@echo ""
 	@echo "Configuration:"
@@ -71,6 +136,20 @@ help:
 	@echo "  KERNEL_BRANCH=$(KERNEL_BRANCH)"
 	@echo "  CROSS_COMPILE=$(CROSS_COMPILE)"
 	@echo "  ARCH=$(ARCH)"
+	@echo ""
+	@echo "ccache Configuration:"
+ifeq ($(CCACHE_ENABLED),1)
+	@echo "  Status: ENABLED ($(CCACHE_PATH))"
+	@echo "  Disable with: make USE_CCACHE=0"
+else
+ifneq ($(CCACHE_PATH),)
+	@echo "  Status: DISABLED (available at $(CCACHE_PATH))"
+	@echo "  Enable with: make USE_CCACHE=1"
+else
+	@echo "  Status: NOT AVAILABLE"
+	@echo "  Install with: sudo apt-get install ccache"
+endif
+endif
 	@echo ""
 	@echo "Output:"
 	@echo "  Kernel: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage"
@@ -300,9 +379,16 @@ kernel-build: kernel-config kernel-integrate-driver
 		exit 0; \
 	fi; \
 	echo -e "$(YELLOW)Building kernel...$(NC)"; \
-	echo -e "$(YELLOW)This may take 10-30 minutes...$(NC)"; \
-	echo -e "$(YELLOW)Target: ARM Cortex-A9 (ARMv7-A) for DE10-Nano$(NC)"; \
-	echo -e "$(YELLOW)Note: Cleaning build artifacts to ensure correct architecture flags...$(NC)"
+	echo -e "$(YELLOW)This may take 10-30 minutes (faster with ccache)...$(NC)"; \
+	echo -e "$(YELLOW)Target: ARM Cortex-A9 (ARMv7-A) for DE10-Nano$(NC)"
+	@# Show ccache status
+ifeq ($(CCACHE_ENABLED),1)
+	@echo -e "$(GREEN)[ccache] ENABLED - using $(CCACHE_PATH)$(NC)"
+	@echo -e "$(GREEN)[ccache] Cache hits will dramatically speed up compilation$(NC)"
+else
+	@echo -e "$(YELLOW)[ccache] DISABLED - install ccache for faster rebuilds$(NC)"
+endif
+	@echo -e "$(YELLOW)Note: Cleaning build artifacts to ensure correct architecture flags...$(NC)"
 	@rm -rf $(KERNEL_BUILD_DIR)/arch/arm/kernel $(KERNEL_BUILD_DIR)/arch/arm/mm $(KERNEL_BUILD_DIR)/kernel
 	@echo -e "$(YELLOW)Patching kernel Makefile to use Cortex-A9 flags...$(NC)"
 	@cd $(KERNEL_DIR)/arch/arm && \

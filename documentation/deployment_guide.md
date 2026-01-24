@@ -106,10 +106,10 @@ sudo make sd-image   # SD image (~2-5min)
 **Check for rebuilds before building:**
 ```bash
 # Check if kernel needs rebuild
-cd HPS/linux_image && make check-rebuild
+cd HPS/linux_image/kernel && make check-rebuild
 
 # Check if rootfs needs rebuild
-cd rootfs && make check-rebuild
+cd ../rootfs && make check-rebuild
 ```
 
 ### Build Outputs

@@ -2,6 +2,7 @@
 # Linux Image Build System for DE10-Nano
 # ============================================================================
 # Builds kernel, rootfs, and creates SD card image
+# Supports parallel builds for kernel and rootfs
 # ============================================================================
 
 SHELL := /bin/bash
@@ -11,6 +12,9 @@ LINUX_IMAGE_DIR := $(CURDIR)
 HPS_DIR := $(abspath $(CURDIR)/..)
 REPO_ROOT := $(abspath $(HPS_DIR)/..)
 FPGA_DIR := $(REPO_ROOT)/FPGA
+
+# Include common build infrastructure
+-include $(REPO_ROOT)/build/build_common.mk
 
 # Configuration
 KERNEL_DIR := $(LINUX_IMAGE_DIR)/kernel
@@ -27,17 +31,34 @@ FPGA_QSYS_FILE ?= quartus/qsys/soc_system.qsys
 CROSS_COMPILE ?= arm-linux-gnueabihf-
 ARCH := arm
 
-# Colors
-GREEN := \033[0;32m
-YELLOW := \033[1;33m
-NC := \033[0m
+# ============================================================================
+# Parallel Build Configuration
+# ============================================================================
+# PARALLEL_BUILD=1 : Enable parallel kernel+rootfs builds (default)
+# PARALLEL_BUILD=0 : Force serial builds (useful for debugging)
+# PARALLEL_JOBS=N  : Number of parallel jobs (default: 2)
+# ============================================================================
+PARALLEL_BUILD ?= 1
+PARALLEL_JOBS ?= 2
+
+# Colors (fallback if build_common.mk not included)
+GREEN ?= \033[0;32m
+YELLOW ?= \033[1;33m
+BLUE ?= \033[0;34m
+CYAN ?= \033[0;36m
+NC ?= \033[0m
+
+# Timestamp for logging
+TIMESTAMP = $(shell date '+%Y-%m-%d %H:%M:%S')
 
 .PHONY: all help deps deps-check fpga kernel rootfs linux-image sd-image clean
+.PHONY: task-kernel task-rootfs parallel-build serial-build timing-report
 
 all: linux-image
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Linux image build complete$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
+	@$(MAKE) timing-report
 
 help:
 	@echo "Linux Image Build System for DE10-Nano"
@@ -52,13 +73,21 @@ help:
 	@echo "  rootfs        - Build root filesystem only (requires root)"
 	@echo "  linux-image   - Build complete Linux image (FPGA + kernel + rootfs + SD image)"
 	@echo "  sd-image      - Create SD card image only (requires kernel and rootfs)"
+	@echo "  sd-image-update - Update existing SD image (faster, only changed files)"
 	@echo "  clean         - Clean all build artifacts"
+	@echo "  timing-report - Show build timing statistics"
 	@echo "  help          - Show this help message"
 	@echo ""
+	@echo "Parallel Build Options:"
+	@echo "  PARALLEL_BUILD=1  - Enable parallel kernel+rootfs (default)"
+	@echo "  PARALLEL_BUILD=0  - Force serial builds (for debugging)"
+	@echo "  PARALLEL_JOBS=N   - Number of parallel jobs (default: 2)"
+	@echo ""
 	@echo "Usage:"
-	@echo "  make kernel        # Build kernel only"
-	@echo "  sudo make rootfs   # Build rootfs only"
-	@echo "  sudo make all      # Build complete image"
+	@echo "  make kernel                    # Build kernel only"
+	@echo "  sudo make rootfs               # Build rootfs only"
+	@echo "  sudo make all                  # Build complete image (parallel)"
+	@echo "  sudo make all PARALLEL_BUILD=0 # Build complete image (serial)"
 	@echo ""
 	@echo "Deployment:"
 	@echo "  cd scripts"
@@ -196,11 +225,66 @@ fpga:
 		echo "FPGA artifacts verified"; \
 	'
 
+# Public kernel target (standalone use)
 kernel:
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Kernel Build$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(YELLOW)Building Linux kernel...$(NC)"
+	@$(MAKE) kernel-internal
+
+# Public rootfs target (standalone use)
+rootfs:
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Root Filesystem Build$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(YELLOW)Building root filesystem...$(NC)"
+	@echo -e "$(YELLOW)Note: Rootfs build requires root access$(NC)"
+	@$(MAKE) rootfs-internal
+
+# ============================================================================
+# Parallel Build Tasks
+# ============================================================================
+# These are individual tasks that can be run in parallel or serial.
+# Do not call these directly; use linux-image or parallel-build instead.
+# ============================================================================
+
+# Task wrapper for kernel build (for parallel execution)
+task-kernel:
+	@echo -e "$(CYAN)[TASK]$(NC) $(TIMESTAMP) | Starting kernel build task"
+	@mkdir -p $(BUILD_DIR)/.timing
+	@date +%s > $(BUILD_DIR)/.timing/kernel.start
+	@$(MAKE) kernel-internal
+	@if [ -f "$(BUILD_DIR)/.timing/kernel.start" ]; then \
+		start=$$(cat $(BUILD_DIR)/.timing/kernel.start); \
+		end=$$(date +%s); \
+		duration=$$((end - start)); \
+		mins=$$((duration / 60)); \
+		secs=$$((duration % 60)); \
+		echo -e "$(GREEN)[TASK]$(NC) $(TIMESTAMP) | Kernel build completed ($${mins}m $${secs}s)"; \
+		echo "kernel,$$start,$$end,$$duration" >> $(BUILD_DIR)/.timing/build_times.csv; \
+		rm -f $(BUILD_DIR)/.timing/kernel.start; \
+	fi
+
+# Task wrapper for rootfs build (for parallel execution)
+task-rootfs:
+	@echo -e "$(CYAN)[TASK]$(NC) $(TIMESTAMP) | Starting rootfs build task"
+	@mkdir -p $(BUILD_DIR)/.timing
+	@date +%s > $(BUILD_DIR)/.timing/rootfs.start
+	@$(MAKE) rootfs-internal
+	@if [ -f "$(BUILD_DIR)/.timing/rootfs.start" ]; then \
+		start=$$(cat $(BUILD_DIR)/.timing/rootfs.start); \
+		end=$$(date +%s); \
+		duration=$$((end - start)); \
+		mins=$$((duration / 60)); \
+		secs=$$((duration % 60)); \
+		echo -e "$(GREEN)[TASK]$(NC) $(TIMESTAMP) | Rootfs build completed ($${mins}m $${secs}s)"; \
+		echo "rootfs,$$start,$$end,$$duration" >> $(BUILD_DIR)/.timing/build_times.csv; \
+		rm -f $(BUILD_DIR)/.timing/rootfs.start; \
+	fi
+
+# Internal kernel target (called by task-kernel)
+kernel-internal:
 	@if [ -f "$(KERNEL_DIR)/Makefile" ]; then \
 		set -e; \
 		tmp_check="$(SCRIPTS_DIR)/.check_internet.normalized.$$$$"; \
@@ -214,12 +298,8 @@ kernel:
 		exit 1; \
 	fi
 
-rootfs:
-	@echo -e "$(GREEN)===========================================$(NC)"
-	@echo -e "$(GREEN)Root Filesystem Build$(NC)"
-	@echo -e "$(GREEN)===========================================$(NC)"
-	@echo -e "$(YELLOW)Building root filesystem...$(NC)"
-	@echo -e "$(YELLOW)Note: Rootfs build requires root access$(NC)"
+# Internal rootfs target (called by task-rootfs)
+rootfs-internal:
 	@if [ -f "$(ROOTFS_DIR)/Makefile" ]; then \
 		set -e; \
 		tmp_check="$(SCRIPTS_DIR)/.check_internet.normalized.$$$$"; \
@@ -227,12 +307,10 @@ rootfs:
 		tr -d '\r' < "$(SCRIPTS_DIR)/check_internet.sh" > "$$tmp_check"; \
 		chmod +x "$$tmp_check"; \
 		"$$tmp_check" --name "Debian mirrors (debootstrap/apt)" --url "https://deb.debian.org" --url "https://security.debian.org"; \
-		if [ "$(shell id -u)" -eq 0 ]; then \
+		if [ "$$(id -u)" -eq 0 ]; then \
 			$(MAKE) -C $(ROOTFS_DIR); \
 		else \
-			echo "Run with: sudo make rootfs"; \
-			echo -e "$(YELLOW)If it looks stuck, sudo is waiting for your password (input is hidden).$(NC)"; \
-			sudo -v; \
+			echo "Rootfs build requires root - using sudo"; \
 			sudo $(MAKE) -C $(ROOTFS_DIR); \
 		fi \
 	else \
@@ -240,16 +318,82 @@ rootfs:
 		exit 1; \
 	fi
 
+# ============================================================================
+# Main Linux Image Build
+# ============================================================================
+# Builds kernel and rootfs in parallel (or serial if PARALLEL_BUILD=0)
+# then creates the SD card image.
+# ============================================================================
+
 linux-image:
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Complete Linux Image Build$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Build configuration:"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   PARALLEL_BUILD=$(PARALLEL_BUILD)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   PARALLEL_JOBS=$(PARALLEL_JOBS)"
+	@echo ""
+	@mkdir -p $(BUILD_DIR)/.timing
+	@rm -f $(BUILD_DIR)/.timing/build_times.csv
+	@# Step 1: Check FPGA artifacts
+	@echo -e "$(BLUE)[STEP 1/3]$(NC) $(TIMESTAMP) | Checking FPGA artifacts..."
 	@$(MAKE) fpga
-	@$(MAKE) kernel
-	@$(MAKE) rootfs
-	@$(MAKE) sd-image
-	@echo -e "$(GREEN)Complete Linux image built$(NC)"
+	@# Step 2: Build kernel and rootfs (parallel or serial)
+	@echo ""
+	@if [ "$(PARALLEL_BUILD)" = "1" ]; then \
+		echo -e "$(BLUE)[STEP 2/3]$(NC) $(TIMESTAMP) | Building kernel and rootfs in PARALLEL ($(PARALLEL_JOBS) jobs)"; \
+		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   Set PARALLEL_BUILD=0 for serial builds"; \
+		$(MAKE) -j$(PARALLEL_JOBS) task-kernel task-rootfs; \
+	else \
+		echo -e "$(BLUE)[STEP 2/3]$(NC) $(TIMESTAMP) | Building kernel and rootfs SEQUENTIALLY"; \
+		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   Set PARALLEL_BUILD=1 for parallel builds"; \
+		$(MAKE) task-kernel; \
+		$(MAKE) task-rootfs; \
+	fi
+	@# Step 3: Create SD image
+	@echo ""
+	@echo -e "$(BLUE)[STEP 3/3]$(NC) $(TIMESTAMP) | Creating SD card image..."
+	@date +%s > $(BUILD_DIR)/.timing/sd-image.start
+	@$(MAKE) sd-image-internal
+	@if [ -f "$(BUILD_DIR)/.timing/sd-image.start" ]; then \
+		start=$$(cat $(BUILD_DIR)/.timing/sd-image.start); \
+		end=$$(date +%s); \
+		duration=$$((end - start)); \
+		mins=$$((duration / 60)); \
+		secs=$$((duration % 60)); \
+		echo -e "$(GREEN)[TASK]$(NC) $(TIMESTAMP) | SD image created ($${mins}m $${secs}s)"; \
+		echo "sd-image,$$start,$$end,$$duration" >> $(BUILD_DIR)/.timing/build_times.csv; \
+		rm -f $(BUILD_DIR)/.timing/sd-image.start; \
+	fi
+	@echo ""
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Complete Linux image built successfully$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
 
+# Timing report target
+timing-report:
+	@echo ""
+	@echo -e "$(GREEN)Build Timing Summary$(NC)"
+	@echo "---------------------------------------------"
+	@if [ -f "$(BUILD_DIR)/.timing/build_times.csv" ]; then \
+		total=0; \
+		while IFS=, read -r phase start end duration; do \
+			mins=$$((duration / 60)); \
+			secs=$$((duration % 60)); \
+			printf "  %-20s %3dm %02ds\n" "$$phase:" "$$mins" "$$secs"; \
+			total=$$((total + duration)); \
+		done < $(BUILD_DIR)/.timing/build_times.csv; \
+		echo "---------------------------------------------"; \
+		total_mins=$$((total / 60)); \
+		total_secs=$$((total % 60)); \
+		printf "  %-20s %3dm %02ds\n" "TOTAL:" "$$total_mins" "$$total_secs"; \
+	else \
+		echo "  No timing data available"; \
+		echo "  Run 'make linux-image' to generate timing data"; \
+	fi
+	@echo ""
+
+# Public sd-image target - checks dependencies then creates image
 sd-image: fpga
 	@if [ ! -f "$(KERNEL_DIR)/build/arch/arm/boot/zImage" ]; then \
 		echo -e "$(YELLOW)Kernel not found, building...$(NC)"; \
@@ -259,6 +403,10 @@ sd-image: fpga
 	fi
 	@echo -e "$(YELLOW)Checking rootfs (incremental build)...$(NC)"
 	@$(MAKE) rootfs
+	@$(MAKE) sd-image-internal
+
+# Internal SD image creation (called by linux-image and sd-image)
+sd-image-internal:
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)SD Card Image Creation$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -306,6 +454,92 @@ sd-image: fpga
 			sudo -v && sudo bash "$$tmp_wrapper"; \
 		fi \
 	'
+
+# ============================================================================
+# Incremental SD Image Update
+# ============================================================================
+# Updates an existing SD image with only changed files.
+# Much faster than creating a new image from scratch.
+# ============================================================================
+
+sd-image-update:
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)SD Card Image Incremental Update$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@IMAGE_FILE="$(BUILD_DIR)/de10-nano-custom.img"; \
+	if [ ! -f "$$IMAGE_FILE" ]; then \
+		echo -e "$(YELLOW)No existing image found at $$IMAGE_FILE$(NC)"; \
+		echo -e "$(YELLOW)Creating new image instead...$(NC)"; \
+		$(MAKE) sd-image; \
+		exit 0; \
+	fi; \
+	echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Updating existing image: $$IMAGE_FILE"; \
+	echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Image size: $$(du -h "$$IMAGE_FILE" | cut -f1)"; \
+	echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Last modified: $$(date -r "$$IMAGE_FILE" "+%Y-%m-%d %H:%M:%S")"; \
+	echo ""; \
+	if [ "$$(id -u)" -ne 0 ]; then \
+		echo "Image update requires root access"; \
+		echo "Run with: sudo make sd-image-update"; \
+		exit 1; \
+	fi; \
+	set -e; \
+	start_time=$$(date +%s); \
+	LOOP_DEV=$$(losetup -f); \
+	echo -e "$(YELLOW)Setting up loop device: $$LOOP_DEV$(NC)"; \
+	losetup -P "$$LOOP_DEV" "$$IMAGE_FILE"; \
+	trap "losetup -d $$LOOP_DEV 2>/dev/null || true" EXIT; \
+	sleep 1; \
+	partprobe "$$LOOP_DEV" 2>/dev/null || true; \
+	BOOT_PART="$${LOOP_DEV}p1"; \
+	echo ""; \
+	echo -e "$(YELLOW)Mounting boot partition...$(NC)"; \
+	BOOT_MOUNT="/mnt/de10-boot-update"; \
+	mkdir -p "$$BOOT_MOUNT"; \
+	mount "$$BOOT_PART" "$$BOOT_MOUNT"; \
+	trap "umount $$BOOT_MOUNT 2>/dev/null || true; rmdir $$BOOT_MOUNT 2>/dev/null || true; losetup -d $$LOOP_DEV 2>/dev/null || true" EXIT; \
+	updated=0; \
+	KERNEL_SRC="$(KERNEL_DIR)/build/arch/arm/boot/zImage"; \
+	if [ -f "$$KERNEL_SRC" ] && [ "$$KERNEL_SRC" -nt "$$BOOT_MOUNT/zImage" ]; then \
+		echo -e "$(YELLOW)Updating kernel (zImage)...$(NC)"; \
+		cp "$$KERNEL_SRC" "$$BOOT_MOUNT/zImage"; \
+		updated=1; \
+	else \
+		echo -e "$(GREEN)[OK] Kernel up-to-date$(NC)"; \
+	fi; \
+	RBF_SRC=""; \
+	for rbf in $(FPGA_DIR)/build/output_files/*.rbf $(REPO_ROOT)/build/output_files/*.rbf; do \
+		if [ -f "$$rbf" ]; then RBF_SRC="$$rbf"; break; fi; \
+	done; \
+	if [ -n "$$RBF_SRC" ] && [ "$$RBF_SRC" -nt "$$BOOT_MOUNT/soc_system.rbf" ]; then \
+		echo -e "$(YELLOW)Updating FPGA bitstream (RBF)...$(NC)"; \
+		cp "$$RBF_SRC" "$$BOOT_MOUNT/soc_system.rbf"; \
+		updated=1; \
+	else \
+		echo -e "$(GREEN)[OK] FPGA bitstream up-to-date$(NC)"; \
+	fi; \
+	DTB_SRC="$(FPGA_DIR)/generated/soc_system.dtb"; \
+	if [ -f "$$DTB_SRC" ] && [ "$$DTB_SRC" -nt "$$BOOT_MOUNT/soc_system.dtb" ]; then \
+		echo -e "$(YELLOW)Updating device tree (DTB)...$(NC)"; \
+		cp "$$DTB_SRC" "$$BOOT_MOUNT/soc_system.dtb"; \
+		updated=1; \
+	else \
+		echo -e "$(GREEN)[OK] Device tree up-to-date$(NC)"; \
+	fi; \
+	echo ""; \
+	sync; \
+	umount "$$BOOT_MOUNT"; \
+	rmdir "$$BOOT_MOUNT"; \
+	losetup -d "$$LOOP_DEV"; \
+	trap - EXIT; \
+	end_time=$$(date +%s); \
+	duration=$$((end_time - start_time)); \
+	echo -e "$(GREEN)===========================================$(NC)"; \
+	if [ $$updated -eq 1 ]; then \
+		echo -e "$(GREEN)Image updated successfully ($$duration seconds)$(NC)"; \
+	else \
+		echo -e "$(GREEN)Image already up-to-date ($$duration seconds)$(NC)"; \
+	fi; \
+	echo -e "$(GREEN)===========================================$(NC)"
 
 clean:
 	@echo -e "$(YELLOW)Cleaning Linux image build artifacts...$(NC)"

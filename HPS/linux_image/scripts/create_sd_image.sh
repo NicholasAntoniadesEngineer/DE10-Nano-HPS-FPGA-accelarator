@@ -38,6 +38,29 @@ FPGA_DTB="${FPGA_DTB:-$FPGA_DIR/generated/soc_system.dtb}"
 FPGA_RBF="${FPGA_RBF:-}"
 ROOTFS_TAR="${ROOTFS_TAR:-$ROOTFS_DIR/build/rootfs.tar.gz}"
 
+# ============================================================================
+# Device Tree Strategy (Option A: QSys-Generated)
+# ============================================================================
+# The DTB (Device Tree Blob) describes hardware to the Linux kernel.
+#
+# Option A (CURRENT - Recommended for custom FPGA designs):
+#   - DTB is generated from QSys .sopcinfo using sopc2dts
+#   - Accurately describes FPGA peripheral addresses and interrupts
+#   - Must be regenerated when FPGA QSys design changes
+#   - Location: FPGA/generated/soc_system.dtb
+#
+# Option B (Alternative - Device Tree Overlays):
+#   - Use kernel's generic socfpga DTB as base
+#   - Apply device tree overlays at runtime for custom peripherals
+#   - More flexible but requires overlay management
+#   - To switch: Set DTB_SOURCE=kernel and uncomment kernel DTB below
+#
+# Configuration:
+#   DTB_SOURCE=qsys  : Use QSys-generated DTB (default, Option A)
+#   DTB_SOURCE=kernel: Use kernel DTB (Option B)
+# ============================================================================
+DTB_SOURCE="${DTB_SOURCE:-qsys}"
+
 # Partition sizes (MB)
 BOOT_PARTITION_SIZE=100
 PRELOADER_OFFSET=2048  # 1MB in 512-byte sectors
@@ -220,17 +243,40 @@ check_files() {
         missing=1
     fi
     
-    # Check device tree (prefer kernel DTB, fallback to FPGA DTB)
-    if [ -f "$KERNEL_DTB" ]; then
-        echo "✓ Kernel DTB found: $KERNEL_DTB"
-    elif [ -f "$FPGA_DTB" ]; then
-        echo "✓ FPGA DTB found: $FPGA_DTB"
+    # Check device tree based on configured strategy
+    echo ""
+    echo "Device Tree Strategy: $DTB_SOURCE"
+    if [ "$DTB_SOURCE" = "qsys" ]; then
+        # Option A: QSys-generated DTB (recommended)
+        if [ -f "$FPGA_DTB" ]; then
+            echo "[Option A] Using QSys-generated DTB: $FPGA_DTB"
+            echo "  This DTB describes FPGA peripherals from QSys design"
+            echo "  Rebuild with: cd FPGA && make dtb"
+        elif [ -f "$KERNEL_DTB" ]; then
+            print_warning "QSys DTB not found, falling back to kernel DTB"
+            print_warning "Kernel DTB may not include custom FPGA peripherals"
+            echo "  QSys DTB expected at: $FPGA_DTB"
+            echo "  Build with: cd FPGA && make dtb"
+        else
+            print_warning "No device tree blob (DTB) found"
+            print_warning "Build QSys DTB with: cd FPGA && make qsys-generate dtb"
+            echo "Continuing without DTB (kernel may have built-in support)..."
+        fi
     else
-        print_warning "No device tree blob (DTB) found"
-        print_warning "This is OK for kernels with built-in device tree support"
-        print_warning "If boot fails, build DTB with: cd FPGA && make dtb"
-        echo "Continuing without DTB..."
+        # Option B: Kernel DTB with overlays
+        if [ -f "$KERNEL_DTB" ]; then
+            echo "[Option B] Using kernel DTB: $KERNEL_DTB"
+            echo "  For custom FPGA peripherals, use device tree overlays"
+            echo "  Load overlays at runtime: dtoverlay <overlay.dtbo>"
+        elif [ -f "$FPGA_DTB" ]; then
+            print_warning "Kernel DTB not found, falling back to QSys DTB"
+            echo "  Kernel DTB expected at: $KERNEL_DTB"
+        else
+            print_warning "No device tree blob (DTB) found"
+            echo "Continuing without DTB..."
+        fi
     fi
+    echo ""
     
     # Check FPGA bitstream
     if [ -f "$FPGA_RBF" ]; then
@@ -476,13 +522,52 @@ copy_boot_files() {
         cp "$KERNEL_IMAGE" "$MOUNT_POINT/zImage"
     fi
     
-    # Copy device tree (prefer kernel DTB, fallback to FPGA DTB)
-    if [ -f "$KERNEL_DTB" ]; then
-        print_step "Copying device tree (from kernel build)..."
-        cp "$KERNEL_DTB" "$MOUNT_POINT/socfpga_cyclone5_de10_nano.dtb"
-    elif [ -f "$FPGA_DTB" ]; then
-        print_step "Copying device tree (from FPGA build)..."
-        cp "$FPGA_DTB" "$MOUNT_POINT/soc_system.dtb"
+    # Copy device tree based on strategy (Option A or B)
+    # ============================================================================
+    # DTB Selection Logic:
+    #   Option A (DTB_SOURCE=qsys): Prefer QSys-generated DTB
+    #     - Contains accurate FPGA peripheral descriptions
+    #     - Required when FPGA design has custom peripherals
+    #   
+    #   Option B (DTB_SOURCE=kernel): Prefer kernel DTB
+    #     - Generic socfpga DTB from kernel source
+    #     - Use with device tree overlays for custom peripherals
+    # ============================================================================
+    DTB_COPIED=0
+    if [ "$DTB_SOURCE" = "qsys" ]; then
+        # Option A: Prefer QSys-generated DTB
+        if [ -f "$FPGA_DTB" ]; then
+            print_step "Copying device tree [Option A: QSys-generated]..."
+            cp "$FPGA_DTB" "$MOUNT_POINT/soc_system.dtb"
+            echo "  Source: $FPGA_DTB"
+            echo "  Destination: soc_system.dtb"
+            DTB_COPIED=1
+        elif [ -f "$KERNEL_DTB" ]; then
+            print_step "Copying device tree [Fallback: kernel]..."
+            print_warning "QSys DTB not found, using kernel DTB"
+            cp "$KERNEL_DTB" "$MOUNT_POINT/socfpga_cyclone5_de10_nano.dtb"
+            echo "  Source: $KERNEL_DTB"
+            DTB_COPIED=1
+        fi
+    else
+        # Option B: Prefer kernel DTB
+        if [ -f "$KERNEL_DTB" ]; then
+            print_step "Copying device tree [Option B: kernel]..."
+            cp "$KERNEL_DTB" "$MOUNT_POINT/socfpga_cyclone5_de10_nano.dtb"
+            echo "  Source: $KERNEL_DTB"
+            echo "  Note: Use device tree overlays for custom FPGA peripherals"
+            DTB_COPIED=1
+        elif [ -f "$FPGA_DTB" ]; then
+            print_step "Copying device tree [Fallback: QSys]..."
+            print_warning "Kernel DTB not found, using QSys DTB"
+            cp "$FPGA_DTB" "$MOUNT_POINT/soc_system.dtb"
+            echo "  Source: $FPGA_DTB"
+            DTB_COPIED=1
+        fi
+    fi
+    
+    if [ $DTB_COPIED -eq 0 ]; then
+        print_warning "No DTB copied - kernel must have built-in device tree"
     fi
     
     # Copy FPGA bitstream
@@ -491,17 +576,34 @@ copy_boot_files() {
         cp "$FPGA_RBF" "$MOUNT_POINT/soc_system.rbf"
     fi
     
-    # Create U-Boot boot script
+    # Create U-Boot boot script with correct DTB filename
     print_step "Creating U-Boot boot script..."
-    cat > "$MOUNT_POINT/boot.script" << 'EOF'
+    
+    # Determine DTB filename based on what was copied
+    if [ "$DTB_SOURCE" = "qsys" ] && [ -f "$FPGA_DTB" ]; then
+        DTB_FILENAME="soc_system.dtb"
+    else
+        DTB_FILENAME="socfpga_cyclone5_de10_nano.dtb"
+    fi
+    
+    cat > "$MOUNT_POINT/boot.script" << EOF
 # U-Boot boot script for DE10-Nano
-fatload mmc 0:1 ${fpgadata} soc_system.rbf
-fpga load 0 ${fpgadata} ${filesize}
-setenv fdtimage socfpga_cyclone5_de10_nano.dtb
+# DTB Strategy: ${DTB_SOURCE}
+# Generated: $(date)
+
+# Load FPGA bitstream
+fatload mmc 0:1 \${fpgadata} soc_system.rbf
+fpga load 0 \${fpgadata} \${filesize}
+
+# Set device tree image
+setenv fdtimage ${DTB_FILENAME}
+
+# Enable HPS-FPGA bridges and boot Linux
 run bridge_enable_handoff
 run mmcload
 run mmcboot
 EOF
+    echo "  U-Boot configured to use DTB: $DTB_FILENAME"
     
     # Compile boot script (if mkimage available)
     if command -v mkimage &> /dev/null; then
