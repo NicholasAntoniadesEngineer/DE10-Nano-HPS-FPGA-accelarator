@@ -73,6 +73,11 @@ SSH_ENABLED="${SSH_ENABLED:-yes}"
 SSH_ROOT_LOGIN="${SSH_ROOT_LOGIN:-yes}"
 ROOT_PASSWORD="${ROOT_PASSWORD:-root}"
 
+# Base-only mode (for caching - skips overlays)
+# When BASE_ONLY=1, only runs debootstrap and package installation
+# Overlays (configs, scripts) are applied separately by Makefile
+BASE_ONLY="${BASE_ONLY:-0}"
+
 # ============================================================================
 # Functions
 # ============================================================================
@@ -924,29 +929,49 @@ create_rootfs_tarball() {
 # ============================================================================
 
 main() {
-    print_header "DE10-Nano Root Filesystem Build"
-    
-    check_dependencies
-    cleanup_rootfs
-    create_base_system
-    install_packages
-    configure_network
-    configure_ssh
-    run_post_install_scripts
-    install_hps_applications
-    create_rootfs_tarball
-    
-    print_header "Root Filesystem Build Complete"
-    if [ "$USE_LINUX_TEMP" -eq 1 ]; then
-        echo -e "${GREEN}Rootfs built in temp directory (cleaned up)${NC}"
+    if [ "$BASE_ONLY" = "1" ]; then
+        print_header "DE10-Nano Root Filesystem BASE BUILD"
+        echo -e "${YELLOW}Mode: BASE_ONLY - Building cached base image${NC}"
+        echo -e "${YELLOW}This creates debootstrap + packages only${NC}"
+        echo -e "${YELLOW}Overlays will be applied separately${NC}"
+        echo ""
+        
+        check_dependencies
+        cleanup_rootfs
+        create_base_system
+        install_packages
+        create_rootfs_tarball
+        
+        print_header "Base Image Build Complete"
+        echo -e "${GREEN}Base image: $ROOTFS_TAR${NC}"
+        echo ""
+        echo -e "${YELLOW}This base image is now cached.${NC}"
+        echo -e "${YELLOW}Future builds will apply overlays on top of this base.${NC}"
     else
-    echo -e "${GREEN}Rootfs directory: $ROOTFS_DIR${NC}"
+        print_header "DE10-Nano Root Filesystem Build"
+        
+        check_dependencies
+        cleanup_rootfs
+        create_base_system
+        install_packages
+        configure_network
+        configure_ssh
+        run_post_install_scripts
+        install_hps_applications
+        create_rootfs_tarball
+        
+        print_header "Root Filesystem Build Complete"
+        if [ "$USE_LINUX_TEMP" -eq 1 ]; then
+            echo -e "${GREEN}Rootfs built in temp directory (cleaned up)${NC}"
+        else
+            echo -e "${GREEN}Rootfs directory: $ROOTFS_DIR${NC}"
+        fi
+        echo -e "${GREEN}Rootfs tarball:   $ROOTFS_TAR${NC}"
+        echo ""
+        echo -e "${YELLOW}Next steps:${NC}"
+        echo "  1. Create SD card image: cd HPS/linux_image && sudo make sd-image"
+        echo "  2. Or build everything:  cd HPS && sudo make everything"
     fi
-    echo -e "${GREEN}Rootfs tarball:   $ROOTFS_TAR${NC}"
-    echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Create SD card image: cd HPS/linux_image && sudo make sd-image"
-    echo "  2. Or build everything:  cd HPS && sudo make everything"
 }
 
 # Run main function

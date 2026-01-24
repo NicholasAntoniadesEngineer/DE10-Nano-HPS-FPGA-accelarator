@@ -90,6 +90,11 @@ __pycache__/
 *.normalized.*
 .*.normalized.*
 
+# Build system cache files
+.tool_cache.mk
+.timing/
+build/.timing/
+
 # ============================================================================
 # KEEP THESE FILES (Do NOT ignore)
 # ============================================================================

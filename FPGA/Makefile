@@ -57,6 +57,39 @@ IS_CYGWIN_HOST := 1
 endif
 endif
 
+################################################
+# Tool Detection with Caching
+################################################
+# Tool paths are cached to avoid expensive find operations on every make invocation.
+# Cache is stored in .tool_cache.mk and expires after 1 hour.
+#
+# Configuration:
+#   TOOL_CACHE_DISABLE=1  : Disable caching (always detect)
+#   make clear-tool-cache : Manually clear the cache
+################################################
+
+TOOL_CACHE_FILE := $(CURDIR)/.tool_cache.mk
+TOOL_CACHE_MAX_AGE_MINUTES := 60
+
+# Check if cache exists and is recent (less than TOOL_CACHE_MAX_AGE_MINUTES old)
+TOOL_CACHE_VALID := $(shell \
+	if [ -f "$(TOOL_CACHE_FILE)" ] && [ "$(TOOL_CACHE_DISABLE)" != "1" ]; then \
+		cache_age=$$(find "$(TOOL_CACHE_FILE)" -mmin -$(TOOL_CACHE_MAX_AGE_MINUTES) 2>/dev/null); \
+		if [ -n "$$cache_age" ]; then \
+			echo "1"; \
+		fi; \
+	fi \
+)
+
+# Load cached tool paths if cache is valid
+ifeq ($(TOOL_CACHE_VALID),1)
+-include $(TOOL_CACHE_FILE)
+TOOL_CACHE_LOADED := 1
+endif
+
+# Only run expensive tool detection if cache not loaded
+ifneq ($(TOOL_CACHE_LOADED),1)
+
 # Check for Quartus tools
 # On Windows, quartus_sh.exe is the main command-line tool
 # On Unix/Linux, quartus_sh is available
@@ -128,6 +161,20 @@ HAVE_QSYS_GENERATE := 1
 endif
 endif
 endif
+
+# Save detected tool paths to cache (only if we did detection)
+$(shell \
+	echo "# Tool cache - auto-generated, do not edit" > $(TOOL_CACHE_FILE); \
+	echo "# Generated: $$(date)" >> $(TOOL_CACHE_FILE); \
+	echo "# Cache expires after $(TOOL_CACHE_MAX_AGE_MINUTES) minutes" >> $(TOOL_CACHE_FILE); \
+	echo "" >> $(TOOL_CACHE_FILE); \
+	echo "QUARTUS_SH := $(QUARTUS_SH)" >> $(TOOL_CACHE_FILE); \
+	echo "HAVE_QUARTUS := $(HAVE_QUARTUS)" >> $(TOOL_CACHE_FILE); \
+	echo "QSYS_GENERATE := $(QSYS_GENERATE)" >> $(TOOL_CACHE_FILE); \
+	echo "HAVE_QSYS_GENERATE := $(HAVE_QSYS_GENERATE)" >> $(TOOL_CACHE_FILE); \
+)
+
+endif # TOOL_CACHE_LOADED
 
 # HAVE_QSYS is set if we have either quartus or qsys-generate
 ifeq ($(HAVE_QUARTUS),1)
@@ -577,9 +624,50 @@ clean-all: clean
 	@$(ECHO) "Removing HPS handoff files..."
 	@$(RM) $(wildcard hps_isw_handoff)
 	@$(RM) $(wildcard quartus/hps_isw_handoff)
+	@$(ECHO) "Removing tool cache..."
+	@$(RM) $(TOOL_CACHE_FILE)
 	@$(ECHO) "==========================================="
 	@$(ECHO) "Deep clean complete!"
 	@$(ECHO) "==========================================="
+
+HELP_TARGETS += clear-tool-cache
+clear-tool-cache.HELP := Clear cached tool paths (Quartus, QSys) to force re-detection
+
+.PHONY: clear-tool-cache
+clear-tool-cache:
+	@$(ECHO) "Clearing tool cache..."
+	@$(RM) $(TOOL_CACHE_FILE)
+	@$(ECHO) "Tool cache cleared"
+	@$(ECHO) "Next 'make' invocation will re-detect tool paths"
+
+HELP_TARGETS += show-tool-cache
+show-tool-cache.HELP := Display cached tool paths and cache status
+
+.PHONY: show-tool-cache
+show-tool-cache:
+	@$(ECHO) "==========================================="
+	@$(ECHO) "Tool Detection Cache Status"
+	@$(ECHO) "==========================================="
+ifeq ($(TOOL_CACHE_LOADED),1)
+	@$(ECHO) "Cache status: LOADED (using cached paths)"
+	@$(ECHO) "Cache file:   $(TOOL_CACHE_FILE)"
+	@$(ECHO) "Cache age:    $$(stat -c %y "$(TOOL_CACHE_FILE)" 2>/dev/null | cut -d. -f1 || date -r "$(TOOL_CACHE_FILE)" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "unknown")"
+	@$(ECHO) ""
+	@$(ECHO) "Cached values:"
+	@$(CAT) $(TOOL_CACHE_FILE) 2>/dev/null | $(GREP) -v "^#" | $(GREP) -v "^$$" || $(ECHO) "  (cache file not found)"
+else
+	@$(ECHO) "Cache status: NOT LOADED (detected fresh)"
+	@$(ECHO) "Reason:       Cache missing, stale, or disabled"
+endif
+	@$(ECHO) ""
+	@$(ECHO) "Current tool paths:"
+	@$(ECHO) "  QUARTUS_SH:     $(QUARTUS_SH)"
+	@$(ECHO) "  HAVE_QUARTUS:   $(HAVE_QUARTUS)"
+	@$(ECHO) "  QSYS_GENERATE:  $(QSYS_GENERATE)"
+	@$(ECHO) "  HAVE_QSYS:      $(HAVE_QSYS)"
+	@$(ECHO) ""
+	@$(ECHO) "To disable caching: make TOOL_CACHE_DISABLE=1 <target>"
+	@$(ECHO) "To clear cache:     make clear-tool-cache"
 ################################################
 
 
