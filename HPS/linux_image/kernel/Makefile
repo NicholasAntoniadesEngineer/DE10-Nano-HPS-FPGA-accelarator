@@ -15,6 +15,12 @@ KERNEL_DIR := $(CURDIR)/linux-socfpga
 KERNEL_BUILD_DIR := $(CURDIR)/build
 KERNEL_CONFIG := $(CURDIR)/configs/socfpga_defconfig
 
+# Source files that trigger kernel rebuild when changed
+KERNEL_SOURCES := $(KERNEL_CONFIG) \
+                  $(HPS_DIR)/drivers/integration/integrate_linux_driver.sh \
+                  $(wildcard $(HPS_DIR)/applications/calculator_test/*.c) \
+                  $(wildcard $(HPS_DIR)/applications/calculator_test/*.h)
+
 # Cross-compilation
 CROSS_COMPILE ?= arm-linux-gnueabihf-
 ARCH := arm
@@ -32,7 +38,7 @@ GREEN := \033[0;32m
 YELLOW := \033[1;33m
 NC := \033[0m
 
-.PHONY: all help kernel-download kernel-config kernel-build kernel-modules kernel-clean kernel-integrate-driver
+.PHONY: all help kernel-download kernel-config kernel-build kernel-modules kernel-clean kernel-integrate-driver check-rebuild rebuild force-rebuild
 
 all: kernel-build
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -40,18 +46,23 @@ all: kernel-build
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Kernel image: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage$(NC)"
 	@echo -e "$(GREEN)Device tree:  $(KERNEL_BUILD_DIR)/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb$(NC)"
+	@echo ""
+	@echo -e "$(YELLOW)Tip: Use 'make check-rebuild' to check if rebuild is needed$(NC)"
 
 help:
 	@echo "Linux Kernel Build System for DE10-Nano"
 	@echo "========================================"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all                 - Build complete kernel (default)"
+	@echo "  all                 - Build complete kernel (default, incremental)"
 	@echo "  kernel-download    - Download/clone kernel source"
 	@echo "  kernel-config      - Configure kernel"
 	@echo "  kernel-build       - Build kernel (zImage, dtbs, modules)"
 	@echo "  kernel-modules     - Build kernel modules only"
 	@echo "  kernel-integrate-driver - Integrate calculator driver"
+	@echo "  check-rebuild      - Check if kernel rebuild is needed (dry-run)"
+	@echo "  rebuild            - Force rebuild kernel from scratch"
+	@echo "  force-rebuild      - Alias for rebuild"
 	@echo "  kernel-clean       - Clean build artifacts"
 	@echo "  help               - Show this help message"
 	@echo ""
@@ -64,6 +75,29 @@ help:
 	@echo "Output:"
 	@echo "  Kernel: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage"
 	@echo "  DTB:    $(KERNEL_BUILD_DIR)/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb"
+
+# Check if kernel rebuild is needed by comparing timestamps
+check-rebuild:
+	@if [ ! -f "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" ]; then \
+		echo -e "$(YELLOW)Rebuild needed: kernel image does not exist$(NC)"; \
+		exit 0; \
+	fi; \
+	needs_rebuild=0; \
+	for src in $(KERNEL_SOURCES); do \
+		if [ -f "$$src" ] && [ "$$src" -nt "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" ]; then \
+			echo -e "$(YELLOW)Rebuild needed: $$src is newer than kernel image$(NC)"; \
+			needs_rebuild=1; \
+		fi; \
+	done; \
+	if [ $$needs_rebuild -eq 0 ]; then \
+		echo -e "$(GREEN)No rebuild needed: kernel is up-to-date$(NC)"; \
+	fi
+
+# Force rebuild - always rebuilds from scratch
+rebuild: kernel-clean
+	@$(MAKE) kernel-build FORCE_REBUILD=1
+
+force-rebuild: rebuild
 
 kernel-download: $(KERNEL_DIR)/.git/config
 	@echo -e "$(GREEN)Kernel source ready$(NC)"
@@ -239,10 +273,36 @@ kernel-integrate-driver: kernel-config
 	fi
 
 kernel-build: kernel-config kernel-integrate-driver
-	@echo -e "$(YELLOW)Building kernel...$(NC)"
-	@echo -e "$(YELLOW)This may take 10-30 minutes...$(NC)"
-	@echo -e "$(YELLOW)Target: ARM Cortex-A9 (ARMv7-A) for DE10-Nano$(NC)"
-	@echo -e "$(YELLOW)Note: Cleaning build artifacts to ensure correct architecture flags...$(NC)"
+	@needs_rebuild=0; \
+	if [ ! -f "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" ]; then \
+		echo -e "$(YELLOW)Building kernel: image does not exist$(NC)"; \
+		needs_rebuild=1; \
+	else \
+		for src in $(KERNEL_SOURCES); do \
+			if [ -f "$$src" ] && [ "$$src" -nt "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" ]; then \
+				echo -e "$(YELLOW)Rebuild triggered by: $$src$(NC)"; \
+				needs_rebuild=1; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if [ "$(FORCE_REBUILD)" = "1" ]; then \
+		echo -e "$(YELLOW)Force rebuild requested$(NC)"; \
+		needs_rebuild=1; \
+	fi; \
+	if [ $$needs_rebuild -eq 0 ]; then \
+		echo -e "$(GREEN)===========================================$(NC)"; \
+		echo -e "$(GREEN)Kernel is up-to-date - skipping build$(NC)"; \
+		echo -e "$(GREEN)===========================================$(NC)"; \
+		echo -e "$(GREEN)Existing image: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage$(NC)"; \
+		image_date=$$(date -r "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || stat -c %y "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" 2>/dev/null | cut -d. -f1); \
+		echo -e "$(GREEN)Built on: $$image_date$(NC)"; \
+		exit 0; \
+	fi; \
+	echo -e "$(YELLOW)Building kernel...$(NC)"; \
+	echo -e "$(YELLOW)This may take 10-30 minutes...$(NC)"; \
+	echo -e "$(YELLOW)Target: ARM Cortex-A9 (ARMv7-A) for DE10-Nano$(NC)"; \
+	echo -e "$(YELLOW)Note: Cleaning build artifacts to ensure correct architecture flags...$(NC)"
 	@rm -rf $(KERNEL_BUILD_DIR)/arch/arm/kernel $(KERNEL_BUILD_DIR)/arch/arm/mm $(KERNEL_BUILD_DIR)/kernel
 	@echo -e "$(YELLOW)Patching kernel Makefile to use Cortex-A9 flags...$(NC)"
 	@cd $(KERNEL_DIR)/arch/arm && \
