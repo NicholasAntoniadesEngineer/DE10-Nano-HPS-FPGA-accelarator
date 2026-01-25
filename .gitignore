@@ -132,6 +132,9 @@ HPS/linux_image/rootfs/build/rootfs/
 HPS/linux_image/rootfs/build/.rootfs_base_hash
 
 # Keep final rootfs tarball (needed for deployment)
+# Using .tar.xz for better compression, keeping .tar.gz for backward compatibility
+!HPS/linux_image/rootfs/build/rootfs.tar.xz
+!HPS/linux_image/rootfs/build/rootfs_base.tar.xz
 !HPS/linux_image/rootfs/build/rootfs.tar.gz
 !HPS/linux_image/rootfs/build/rootfs_base.tar.gz
 
@@ -271,6 +274,10 @@ __pycache__/
 !HPS/**/*.conf
 !HPS/**/configs/**
 !HPS/**/scripts/**
+
+# Re-ignore temporary normalized scripts under scripts/ (the rule above is overridden by !HPS/**/scripts/**)
+HPS/**/scripts/*.normalized.*
+HPS/**/scripts/.*.normalized.*
 
 # ============================================================================
 # Final Build Artifacts Summary (KEPT)
