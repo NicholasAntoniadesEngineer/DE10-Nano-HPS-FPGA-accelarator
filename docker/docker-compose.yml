@@ -1,0 +1,55 @@
+# DE10-Nano Development Environment
+#
+# Usage:
+#   docker-compose up -d      # Start the container
+#   docker-compose exec dev bash  # Enter the container
+#   docker-compose down       # Stop the container
+#
+# For Apple Silicon Macs, ensure Docker Desktop has:
+#   1. Rosetta emulation enabled (Settings > Features in development > Use Rosetta)
+#   2. Sufficient resources allocated (8GB+ RAM recommended)
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64  # Required for Quartus on ARM Macs
+    image: de10-nano-dev:latest
+    container_name: de10-nano-dev
+
+    # Mount the project directory
+    volumes:
+      - ..:/workspace
+      # Persist Quartus compilation cache (optional, speeds up rebuilds)
+      - quartus-cache:/root/.quartus
+
+    # Keep container running for interactive use
+    stdin_open: true
+    tty: true
+
+    # Working directory inside container
+    working_dir: /workspace
+
+    # Environment variables
+    environment:
+      - CROSS_COMPILE=arm-linux-gnueabihf-
+      - ARCH=arm
+      # Use multiple CPUs for Quartus (may be unstable on emulation, reduce if issues)
+      - QUARTUS_NUM_PARALLEL_PROCESSORS=4
+
+    # Use host network for better stability
+    network_mode: host
+
+    # Resource limits - maximize for faster builds
+    # Note: Actual limits depend on Docker Desktop settings
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+
+# Named volume for Quartus cache persistence
+volumes:
+  quartus-cache:
