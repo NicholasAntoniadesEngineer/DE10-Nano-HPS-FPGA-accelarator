@@ -1,0 +1,33 @@
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /workspace/FPGA/quartus/qsys/soc_system.qsys --synthesis=VERILOG --output-directory=/workspace/FPGA/generated/soc_system/synthesis/synthesis --family="Cyclone V" --part=5CSEBA6U23I7
+Progress: Loading qsys/soc_system.qsys
+Progress: Reading input file
+Progress: Adding clk_0 [clock_source 20.1]
+Warning: clk_0: Used clock_source 18.1 (instead of 20.1)
+Progress: Parameterizing module clk_0
+Progress: Adding hps_0 [altera_hps 20.1]
+Warning: hps_0: Used altera_hps 18.1 (instead of 20.1)
+Progress: Parameterizing module hps_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: soc_system.hps_0: HPS Main PLL counter settings: n = 0  m = 63
+Info: soc_system.hps_0: HPS peripherial PLL counter settings: n = 0  m = 39
+Warning: soc_system.hps_0: hps_0.f2h_sdram0_data must be connected to an Avalon-MM master
+Info: soc_system: Generating soc_system "soc_system" for QUARTUS_SYNTH
+Warning: hps_0.f2h_irq0: Cannot connect clock for irq_mapper.sender
+Warning: hps_0.f2h_irq0: Cannot connect reset for irq_mapper.sender
+Warning: hps_0.f2h_irq1: Cannot connect clock for irq_mapper_001.sender
+Warning: hps_0.f2h_irq1: Cannot connect reset for irq_mapper_001.sender
+Info: hps_0: "Running  for module: hps_0"
+Info: hps_0: HPS Main PLL counter settings: n = 0  m = 63
+Info: hps_0: HPS peripherial PLL counter settings: n = 0  m = 39
+Info: hps_0: "soc_system" instantiated altera_hps "hps_0"
+Info: irq_mapper: "soc_system" instantiated altera_irq_mapper "irq_mapper"
+Info: fpga_interfaces: "hps_0" instantiated altera_interface_generator "fpga_interfaces"
+Info: hps_io: "hps_0" instantiated altera_hps_io "hps_io"
+Info: border: "hps_io" instantiated altera_interface_generator "border"
+Info: soc_system: Done "soc_system" with 6 modules, 50 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis
