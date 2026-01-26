@@ -23,6 +23,8 @@ services:
       - ..:/workspace
       # Persist Quartus compilation cache (optional, speeds up rebuilds)
       - quartus-cache:/root/.quartus
+      # Native filesystem for rootfs building (requires device nodes)
+      - rootfs-build:/var/lib/rootfs-build
 
     # Keep container running for interactive use
     stdin_open: true
@@ -31,12 +33,18 @@ services:
     # Working directory inside container
     working_dir: /workspace
 
+    # Privileged mode required for rootfs building (debootstrap needs mknod)
+    privileged: true
+
     # Environment variables
     environment:
       - CROSS_COMPILE=arm-linux-gnueabihf-
       - ARCH=arm
       # Use multiple CPUs for Quartus (may be unstable on emulation, reduce if issues)
       - QUARTUS_NUM_PARALLEL_PROCESSORS=4
+      # Build rootfs in native Docker volume (macOS bind mounts don't support mknod)
+      - WSL_NATIVE_BUILD=1
+      - WSL_BUILD_DIR=/var/lib/rootfs-build
 
     # Use host network for better stability
     network_mode: host
@@ -50,6 +58,7 @@ services:
         reservations:
           memory: 8G
 
-# Named volume for Quartus cache persistence
+# Named volumes for cache and build persistence
 volumes:
   quartus-cache:
+  rootfs-build:

@@ -49,6 +49,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bison \
     flex \
     libssl-dev \
+    # Root filesystem creation tools
+    debootstrap \
+    qemu-user-static \
+    binfmt-support \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -65,6 +69,12 @@ RUN cd /tmp && \
     ln -sf /usr/local/bin/make /usr/bin/make && \
     mv /opt/intelFPGA/quartus/linux64/gnu/make /opt/intelFPGA/quartus/linux64/gnu/make.old 2>/dev/null || true && \
     ln -sf /usr/local/bin/make /opt/intelFPGA/quartus/linux64/gnu/make
+
+# Update Debian archive keyring (Stretch's keyring is outdated for debootstrap)
+RUN cd /tmp && \
+    wget -q http://ftp.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2023.3+deb12u2_all.deb && \
+    dpkg -i debian-archive-keyring_2023.3+deb12u2_all.deb && \
+    rm -f debian-archive-keyring_2023.3+deb12u2_all.deb
 
 # Set up environment variables
 ENV CROSS_COMPILE=arm-linux-gnueabihf-

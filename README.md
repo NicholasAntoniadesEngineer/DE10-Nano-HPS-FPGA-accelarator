@@ -1,6 +1,110 @@
 # DE10-Nano FPGA-Accelerated Market Analysis
 
-Complete hardware-software platform for low-latency FPGA-accelerated computing on the Terasic DE10-Nano SoC board.
+Complete hardware-software platform for low-latency FPGA-accelerated computing on the Terasic DE10-Nano SoC board. Features Intel Cyclone V SoC (5CSEBA6U23I7) with dual-core ARM Cortex-A9 HPS running Linux, FPGA fabric with custom IP cores, and high-bandwidth Avalon-MM bridges for FPGA-HPS communication. 
+
+Includes parallelized build system (Quartus Prime Lite 20.1 + ARM cross-compiler), custom Linux drivers, and complete SD card image generation for deployment. 
+
+The system is designed to be used for low-latency market analysis, where the FPGA is used to accelerate the computation of the market analysis.
+
+---
+
+## Project Structure
+
+```
+Makefile               # Top-level orchestration (recommended entry point)
+build/                 # Common build infrastructure
+├── build_common.mk    # Shared macros, timing, logging
+└── output_files/      # Build artifacts (RBF, SOF, etc.)
+
+FPGA/                  # Quartus FPGA design
+├── Makefile           # FPGA build (QSys, Quartus, DTB)
+├── quartus/           # Quartus project files
+├── hdl/               # Verilog/VHDL source files
+├── ip/                # Custom IP cores (calculator)
+└── generated/         # Generated HDL from QSys
+
+HPS/                   # Hard Processor System
+├── Makefile           # HPS orchestration
+├── linux_image/       # Linux build system
+├── applications/      # HPS applications (parallel build)
+└── drivers/           # Linux driver integration
+
+docker/                # Docker build environment
+├── Dockerfile         # Container image definition
+├── docker-compose.yml # Docker Compose configuration
+├── setup.sh           # Container setup script
+└── scripts/           # Build scripts for containerized builds
+
+examples/              # Example projects and reference designs
+├── fpga_examples/     # Standalone FPGA examples
+├── hps_examples/      # HPS-only examples (GPIO, sensors, etc.)
+└── hps_fpga_examples/ # Combined HPS-FPGA examples
+
+documentation/         # Build guides and references
+├── deployment_guide.md
+├── hps_fpga_communication.md
+└── references/        # Hardware manuals, schematics, images
+```
+
+## Hardware Overview
+
+### System Block Diagram
+
+![System Block Diagram](documentation/references/images/System%20Block%20Diagram.png)
+
+The system architecture showing the interconnection between the FPGA and HPS (Hard Processor System) components, including peripherals and communication bridges.
+
+## Documentation
+
+- **[Complete Deployment Guide](documentation/deployment_guide.md)** - Step-by-step build and troubleshooting
+- **[FPGA-HPS Communication](documentation/hps_fpga_communication.md)** - Hardware interface details
+- **[SoC EDS Setup](FPGA/SOC_EDS_SETUP.md)** - Intel SoC EDS configuration
+
+## References
+
+### OEM Documentation
+- [DE10-Nano CD Download](https://download.terasic.com/downloads/cd-rom/de10-nano/)
+- [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=165&No=1046#contents)
+- [Cyclone V HPS Register Address Map](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
+
+### Hardware Manuals
+- [DE10-Nano User Manual](documentation/references/DE10-Nano_User_manual_a_b.pdf)
+- [Cyclone V Handbook](documentation/references/Cyclone_V_handbook.pdf)
+
+### Community Resources
+- [Building Embedded Linux for DE10-Nano](https://bitlog.it/20170820_building_embedded_linux_for_the_terasic_de10-nano.html)
+- [zangman/de10-nano](https://github.com/zangman/de10-nano)
+
+### Cornell University ECE5760
+- [Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
+- [FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
+- [HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherals/linux_index.html)
+
+### DE10-Nano Board Views
+
+#### Top View
+
+![DE10-Nano Top View](documentation/references/images/Tope%20View.png)
+
+Top-down view of the DE10-Nano development board showing all major components, including the Cyclone V FPGA with ARM Cortex-A9, HPS DDR3 memory, Ethernet, USB ports, GPIO headers, HDMI, LEDs, switches, and other peripherals.
+
+#### Bottom View
+
+![DE10-Nano Bottom View](documentation/references/images/Bottom%20View.png)
+
+Bottom view of the DE10-Nano board showing the underside components, including the EPCS128 configuration device and MicroSD card socket.
+
+
+---
+
+## Prerequisites
+
+- **Hardware**: DE10-Nano board + MicroSD card (8GB+)
+- **Software**: Quartus Prime Lite 20.1 + ARM cross-compiler
+- **OS**: Windows with WSL2 or Linux environment
+- **Optional**: DE10-Nano System CD (for prebuilt bootloaders)
+
+---
 
 ## Quick Start
 
@@ -13,34 +117,6 @@ make fpga          # Build FPGA bitstream only
 make kernel        # Build Linux kernel only
 make rootfs        # Build root filesystem only
 make sd-image      # Create SD card image (requires FPGA artifacts)
-```
-
-## Build System Features
-
-| Feature | Description | Configuration |
-|---------|-------------|---------------|
-| **Parallel FPGA+HPS** | FPGA and HPS build simultaneously | `PARALLEL_EVERYTHING=1` |
-| **Parallel Kernel+Rootfs** | Kernel and rootfs build simultaneously | `PARALLEL_BUILD=1` |
-| **Quartus Parallelization** | Multi-core FPGA compilation | `QUARTUS_PARALLEL_JOBS=auto` |
-| **ccache Support** | Faster kernel rebuilds | `USE_CCACHE=1` |
-| **Tool Caching** | Cache Quartus/QSys paths | 60-minute cache |
-| **Rootfs Base Caching** | Cache debootstrap base image | Rebuild only when packages.txt changes |
-| **Build Timing** | Profile all build phases | `make timing-report` |
-| **Incremental Updates** | Update existing SD images | `make sd-image-update` |
-
----
-
-## Prerequisites
-
-- **Hardware**: DE10-Nano board + MicroSD card (8GB+)
-- **Software**: Quartus Prime Lite 20.1 + ARM cross-compiler
-- **OS**: Windows with WSL2 or Linux environment
-- **Optional**: DE10-Nano System CD (for prebuilt bootloaders), ccache
-
-### Install Dependencies
-```bash
-make deps          # Install all build dependencies
-sudo apt install ccache  # Optional: faster kernel rebuilds
 ```
 
 ---
@@ -123,33 +199,6 @@ cat /sys/class/fpga_bridge/*/state       # Should show "enabled"
 
 ---
 
-## Project Structure
-
-```
-Makefile              # Top-level orchestration (recommended entry point)
-build/                # Common build infrastructure
-├── build_common.mk   # Shared macros, timing, logging
-
-FPGA/                 # Quartus FPGA design
-├── Makefile          # FPGA build (QSys, Quartus, DTB)
-├── qsys/             # QSys Platform Designer files
-├── hdl/              # Verilog/VHDL source files
-└── ip/               # Custom IP cores (calculator)
-
-HPS/                  # Hard Processor System
-├── Makefile          # HPS orchestration
-├── linux_image/      # Linux build system
-│   ├── Makefile      # Kernel + rootfs + SD image
-│   ├── kernel/       # Kernel build with ccache support
-│   └── rootfs/       # Rootfs build with base caching
-├── applications/     # HPS applications (parallel build)
-└── drivers/          # Linux driver integration
-
-documentation/        # Build guides and references
-```
-
----
-
 ## Configuration
 
 ### Parallelization Options
@@ -174,52 +223,3 @@ make clean-all           # Deep clean including all caches
 ```
 
 ---
-
-## Key Features
-
-- **Parallel Build System**: FPGA and HPS build simultaneously
-- **Intelligent Caching**: Tool paths, rootfs base, ccache for kernel
-- **Build Profiling**: Timing reports for all build phases
-- **Incremental Updates**: Only rebuild changed components
-- **Hardware Acceleration**: FPGA-based floating-point calculator IP
-- **Low-Latency Communication**: Direct HPS-FPGA memory-mapped I/O
-- **Cross-Platform**: Windows/WSL/Linux compatibility
-
----
-
-## Documentation
-
-- **[Complete Deployment Guide](documentation/deployment_guide.md)** - Step-by-step build and troubleshooting
-- **[FPGA-HPS Communication](documentation/hps_fpga_communication.md)** - Hardware interface details
-- **[SoC EDS Setup](FPGA/SOC_EDS_SETUP.md)** - Intel SoC EDS configuration
-
----
-
-## Getting Help
-
-- Check the [Deployment Guide](documentation/deployment_guide.md) first
-- Review Makefile help: `make help`
-- For build issues: `make deps` to install dependencies
-- Check kernel logs: `dmesg | grep fpga`
-
----
-
-## References
-
-### OEM Documentation
-- [DE10-Nano CD Download](https://download.terasic.com/downloads/cd-rom/de10-nano/)
-- [Terasic DE10-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=165&No=1046#contents)
-- [Cyclone V HPS Register Address Map](https://www.intel.com/content/www/us/en/programmable/hps/cyclone-v/hps.html#sfo1418687413697.html)
-
-### Hardware Manuals
-- [DE10-Nano User Manual](documentation/references/DE10-Nano_User_manual_a_b.pdf)
-- [Cyclone V Handbook](documentation/references/Cyclone_V_handbook.pdf)
-
-### Community Resources
-- [Building Embedded Linux for DE10-Nano](https://bitlog.it/20170820_building_embedded_linux_for_the_terasic_de10-nano.html)
-- [zangman/de10-nano](https://github.com/zangman/de10-nano)
-
-### Cornell University ECE5760
-- [Linux Image](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/DE1-SoC-UP-Linux/linux_sdcard_image.zip)
-- [FPGA Design](https://people.ece.cornell.edu/land/courses/ece5760/)
-- [HPS Peripherals](https://people.ece.cornell.edu/land/courses/ece5760/DE1_SOC/HPS_peripherals/linux_index.html)
