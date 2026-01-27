@@ -56,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # SD card image creation tools
     parted \
     dosfstools \
+    mtools \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

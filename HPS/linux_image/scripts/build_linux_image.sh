@@ -21,8 +21,8 @@ REPO_ROOT="$(cd "$HPS_DIR/.." && pwd)"
 LINUX_IMAGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source build configuration
-if [ -f "$LINUX_IMAGE_DIR/build_config.sh" ]; then
-    source "$LINUX_IMAGE_DIR/build_config.sh"
+if [ -f "$SCRIPT_DIR/build_config.sh" ]; then
+    source "$SCRIPT_DIR/build_config.sh"
 fi
 
 # Build options

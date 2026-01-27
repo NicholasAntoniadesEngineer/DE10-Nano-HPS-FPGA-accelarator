@@ -141,7 +141,18 @@ HPS/linux_image/rootfs/build/.rootfs_base_hash
 # Keep SD card image (final deployable artifact)
 !HPS/linux_image/build/*.img
 
-# Preloader build artifacts (intermediate)
+# ============================================================================
+# Bootloader Build Artifacts
+# ============================================================================
+# Modern U-Boot bootloader (linux_image/bootloader/)
+HPS/linux_image/bootloader/u-boot-socfpga/
+HPS/linux_image/bootloader/build/*
+
+# Keep final bootloader outputs (needed for SD card creation)
+!HPS/linux_image/bootloader/build/u-boot-with-spl.sfp
+!HPS/linux_image/bootloader/build/u-boot.img
+
+# Legacy Intel SoC EDS Preloader (preloader/)
 HPS/preloader/spl_bsp/
 HPS/preloader/uboot-socfpga/build/
 HPS/preloader/uboot-socfpga/.config
@@ -292,12 +303,14 @@ HPS/**/scripts/.*.normalized.*
 #   - FPGA/generated/soc_system/synthesis/* (QSys synthesis outputs)
 #
 # HPS:
+#   - HPS/linux_image/bootloader/build/u-boot-with-spl.sfp (Modern U-Boot with SPL)
+#   - HPS/linux_image/bootloader/build/u-boot.img (U-Boot image)
 #   - HPS/linux_image/kernel/build/arch/arm/boot/zImage (Kernel binary)
 #   - HPS/linux_image/rootfs/build/rootfs.tar.xz (Root filesystem, xz compressed)
 #   - HPS/linux_image/rootfs/build/rootfs_base.tar.xz (Base rootfs cache)
 #   - HPS/linux_image/build/*.img (SD card image)
-#   - HPS/preloader/preloader-mkpimage.bin (Preloader)
-#   - HPS/preloader/uboot-socfpga/u-boot.img (U-Boot)
+#   - HPS/preloader/preloader-mkpimage.bin (Legacy preloader)
+#   - HPS/preloader/uboot-socfpga/u-boot.img (Legacy U-Boot)
 #   - HPS/applications/**/calculator_test (Application binaries)
 #
 # These artifacts are needed for:

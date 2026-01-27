@@ -436,48 +436,26 @@ sd-image-internal:
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)SD Card Image Creation$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
-	@echo -e "$(YELLOW)Creating SD card image...$(NC)"
-	@echo -e "$(YELLOW)Normalizing scripts for WSL compatibility...$(NC)"
+	@echo -e "$(YELLOW)Creating SD card image (Docker-compatible, no loop devices)...$(NC)"
 	@bash -c '\
 		set -e; \
-		wrapper_script="create_sd_image_wrapper.sh"; \
-		main_script="$(SCRIPTS_DIR)/create_sd_image.sh"; \
-		tmp_wrapper=".create_sd_image_wrapper.normalized.$$$$"; \
-		tmp_main="$(SCRIPTS_DIR)/.create_sd_image.normalized.$$$$"; \
-		trap "rm -f \"$$tmp_wrapper\" \"$$tmp_main\"" EXIT; \
+		main_script="$(SCRIPTS_DIR)/create_sd_image_noloop.sh"; \
 		\
-		if [ ! -f "$$wrapper_script" ]; then \
-			echo "ERROR: SD image wrapper script not found: $$wrapper_script"; \
-			exit 1; \
-		fi; \
 		if [ ! -f "$$main_script" ]; then \
-			echo "ERROR: Main SD image script not found: $$main_script"; \
+			echo "ERROR: SD image script not found: $$main_script"; \
 			exit 1; \
 		fi; \
 		\
-		echo "Normalizing $$wrapper_script -> $$tmp_wrapper"; \
-		tr -d "\\r" < "$$wrapper_script" > "$$tmp_wrapper"; \
-		chmod +x "$$tmp_wrapper"; \
-		\
-		echo "Normalizing $$main_script -> $$tmp_main"; \
-		tr -d "\\r" < "$$main_script" > "$$tmp_main"; \
-		chmod +x "$$tmp_main"; \
-		\
-		export NORMALIZED_MAIN_SCRIPT="$$tmp_main"; \
-		\
-		echo ""; \
-		echo "Scripts normalized successfully"; \
-		echo ""; \
+		export PRELOADER_BIN="$(PRELOADER_BIN)"; \
+		export UBOOT_IMG="$(UBOOT_IMG)"; \
 		\
 		if [ "$$(id -u)" -eq 0 ]; then \
 			echo "Running as root..."; \
-			bash "$$tmp_wrapper"; \
+			bash "$$main_script"; \
 		else \
 			echo "Image creation requires root access"; \
 			echo "Run with: sudo make sd-image"; \
-			echo -e "$(YELLOW)NOTE: If it looks stuck, sudo is waiting for your password (input is hidden).$(NC)"; \
-			echo ""; \
-			sudo -v && sudo bash "$$tmp_wrapper"; \
+			sudo -v && sudo bash "$$main_script"; \
 		fi \
 	'
 

@@ -41,11 +41,12 @@ log_header() {
 
 # Script directory and paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+LINUX_IMAGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$LINUX_IMAGE_DIR/.." && pwd)"
 
 # Default bootloader paths - prefer modern U-Boot build, fall back to legacy
 # Environment variables can override these defaults
-BOOTLOADER_BUILD_DIR="$SCRIPT_DIR/bootloader/build"
+BOOTLOADER_BUILD_DIR="$LINUX_IMAGE_DIR/bootloader/build"
 if [ -z "$PRELOADER_BIN" ]; then
     if [ -f "$BOOTLOADER_BUILD_DIR/u-boot-with-spl.sfp" ]; then
         PRELOADER_PATH="$BOOTLOADER_BUILD_DIR/u-boot-with-spl.sfp"
@@ -70,7 +71,7 @@ if [ -n "$NORMALIZED_MAIN_SCRIPT" ] && [ -f "$NORMALIZED_MAIN_SCRIPT" ]; then
     MAIN_SCRIPT="$NORMALIZED_MAIN_SCRIPT"
     log_info "Using pre-normalized main script: $MAIN_SCRIPT"
 else
-    MAIN_SCRIPT="$SCRIPT_DIR/scripts/create_sd_image.sh"
+    MAIN_SCRIPT="$SCRIPT_DIR/create_sd_image.sh"
 fi
 
 # Start logging
@@ -124,74 +125,63 @@ else
     exit 1
 fi
 
-# Check for other required components
-KERNEL_IMG="$SCRIPT_DIR/kernel/build/arch/arm/boot/zImage"
-ROOTFS_IMG="$SCRIPT_DIR/rootfs/build/rootfs.tar.gz"
-FPGA_RBF="$REPO_ROOT/build/output_files/DE10_NANO_SoC_GHRD.rbf"
-
+# Check other required components
 log_info "Checking other required components..."
 
-if [ -f "$KERNEL_IMG" ]; then
-    KERNEL_SIZE=$(du -h "$KERNEL_IMG" | cut -f1)
-    log_success "Linux kernel found: $KERNEL_IMG (${KERNEL_SIZE})"
+KERNEL_PATH="$LINUX_IMAGE_DIR/kernel/build/arch/arm/boot/zImage"
+if [ -f "$KERNEL_PATH" ]; then
+    KERNEL_SIZE=$(du -h "$KERNEL_PATH" | cut -f1)
+    log_success "Linux kernel found: $KERNEL_PATH (${KERNEL_SIZE})"
 else
-    log_warning "Linux kernel NOT found: $KERNEL_IMG"
+    log_warning "Linux kernel NOT found: $KERNEL_PATH"
     log_warning "Kernel will be built if missing during SD creation"
 fi
 
-if [ -f "$ROOTFS_IMG" ]; then
-    ROOTFS_SIZE=$(du -h "$ROOTFS_IMG" | cut -f1)
-    log_success "Root filesystem found: $ROOTFS_IMG (${ROOTFS_SIZE})"
+ROOTFS_PATH="$LINUX_IMAGE_DIR/rootfs/build/rootfs.tar.gz"
+if [ -f "$ROOTFS_PATH" ]; then
+    ROOTFS_SIZE=$(du -h "$ROOTFS_PATH" | cut -f1)
+    log_success "Root filesystem found: $ROOTFS_PATH (${ROOTFS_SIZE})"
 else
-    log_warning "Root filesystem NOT found: $ROOTFS_IMG"
+    log_warning "Root filesystem NOT found: $ROOTFS_PATH"
     log_warning "Rootfs will be built if missing during SD creation"
 fi
 
-if [ -f "$FPGA_RBF" ]; then
-    RBF_SIZE=$(du -h "$FPGA_RBF" | cut -f1)
-    RBF_DATE=$(date -r "$FPGA_RBF" "+%Y-%m-%d %H:%M")
-    log_success "FPGA bitstream found: $FPGA_RBF (${RBF_SIZE}, modified: ${RBF_DATE})"
+RBF_PATH="$REPO_ROOT/build/output_files/DE10_NANO_SoC_GHRD.rbf"
+if [ -f "$RBF_PATH" ]; then
+    RBF_SIZE=$(du -h "$RBF_PATH" | cut -f1)
+    log_success "FPGA bitstream found: $RBF_PATH (${RBF_SIZE})"
 else
-    log_warning "FPGA bitstream NOT found: $FPGA_RBF"
+    log_warning "FPGA bitstream NOT found: $RBF_PATH"
     log_warning "Using existing RBF - if outdated, rebuild FPGA first"
 fi
 
-# Display configuration summary
+# Summary
 log_header "Configuration Summary"
 echo "Preloader:     $PRELOADER_BIN"
 echo "U-Boot:        $UBOOT_IMG"
-echo "Kernel:        $KERNEL_IMG"
-echo "Rootfs:        $ROOTFS_IMG"
-echo "FPGA RBF:      $FPGA_RBF"
+echo "Kernel:        $KERNEL_PATH"
+echo "Rootfs:        $ROOTFS_PATH"
+echo "FPGA RBF:      $RBF_PATH"
 echo "Main Script:   $MAIN_SCRIPT"
-echo "Output Dir:    $SCRIPT_DIR/build/"
+echo "Output Dir:    $LINUX_IMAGE_DIR/build/"
 
-# Execute the main script
+# Execute main script
 log_header "Starting SD Image Creation"
-
-# If main script wasn't pre-normalized, normalize it now (for direct execution)
-if [ -z "$NORMALIZED_MAIN_SCRIPT" ]; then
-    log_info "Normalizing main script for CRLF compatibility..."
-    TEMP_SCRIPT="/tmp/create_sd_image.normalized.$$"
-    tr -d '\r' < "$MAIN_SCRIPT" > "$TEMP_SCRIPT"
-    chmod +x "$TEMP_SCRIPT"
-    MAIN_SCRIPT="$TEMP_SCRIPT"
-    
-    # Cleanup temp file on exit
-    trap "rm -f '$TEMP_SCRIPT'" EXIT
-    log_info "Using normalized script: $MAIN_SCRIPT"
-fi
-
 log_info "Executing main SD creation script..."
 log_info "Main script path: $MAIN_SCRIPT"
 log_info "Arguments: $@"
 echo ""
 
-if bash "$MAIN_SCRIPT" "$@"; then
-    log_success "SD image creation completed successfully!"
-    exit 0
+# Run the main SD image creation script
+bash "$MAIN_SCRIPT" "$@"
+
+RESULT=$?
+
+echo ""
+if [ $RESULT -eq 0 ]; then
+    log_success "SD image creation completed successfully"
 else
-    exit_code=$?
-    log_error "SD image creation failed with exit code $exit_code"
-    exit $exit_code
+    log_error "SD image creation failed with exit code $RESULT"
 fi
+
+exit $RESULT
