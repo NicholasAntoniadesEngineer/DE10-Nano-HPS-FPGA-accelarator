@@ -60,6 +60,7 @@ TIMESTAMP = $(shell date '+%Y-%m-%d %H:%M:%S')
 
 .PHONY: all help deps deps-check fpga kernel rootfs bootloader linux-image sd-image clean
 .PHONY: task-kernel task-rootfs parallel-build serial-build timing-report
+.PHONY: sd-image-compress flash-sd
 
 all: linux-image
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -72,18 +73,20 @@ help:
 	@echo "======================================"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all           - Build complete Linux image (kernel + rootfs + SD image)"
-	@echo "  deps          - Install build-host dependencies (Debian/Ubuntu/WSL)"
-	@echo "  deps-check    - Verify build-host dependencies are installed"
-	@echo "  bootloader    - Build U-Boot bootloader (SPL + U-Boot)"
-	@echo "  kernel        - Build Linux kernel only"
-	@echo "  rootfs        - Build root filesystem only (requires root)"
-	@echo "  linux-image   - Build complete Linux image (bootloader + kernel + rootfs + SD image)"
-	@echo "  sd-image      - Create SD card image only (requires bootloader, kernel and rootfs)"
-	@echo "  sd-image-update - Update existing SD image (faster, only changed files)"
-	@echo "  clean         - Clean all build artifacts"
-	@echo "  timing-report - Show build timing statistics"
-	@echo "  help          - Show this help message"
+	@echo "  all              - Build complete Linux image (kernel + rootfs + SD image)"
+	@echo "  deps             - Install build-host dependencies (Debian/Ubuntu/WSL)"
+	@echo "  deps-check       - Verify build-host dependencies are installed"
+	@echo "  bootloader       - Build U-Boot bootloader (SPL + U-Boot)"
+	@echo "  kernel           - Build Linux kernel only"
+	@echo "  rootfs           - Build root filesystem only (requires root)"
+	@echo "  linux-image      - Build complete Linux image (bootloader + kernel + rootfs + SD image)"
+	@echo "  sd-image         - Create SD card image only (requires bootloader, kernel and rootfs)"
+	@echo "  sd-image-compress - Create compressed .img.xz (for distribution/git)"
+	@echo "  sd-image-update  - Update existing SD image (faster, only changed files)"
+	@echo "  flash-sd         - Show flash helper usage"
+	@echo "  clean            - Clean all build artifacts"
+	@echo "  timing-report    - Show build timing statistics"
+	@echo "  help             - Show this help message"
 	@echo ""
 	@echo "Parallel Build Options:"
 	@echo "  PARALLEL_BUILD=1  - Enable parallel kernel+rootfs (default)"
@@ -544,6 +547,50 @@ sd-image-update:
 		echo -e "$(GREEN)Image already up-to-date ($$duration seconds)$(NC)"; \
 	fi; \
 	echo -e "$(GREEN)===========================================$(NC)"
+
+# ============================================================================
+# Compressed SD Image
+# ============================================================================
+# Creates a compressed .img.xz file for distribution and git storage.
+# Compression ratio is typically 95%+ (4GB -> ~180MB) since most of the
+# image is empty space.
+# ============================================================================
+
+sd-image-compress: sd-image
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Compressing SD Card Image$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@IMAGE_FILE="$(BUILD_DIR)/de10-nano-custom.img"; \
+	if [ ! -f "$$IMAGE_FILE" ]; then \
+		echo -e "$(RED)ERROR: Image not found: $$IMAGE_FILE$(NC)"; \
+		exit 1; \
+	fi; \
+	echo -e "$(YELLOW)Compressing with xz (level 9)...$(NC)"; \
+	echo "Original size: $$(du -h "$$IMAGE_FILE" | cut -f1)"; \
+	xz -9 --keep --force "$$IMAGE_FILE"; \
+	echo -e "$(GREEN)Compressed size: $$(du -h "$${IMAGE_FILE}.xz" | cut -f1)$(NC)"; \
+	echo ""; \
+	echo -e "$(GREEN)Compressed image: $${IMAGE_FILE}.xz$(NC)"; \
+	echo ""; \
+	echo "To flash to SD card:"; \
+	echo "  sudo ./scripts/flash_sd.sh /dev/sdX"; \
+	echo ""; \
+	echo "Or manually:"; \
+	echo "  xz -dc $${IMAGE_FILE}.xz | sudo dd of=/dev/sdX bs=4M status=progress"
+
+# Flash SD card helper
+flash-sd:
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo -e "$(GREEN)Flash SD Card$(NC)"
+	@echo -e "$(GREEN)===========================================$(NC)"
+	@echo ""
+	@echo "Usage: sudo ./scripts/flash_sd.sh /dev/sdX"
+	@echo ""
+	@echo "Available images:"
+	@ls -lh $(BUILD_DIR)/*.img* 2>/dev/null || echo "  (none - run 'make sd-image' first)"
+	@echo ""
+	@echo "List available devices:"
+	@echo "  ./scripts/flash_sd.sh --list"
 
 clean:
 	@echo -e "$(YELLOW)Cleaning Linux image build artifacts...$(NC)"

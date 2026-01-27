@@ -147,9 +147,12 @@ HPS/linux_image/rootfs/build/*
 !HPS/linux_image/rootfs/build/rootfs.tar.xz
 !HPS/linux_image/rootfs/build/rootfs.tar.gz
 
-# SD card image directory (ignored - 4GB exceeds GitHub LFS 2GB limit)
-# Regenerate with: make sd-image
-HPS/linux_image/build/
+# SD card image directory
+# Uncompressed .img (4GB) ignored - exceeds GitHub LFS 2GB limit
+# Compressed .img.xz (~180MB) tracked via LFS
+HPS/linux_image/build/*
+!HPS/linux_image/build/de10-nano-custom.img.xz
+!HPS/linux_image/build/de10-nano-custom.img.sha256
 
 # ============================================================================
 # Bootloader Build Artifacts
