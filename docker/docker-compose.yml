@@ -40,8 +40,9 @@ services:
     environment:
       - CROSS_COMPILE=arm-linux-gnueabihf-
       - ARCH=arm
-      # Use multiple CPUs for Quartus (may be unstable on emulation, reduce if issues)
-      - QUARTUS_NUM_PARALLEL_PROCESSORS=4
+      # Use all available CPU cores (14) for maximum performance
+      # Note: Rosetta 2 emulation still adds 50-80% overhead vs native x86
+      - QUARTUS_NUM_PARALLEL_PROCESSORS=14
       # Build rootfs in native Docker volume (macOS bind mounts don't support mknod)
       - WSL_NATIVE_BUILD=1
       - WSL_BUILD_DIR=/var/lib/rootfs-build

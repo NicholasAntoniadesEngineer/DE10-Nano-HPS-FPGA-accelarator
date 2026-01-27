@@ -6,7 +6,8 @@
 # 
 # Organization:
 #   - linux_image/  : Kernel, rootfs, and SD card image
-#   - drivers/      : Linux driver integration tools
+#   - drivers/      : Hardware drivers (user-space and kernel integration)
+#   - libs/         : Shared libraries (logger, etc.)
 #   - applications/ : User-space applications (calculator_test, led_examples)
 # ============================================================================
 
@@ -32,7 +33,7 @@ NC := \033[0m
 
 .PHONY: all help clean clean-all everything \
         linux-image kernel rootfs sd-image \
-        drivers applications calculator_test led_examples
+        drivers userspace-drivers applications calculator_test led_examples
 
 # Default target - build applications only (fastest)
 all: applications
@@ -50,23 +51,25 @@ help:
 	@echo ""
 	@echo "Organization:"
 	@echo "  linux_image/  - Kernel, rootfs, and SD card image"
-	@echo "  drivers/      - Linux driver integration tools"
+	@echo "  drivers/      - Hardware drivers (user-space and kernel integration)"
+	@echo "  libs/         - Shared libraries (logger, etc.)"
 	@echo "  applications/ - User-space applications"
 	@echo ""
 	@echo "Application Targets (Fast - no root required):"
-	@echo "  all              - Build all applications (default)"
+	@echo "  all              - Build all applications and drivers (default)"
 	@echo "  applications     - Build all applications"
 	@echo "  calculator_test  - Build calculator test suite"
 	@echo "  led_examples     - Build LED control examples"
+	@echo ""
+	@echo "Driver Targets:"
+	@echo "  userspace-drivers - Build all user-space hardware drivers"
+	@echo "  drivers           - Show kernel driver integration information"
 	@echo ""
 	@echo "Linux Image Targets (Slow - requires root for rootfs/image):"
 	@echo "  linux-image      - Build complete Linux image (kernel + rootfs + SD image)"
 	@echo "  kernel           - Build Linux kernel only"
 	@echo "  rootfs           - Build root filesystem only (requires root)"
 	@echo "  sd-image         - Create SD card image (requires kernel, rootfs, and root)"
-	@echo ""
-	@echo "Driver Targets:"
-	@echo "  drivers          - Show driver integration information"
 	@echo ""
 	@echo "Other Targets:"
 	@echo "  everything       - Build everything (applications + Linux image)"
@@ -160,10 +163,29 @@ sd-image: kernel rootfs
 	fi
 
 # ============================================================================
+# Driver Targets
+# ============================================================================
+
+userspace-drivers:
+	@echo -e "$(YELLOW)Building user-space drivers...$(NC)"
+	@if [ -f "$(DRIVERS_DIR)/Makefile" ]; then \
+		$(MAKE) -C $(DRIVERS_DIR) CROSS_COMPILE=$(CROSS_COMPILE) userspace; \
+	else \
+		echo "ERROR: Drivers Makefile not found"; \
+		exit 1; \
+	fi
+
+drivers:
+	@echo -e "$(YELLOW)Kernel driver integration tools are in drivers/integration/$(NC)"
+	@if [ -f "$(DRIVERS_DIR)/Makefile" ]; then \
+		$(MAKE) -C $(DRIVERS_DIR) integration; \
+	fi
+
+# ============================================================================
 # Application Targets
 # ============================================================================
 
-applications: calculator_test led_examples
+applications: userspace-drivers calculator_test led_examples
 	@echo -e "$(GREEN)All applications built$(NC)"
 
 calculator_test:
@@ -182,16 +204,6 @@ led_examples:
 	else \
 		echo "ERROR: Applications Makefile not found"; \
 		exit 1; \
-	fi
-
-# ============================================================================
-# Driver Targets
-# ============================================================================
-
-drivers:
-	@echo -e "$(YELLOW)Driver integration tools are in drivers/integration/$(NC)"
-	@if [ -f "$(DRIVERS_DIR)/Makefile" ]; then \
-		$(MAKE) -C $(DRIVERS_DIR) integration; \
 	fi
 
 # ============================================================================

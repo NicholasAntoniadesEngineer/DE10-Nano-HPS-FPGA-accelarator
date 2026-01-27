@@ -16,7 +16,9 @@ QSYS_STAMP="$5"
 QSYS_SOPCINFO="$6"
 QSYS_GENERATE_CMD="${7:-qsys-generate}"
 
-generatedSynthesisDir="$GENERATED_DIR/$QSYS_BASE/synthesis"
+# qsys-generate creates a synthesis/ subdirectory automatically, so output to parent
+generatedOutputDir="$GENERATED_DIR/$QSYS_BASE"
+generatedSynthesisDir="$generatedOutputDir/synthesis"
 generatedSopcinfo1="$GENERATED_DIR/$QSYS_BASE/$QSYS_BASE.sopcinfo"
 generatedSopcinfo2="$generatedSynthesisDir/$QSYS_BASE.sopcinfo"
 guiDir="$QSYS_DIR/$QSYS_BASE"
@@ -84,10 +86,11 @@ if ! command -v "$QSYS_GENERATE_CMD" >/dev/null 2>&1 && [ ! -f "$QSYS_GENERATE_C
 fi
 
 echo "This may take several minutes..."
-mkdir -p "$generatedSynthesisDir"
+mkdir -p "$generatedOutputDir"
 
 # Note: SET_QSYS_GENERATE_ENV is handled by Makefile if needed (for Cygwin)
-"$QSYS_GENERATE_CMD" "$QSYS_FILE" --synthesis=VERILOG --output-directory="$generatedSynthesisDir" || {
+# qsys-generate will create synthesis/ subdirectory automatically
+"$QSYS_GENERATE_CMD" "$QSYS_FILE" --synthesis=VERILOG --output-directory="$generatedOutputDir" || {
 	echo ""
 	echo "WARNING: QSys generation completed with errors (this may be non-critical)."
 	echo "Checking if critical files were generated..."

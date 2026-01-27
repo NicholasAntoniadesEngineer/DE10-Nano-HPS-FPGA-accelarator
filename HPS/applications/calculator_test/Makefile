@@ -12,24 +12,26 @@ CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC = $(CROSS_COMPILE)gcc
 STRIP = $(CROSS_COMPILE)strip
 
-# Library paths
-LOGGER_DIR = ../libs/logger
+# Library and driver paths
+LOGGER_DIR = ../../libs/logger
+DRIVER_DIR = ../../drivers/calculator
 
 # Compiler flags
 CFLAGS = -Wall -Wextra -O2 -g
 CFLAGS += -std=gnu99
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += -I$(LOGGER_DIR)
+CFLAGS += -I$(DRIVER_DIR)
 
 # Linker flags
 LDFLAGS = -lm  # Link math library for fabsf()
 
 # Source files
-SRCS = main.c calculator_driver.c test_cases.c $(LOGGER_DIR)/logger.c
-OBJS = main.o calculator_driver.o test_cases.o logger.o
+SRCS = main.c test_cases.c $(DRIVER_DIR)/calculator_driver.c $(LOGGER_DIR)/logger.c
+OBJS = main.o test_cases.o calculator_driver.o logger.o
 
 # Header dependencies
-DEPS = calculator_driver.h test_cases.h $(LOGGER_DIR)/logger.h
+DEPS = test_cases.h $(DRIVER_DIR)/calculator_driver.h $(LOGGER_DIR)/logger.h
 
 # ============================================================================
 # Build Rules
@@ -62,6 +64,11 @@ $(TARGET): $(OBJS)
 logger.o: $(LOGGER_DIR)/logger.c $(LOGGER_DIR)/logger.h
 	@echo "Compiling logger library..."
 	$(CC) $(CFLAGS) -c $(LOGGER_DIR)/logger.c -o $@
+
+# Compile calculator driver
+calculator_driver.o: $(DRIVER_DIR)/calculator_driver.c $(DRIVER_DIR)/calculator_driver.h
+	@echo "Compiling calculator driver..."
+	$(CC) $(CFLAGS) -c $(DRIVER_DIR)/calculator_driver.c -o $@
 
 # Clean build artifacts
 clean:
@@ -126,7 +133,7 @@ help:
 # ============================================================================
 # Dependencies
 # ============================================================================
-main.o: main.c calculator_driver.h test_cases.h $(LOGGER_DIR)/logger.h
-calculator_driver.o: calculator_driver.c calculator_driver.h $(LOGGER_DIR)/logger.h
+main.o: main.c $(DRIVER_DIR)/calculator_driver.h test_cases.h $(LOGGER_DIR)/logger.h
+calculator_driver.o: $(DRIVER_DIR)/calculator_driver.c $(DRIVER_DIR)/calculator_driver.h $(LOGGER_DIR)/logger.h
 test_cases.o: test_cases.c test_cases.h
 logger.o: $(LOGGER_DIR)/logger.c $(LOGGER_DIR)/logger.h
