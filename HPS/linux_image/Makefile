@@ -442,7 +442,7 @@ sd-image-internal:
 	@echo -e "$(YELLOW)Creating SD card image (Docker-compatible, no loop devices)...$(NC)"
 	@bash -c '\
 		set -e; \
-		main_script="$(SCRIPTS_DIR)/create_sd_image_noloop.sh"; \
+		main_script="$(SCRIPTS_DIR)/create_sd_image.sh"; \
 		\
 		if [ ! -f "$$main_script" ]; then \
 			echo "ERROR: SD image script not found: $$main_script"; \
