@@ -97,10 +97,21 @@ TIMESTAMP = $(shell date '+%Y-%m-%d %H:%M:%S')
 .PHONY: rootfs-native rootfs-local wsl-status extract-rootfs compress-rootfs
 
 all: $(ROOTFS_TAR)
-	@echo -e "$(GREEN)===========================================$(NC)"
-	@echo -e "$(GREEN)Rootfs build complete$(NC)"
-	@echo -e "$(GREEN)===========================================$(NC)"
-	@echo -e "$(GREEN)Rootfs tarball: $(ROOTFS_TAR)$(NC)"
+	@echo ""
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@echo -e "$(GREEN)ROOTFS BUILD COMPLETE$(NC)"
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@if [ -f "$(ROOTFS_TAR)" ]; then \
+		echo -e "$(GREEN)✓ Final rootfs: $(ROOTFS_TAR) ($$(du -h $(ROOTFS_TAR) | cut -f1))$(NC)"; \
+	else \
+		echo -e "$(RED)✗ ERROR: Final rootfs not found: $(ROOTFS_TAR)$(NC)"; \
+		exit 1; \
+	fi
+	@if [ -f "$(ROOTFS_BASE_TAR)" ]; then \
+		echo -e "$(GREEN)✓ Base cache:   $(ROOTFS_BASE_TAR) ($$(du -h $(ROOTFS_BASE_TAR) | cut -f1))$(NC)"; \
+	fi
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@echo ""
 
 help:
 	@echo "Root Filesystem Build System"
@@ -242,9 +253,16 @@ rootfs-native:
 rootfs-native-internal:
 	@# Refresh sudo session (already validated in rootfs target)
 	@if [ "$$(id -u)" -ne 0 ]; then sudo -v 2>/dev/null || true; fi
+	@echo ""
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo -e "$(CYAN)NATIVE FILESYSTEM BUILD - SETUP$(NC)"
+	@echo -e "$(CYAN)============================================================================$(NC)"
 	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Setting up native build environment..."
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Native directory: $(WSL_BUILD_DIR)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Workspace directory: $(BUILD_DIR)"
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo ""
 	@mkdir -p $(WSL_BUILD_DIR)
-	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Build directory: $(WSL_BUILD_DIR)"
 	@# Check base cache validity and copy if available
 	@WSL_BASE_TAR="$(WSL_BUILD_DIR)/build/rootfs_base.tar.xz"; \
 	WSL_BASE_HASH="$(WSL_BUILD_DIR)/build/.rootfs_base_hash"; \
@@ -304,23 +322,44 @@ rootfs-native-internal:
 	@echo '		export ROOTFS_DIR="$$(BUILD_DIR)/rootfs" ROOTFS_TAR="$$(ROOTFS_BASE_TAR)" BASE_ONLY=1 && bash ./build_rootfs.sh; \' >> $(WSL_BUILD_DIR)/Makefile.native
 	@echo '		md5sum $$(BASE_SOURCES) 2>/dev/null | md5sum | cut -d" " -f1 > $$(ROOTFS_BASE_HASH)' >> $(WSL_BUILD_DIR)/Makefile.native
 	@# Run build on native filesystem (sudo already validated)
-	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Running build on native filesystem..."
+	@echo ""
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo -e "$(CYAN)RUNNING BUILD IN NATIVE DOCKER VOLUME$(NC)"
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Location: $(WSL_BUILD_DIR)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | This supports device node creation for debootstrap"
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo ""
 	@if [ "$$(id -u)" -eq 0 ]; then \
 		cd $(WSL_BUILD_DIR) && make -f Makefile.native build; \
 	else \
 		cd $(WSL_BUILD_DIR) && sudo -E make -f Makefile.native build; \
 	fi
 	@# Copy results back and update cache
-	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Copying results back to project..."
+	@echo ""
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo -e "$(CYAN)COPYING ARTIFACTS TO WORKSPACE$(NC)"
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | From: $(WSL_BUILD_DIR)/build/"
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | To:   $(BUILD_DIR)/"
+	@echo -e "$(CYAN)============================================================================$(NC)"
+	@echo ""
 	@mkdir -p $(BUILD_DIR)
 	@cp -f $(WSL_BUILD_DIR)/build/rootfs.tar.xz $(ROOTFS_TAR)
 	@if [ -f "$(WSL_BUILD_DIR)/build/rootfs_base.tar.xz" ]; then \
 		cp -f $(WSL_BUILD_DIR)/build/rootfs_base.tar.xz $(ROOTFS_BASE_TAR); \
 		cp -f $(WSL_BUILD_DIR)/build/.rootfs_base_hash $(ROOTFS_BASE_HASH) 2>/dev/null || true; \
-		echo -e "$(GREEN)[OK]$(NC) $(TIMESTAMP) | Base cache updated"; \
+		echo -e "$(GREEN)[OK]$(NC) $(TIMESTAMP) | Base image cached: $$(du -h $(ROOTFS_BASE_TAR) | cut -f1)"; \
 	fi
-	@echo -e "$(GREEN)[OK]$(NC) $(TIMESTAMP) | Rootfs built on native filesystem and copied back"
-	@echo -e "$(GREEN)[OK]$(NC) $(TIMESTAMP) | Result: $(ROOTFS_TAR)"
+	@echo -e "$(GREEN)[OK]$(NC) $(TIMESTAMP) | Final rootfs: $$(du -h $(ROOTFS_TAR) | cut -f1)"
+	@echo ""
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@echo -e "$(GREEN)NATIVE BUILD COMPLETE - ARTIFACTS READY$(NC)"
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@echo -e "$(GREEN)Base:  $(ROOTFS_BASE_TAR)$(NC)"
+	@echo -e "$(GREEN)Final: $(ROOTFS_TAR)$(NC)"
+	@echo -e "$(GREEN)============================================================================$(NC)"
+	@echo ""
 
 # Force build in current directory (no WSL redirect)
 rootfs-local: rootfs-local-internal
@@ -413,10 +452,31 @@ $(ROOTFS_BASE_TAR): deps-check $(BASE_SOURCES)
 	@# If running under WSL on a Windows filesystem (/mnt/*), build the base image
 	@# via the native-filesystem workflow to avoid debootstrap/tar extraction failures.
 	@if [ "$(WSL_NATIVE_BUILD)" = "1" ]; then \
-		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | WSL detected with Windows filesystem"; \
-		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Building base image on native filesystem: $(WSL_BUILD_DIR)"; \
+		echo ""; \
+		echo -e "$(YELLOW)============================================================================$(NC)"; \
+		echo -e "$(YELLOW)NATIVE FILESYSTEM BUILD REQUIRED$(NC)"; \
+		echo -e "$(YELLOW)============================================================================$(NC)"; \
+		echo -e "$(YELLOW)Docker bind mounts (macOS) don't support device nodes needed by debootstrap$(NC)"; \
+		echo -e "$(YELLOW)Building in native Docker volume instead: $(WSL_BUILD_DIR)$(NC)"; \
+		echo -e "$(YELLOW)This is automatic and transparent - no action needed$(NC)"; \
+		echo -e "$(YELLOW)============================================================================$(NC)"; \
+		echo ""; \
 		$(MAKE) rootfs-native; \
-		test -f "$(ROOTFS_BASE_TAR)" || (echo -e "$(RED)ERROR: Base tarball missing after native build: $(ROOTFS_BASE_TAR)$(NC)" && exit 1); \
+		if [ ! -f "$(ROOTFS_BASE_TAR)" ]; then \
+			echo -e "$(RED)============================================================================$(NC)"; \
+			echo -e "$(RED)ERROR: Native build failed to produce base tarball$(NC)"; \
+			echo -e "$(RED)Expected: $(ROOTFS_BASE_TAR)$(NC)"; \
+			echo -e "$(RED)============================================================================$(NC)"; \
+			exit 1; \
+		fi; \
+		echo ""; \
+		echo -e "$(GREEN)============================================================================$(NC)"; \
+		echo -e "$(GREEN)NATIVE BUILD SUCCESSFUL$(NC)"; \
+		echo -e "$(GREEN)============================================================================$(NC)"; \
+		echo -e "$(GREEN)Base image: $(ROOTFS_BASE_TAR) ($$(du -h $(ROOTFS_BASE_TAR) | cut -f1))$(NC)"; \
+		echo -e "$(GREEN)Artifact successfully copied from native volume to workspace$(NC)"; \
+		echo -e "$(GREEN)============================================================================$(NC)"; \
+		echo ""; \
 		exit 0; \
 	fi
 	@# Check if cached base is still valid
@@ -437,6 +497,9 @@ $(ROOTFS_BASE_TAR): deps-check $(BASE_SOURCES)
 	@echo -e "$(CYAN)===========================================$(NC)"
 	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Running debootstrap + package installation..."
 	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | This creates the cached base image"
+	@echo ""
+	@echo -e "$(YELLOW)WARNING: This path should not run when WSL_NATIVE_BUILD=1$(NC)"
+	@echo -e "$(YELLOW)WARNING: Building in workspace - device nodes may not work$(NC)"
 	@echo ""
 	@# Run build script with BASE_ONLY mode
 	@set -e; \
