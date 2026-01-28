@@ -6,6 +6,22 @@ Includes parallelized build system (Quartus Prime Lite 20.1 + ARM cross-compiler
 
 The system is designed to be used for low-latency analysis and calculations, where the FPGA is used to accelerate the computation and analysis.
 
+
+---
+
+## Quick Start
+
+```bash
+# From repository root - build everything with parallelization
+make everything    # FPGA + HPS build in parallel, then creates SD image
+
+# Or build individual components
+make fpga          # Build FPGA bitstream only
+make kernel        # Build Linux kernel only
+make rootfs        # Build root filesystem only
+make sd-image      # Create SD card image (requires FPGA artifacts)
+```
+
 ---
 
 ## Project Structure
@@ -103,21 +119,6 @@ Bottom view of the DE10-Nano board showing the underside components, including t
 - **Software**: Quartus Prime Lite 20.1 + ARM cross-compiler
 - **OS**: Windows with WSL2 or Linux environment
 - **Optional**: DE10-Nano System CD (for prebuilt bootloaders)
-
----
-
-## Quick Start
-
-```bash
-# From repository root - build everything with parallelization
-make everything    # FPGA + HPS build in parallel, then creates SD image
-
-# Or build individual components
-make fpga          # Build FPGA bitstream only
-make kernel        # Build Linux kernel only
-make rootfs        # Build root filesystem only
-make sd-image      # Create SD card image (requires FPGA artifacts)
-```
 
 ---
 
