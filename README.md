@@ -1,10 +1,10 @@
-# DE10-Nano FPGA-Accelerated Market Analysis
+# DE10-Nano-HPS-FPGA-Accelerated 
 
 Complete hardware-software platform for low-latency FPGA-accelerated computing on the Terasic DE10-Nano SoC board. Features Intel Cyclone V SoC (5CSEBA6U23I7) with dual-core ARM Cortex-A9 HPS running Linux, FPGA fabric with custom IP cores, and high-bandwidth Avalon-MM bridges for FPGA-HPS communication. 
 
 Includes parallelized build system (Quartus Prime Lite 20.1 + ARM cross-compiler), custom Linux drivers, and complete SD card image generation for deployment. 
 
-The system is designed to be used for low-latency market analysis, where the FPGA is used to accelerate the computation of the market analysis.
+The system is designed to be used for low-latency analysis and calculations, where the FPGA is used to accelerate the computation and analysis.
 
 ---
 
