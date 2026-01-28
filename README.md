@@ -1,4 +1,4 @@
-# DE10-Nano-HPS-FPGA-Accelerated 
+# DE10-Nano-HPS-FPGA-Accelerator
 
 Complete hardware-software platform for low-latency FPGA-accelerated computing on the Terasic DE10-Nano SoC board. Features Intel Cyclone V SoC (5CSEBA6U23I7) with dual-core ARM Cortex-A9 HPS running Linux, FPGA fabric with custom IP cores, and high-bandwidth Avalon-MM bridges for FPGA-HPS communication. 
 
