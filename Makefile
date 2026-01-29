@@ -518,6 +518,11 @@ everything:
 	$(call start_timer,sd-image-final)
 	@$(MAKE) -C $(HPS_DIR)/linux_image sd-image-internal
 	$(call end_timer,sd-image-final)
+	@echo ""
+	$(call log_step,Compressing SD Image for Git LFS...)
+	$(call start_timer,sd-image-compress)
+	@$(MAKE) -C $(HPS_DIR)/linux_image sd-image-compress
+	$(call end_timer,sd-image-compress)
 	$(call end_timer,everything)
 	@echo ""
 	$(call log_header,Everything Built Successfully)
