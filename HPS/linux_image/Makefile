@@ -47,6 +47,22 @@ ARCH := arm
 PARALLEL_BUILD ?= 1
 PARALLEL_JOBS ?= 2
 
+# ============================================================================
+# Build Caching (Stamp Files)
+# ============================================================================
+# Stamp files track successful completion of build phases.
+# Make will skip rebuilding if the stamp is newer than all dependencies.
+# Use `make <target>-force` to bypass caching.
+# ============================================================================
+ROOTFS_STAMP := $(BUILD_DIR)/.rootfs.stamp
+SD_IMAGE_STAMP := $(BUILD_DIR)/.sd-image.stamp
+
+# Dependencies for SD image caching
+KERNEL_ZIMAGE := $(KERNEL_DIR)/build/arch/arm/boot/zImage
+ROOTFS_TAR := $(ROOTFS_DIR)/build/rootfs.tar.xz
+FPGA_RBF := $(FPGA_DIR)/build/output_files/DE10_NANO_SoC_GHRD.rbf
+SD_IMAGE_DEPS := $(KERNEL_ZIMAGE) $(ROOTFS_TAR) $(PRELOADER_BIN) $(UBOOT_IMG)
+
 # Colors (fallback if build_common.mk not included)
 GREEN ?= \033[0;32m
 YELLOW ?= \033[1;33m
@@ -58,9 +74,10 @@ NC ?= \033[0m
 # Timestamp for logging
 TIMESTAMP = $(shell date '+%Y-%m-%d %H:%M:%S')
 
-.PHONY: all help deps deps-check fpga kernel rootfs bootloader linux-image sd-image clean
+.PHONY: all help deps deps-check fpga kernel bootloader linux-image sd-image clean
 .PHONY: task-kernel task-rootfs parallel-build serial-build timing-report
 .PHONY: sd-image-compress flash-sd
+.PHONY: rootfs-internal rootfs-force sd-image-force
 
 all: linux-image
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -244,14 +261,29 @@ bootloader:
 	@$(MAKE) -C $(BOOTLOADER_DIR) CROSS_COMPILE=$(CROSS_COMPILE)
 	@echo -e "$(GREEN)[OK]$(NC) Bootloader built: $(PRELOADER_BIN)"
 
-# Public rootfs target (standalone use)
-rootfs:
+# Public rootfs target with stamp-based caching
+# Rebuilds only if dependencies changed (packages.txt, configs, scripts)
+$(ROOTFS_STAMP): $(ROOTFS_DIR)/packages.txt $(wildcard $(ROOTFS_DIR)/configs/*/*) $(wildcard $(ROOTFS_DIR)/scripts/*.sh)
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)Root Filesystem Build$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(YELLOW)Building root filesystem...$(NC)"
 	@echo -e "$(YELLOW)Note: Rootfs build requires root access$(NC)"
 	@$(MAKE) rootfs-internal
+	@mkdir -p $(BUILD_DIR)
+	@touch $@
+	@echo -e "$(GREEN)[OK]$(NC) Rootfs stamp updated"
+
+rootfs: $(ROOTFS_STAMP)
+	@if [ -f "$(ROOTFS_TAR)" ]; then \
+		echo -e "$(GREEN)[CACHED] Rootfs is up-to-date: $(ROOTFS_TAR)$(NC)"; \
+	fi
+
+# Force rebuild target (bypasses cache)
+rootfs-force:
+	@echo -e "$(YELLOW)Forcing rootfs rebuild (removing stamp)...$(NC)"
+	@rm -f $(ROOTFS_STAMP)
+	@$(MAKE) $(ROOTFS_STAMP)
 
 # ============================================================================
 # Parallel Build Tasks
@@ -426,8 +458,9 @@ sd-image:
 	@# Create SD image with our bootloader paths
 	@PRELOADER_BIN="$(PRELOADER_BIN)" UBOOT_IMG="$(UBOOT_IMG)" $(MAKE) sd-image-internal
 
-# Internal SD image creation (called by linux-image and sd-image)
-sd-image-internal:
+# SD image creation with stamp-based caching
+# Rebuilds only if kernel, rootfs, or bootloader changed
+$(SD_IMAGE_STAMP): $(SD_IMAGE_DEPS)
 	@echo -e "$(GREEN)===========================================$(NC)"
 	@echo -e "$(GREEN)SD Card Image Creation$(NC)"
 	@echo -e "$(GREEN)===========================================$(NC)"
@@ -453,6 +486,20 @@ sd-image-internal:
 			sudo -v && sudo bash "$$main_script"; \
 		fi \
 	'
+	@mkdir -p $(BUILD_DIR)
+	@touch $@
+	@echo -e "$(GREEN)[OK]$(NC) SD image stamp updated"
+
+sd-image-internal: $(SD_IMAGE_STAMP)
+	@if [ -f "$(BUILD_DIR)/de10-nano-custom.img" ]; then \
+		echo -e "$(GREEN)[CACHED] SD image is up-to-date: $(BUILD_DIR)/de10-nano-custom.img$(NC)"; \
+	fi
+
+# Force rebuild target for SD image (bypasses cache)
+sd-image-force:
+	@echo -e "$(YELLOW)Forcing SD image rebuild (removing stamp)...$(NC)"
+	@rm -f $(SD_IMAGE_STAMP)
+	@$(MAKE) $(SD_IMAGE_STAMP)
 
 # ============================================================================
 # Incremental SD Image Update
@@ -586,6 +633,9 @@ flash-sd:
 
 clean:
 	@echo -e "$(YELLOW)Cleaning Linux image build artifacts...$(NC)"
+	@# Remove cache stamp files first
+	@rm -f $(ROOTFS_STAMP) $(SD_IMAGE_STAMP)
+	@echo -e "$(CYAN)[INFO]$(NC) Cache stamps removed"
 	@if [ -f "$(KERNEL_DIR)/Makefile" ]; then \
 		$(MAKE) -C $(KERNEL_DIR) kernel-clean || true; \
 	fi

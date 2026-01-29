@@ -46,6 +46,10 @@ FPGA_SOF := $(FPGA_DIR)/build/output_files/DE10_NANO_SoC_GHRD.sof
 FPGA_RBF := $(FPGA_DIR)/build/output_files/DE10_NANO_SoC_GHRD.rbf
 
 # Device Tree (built by U-Boot for DE10-Nano)
+# DTB_SOURCE controls which DTB generation method to use:
+#   uboot - Use U-Boot's built-in DE10-Nano device tree (recommended, no SoC EDS needed)
+#   qsys  - Generate from QSys sopcinfo (requires SoC EDS)
+DTB_SOURCE ?= uboot
 FPGA_DTB := $(HPS_DIR)/linux_image/bootloader/build/arch/arm/dts/socfpga_cyclone5_de10_nano.dtb
 
 # Bootloaders (built by U-Boot with DE10-Nano support)
