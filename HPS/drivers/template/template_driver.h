@@ -1,12 +1,9 @@
 // ============================================================================
-// Custom IP Driver - Header File (TEMPLATE)
+// Custom IP Driver - Header (TEMPLATE)
 // ============================================================================
-// Copy this directory and rename all files/types to match your IP name.
-// Example: cp -r template/ moving_average/
-//          then rename template -> moving_average, TEMPLATE -> MOVING_AVG
-//
-// This driver provides a C API for accessing custom FPGA IP from the HPS
-// (ARM processor) via the Lightweight HPS-to-FPGA bridge and /dev/mem.
+// Replace every occurrence of "template" / "TEMPLATE" with your IP name.
+// The UIO infrastructure is provided by fpga_uio (shared library) — only
+// IP-specific register map, types, and high-level API belong here.
 // ============================================================================
 
 #ifndef TEMPLATE_DRIVER_H
@@ -14,25 +11,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "fpga_uio.h"
 
 // ============================================================================
-// Base Address Configuration
+// UIO Device Name
+// Must match linux,uio-name in the DTS node for this IP.
 // ============================================================================
-// The HPS lightweight bridge maps to physical address 0xFF200000.
-// Your IP's base offset is set in Platform Designer (QSys).
-// Update TEMPLATE_BASE_OFFSET to match the baseAddress in soc_system.qsys.
-
-#define HPS_LW_BRIDGE_BASE    0xFF200000
-#define HPS_LW_BRIDGE_SPAN    0x00200000  // 2 MB
-
-#ifndef TEMPLATE_BASE_OFFSET
-#define TEMPLATE_BASE_OFFSET   0x0100     // <-- CHANGE THIS to match QSys base address
-#endif
-
-#define TEMPLATE_BASE          (HPS_LW_BRIDGE_BASE + TEMPLATE_BASE_OFFSET)
+#define TEMPLATE_UIO_NAME   "fpga-template"
 
 // ============================================================================
-// Register Offsets (must match Verilog register map in template_registers.v)
+// Register Offsets (byte offsets; must match template_registers.v)
 // ============================================================================
 #define TEMPLATE_REG_CONTROL      0x00  // [31]=start, [3:0]=operation
 #define TEMPLATE_REG_INPUT_A      0x04  // 32-bit input A
@@ -45,72 +33,46 @@
 // ============================================================================
 // Control Register Bit Fields
 // ============================================================================
-#define TEMPLATE_CTRL_START_BIT   31
-#define TEMPLATE_CTRL_OP_MASK     0xF
-#define TEMPLATE_CTRL_START       (1U << TEMPLATE_CTRL_START_BIT)
+#define TEMPLATE_CTRL_START   (1U << 31)
+#define TEMPLATE_CTRL_OP_MASK 0xF
 
 // ============================================================================
-// Status Register Bit Fields
+// Interrupt Timeout
 // ============================================================================
-#define TEMPLATE_STATUS_BUSY      0x01
-#define TEMPLATE_STATUS_ERROR     0x02
-#define TEMPLATE_STATUS_DONE      0x04
+#define TEMPLATE_IRQ_TIMEOUT_MS  1000
 
 // ============================================================================
-// Status Structure
+// Status (re-exported from fpga_uio for convenience)
 // ============================================================================
-typedef struct {
-    bool busy;
-    bool error;
-    bool done;
-} template_status_t;
+typedef fpga_uio_status_t template_status_t;
 
 // ============================================================================
 // Function Prototypes
 // ============================================================================
 
-/**
- * Initialize the driver.
- * Opens /dev/mem and maps IP registers into virtual memory.
- * Must be run as root or with appropriate permissions.
- *
- * Returns: 0 on success, -1 on failure
- */
+/** Open UIO device, map registers, enable interrupt. Returns 0 on success. */
 int template_init(void);
 
-/**
- * Cleanup: unmap memory and close file descriptors.
- */
+/** Disable interrupt, unmap registers, close UIO fd. */
 void template_cleanup(void);
 
-/**
- * Write a 32-bit value to a register.
- * @param offset  Register offset (use TEMPLATE_REG_* constants)
- * @param value   Value to write
- */
+/** Write a 32-bit register (offset in bytes). */
 void template_write_reg(uint32_t offset, uint32_t value);
 
-/**
- * Read a 32-bit value from a register.
- * @param offset  Register offset (use TEMPLATE_REG_* constants)
- * Returns: Register value
- */
+/** Read a 32-bit register (offset in bytes). */
 uint32_t template_read_reg(uint32_t offset);
 
-/**
- * Get current status flags.
- */
+/** Decode busy/error/done STATUS register. */
 template_status_t template_get_status(void);
 
 /**
- * Wait for the current operation to complete.
- * Returns: 0 on success, -1 on timeout
+ * Block until operation completes (interrupt-driven).
+ * Clears hardware interrupt source and re-arms UIO on success.
+ * Returns 0 on success, -1 on timeout or error.
  */
 int template_wait_for_completion(void);
 
-/**
- * Read the IP version register.
- */
+/** Read IP version register. */
 uint32_t template_get_version(void);
 
 #endif // TEMPLATE_DRIVER_H

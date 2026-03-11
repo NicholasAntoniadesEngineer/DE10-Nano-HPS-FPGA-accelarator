@@ -14,17 +14,17 @@ hps/
 │   ├── logger.h             # Logging system header
 │   ├── logger.c              # Logging system implementation
 │   ├── test_cases.h/c        # Basic operation test cases (30 tests)
-│   ├── hft_test_cases.h/c    # HFT operation test cases (29 tests)
 │   ├── main.c                # Test harness (with logging)
 │   ├── Makefile              # Build system
-│   ├── README.md             # Test suite documentation
-│   └── LOGGING_GUIDE.md      # Comprehensive logging guide
+│   └── README.md             # Test suite documentation
 └── integration/              # Linux kernel integration tools
     ├── integrate_linux_driver.sh    # Integration script (Linux/WSL)
     ├── integrate_linux_driver.bat   # Integration script (Windows)
     ├── example_userspace_makefile   # Example Makefile template
     └── test_integration.sh          # Integration test suite
 ```
+
+> **Note:** This is the reference example directory (original DE10-Nano GHRD). The driver here uses `/dev/mem` directly. The main project driver (in `HPS/drivers/calculator/`) uses the Linux UIO framework instead.
 
 ---
 
@@ -79,7 +79,7 @@ cd ../integration
 
 ### Driver Features
 
-- Memory-mapped I/O via `/dev/mem`
+- Memory-mapped I/O via `/dev/mem` (this reference example — main project uses UIO)
 - Register-level access with verification
 - Operation tracking and error reporting
 - Timeout detection with detailed diagnostics
@@ -88,7 +88,6 @@ cd ../integration
 ### Test Suite
 
 - **30 basic operation tests**: ADD, SUB, MUL, DIV
-- **29 HFT operation tests**: SMA, EMA, statistical functions
 - **Comprehensive error handling**: All failures logged
 - **Real-time LED observation**: Watch results on hardware
 

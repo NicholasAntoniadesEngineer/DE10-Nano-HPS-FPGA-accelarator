@@ -48,7 +48,7 @@ All scripts run from your **host machine** (no need to enter container):
 
 ### Build Specific Components
 ```bash
-./scripts/docker-build.sh fpga         # FPGA bitstream only (~30-40 min)
+./scripts/docker-build.sh fpga         # FPGA bitstream only (~23 min)
 ./scripts/docker-build.sh kernel       # Linux kernel (~10-15 min)
 ./scripts/docker-build.sh applications # HPS apps (<1 min)
 ```

@@ -1,53 +1,35 @@
-# ============================================================================
-# Calculator Driver - Makefile
-# ============================================================================
-# Builds calculator driver as a static library
-# ============================================================================
-
-# Cross-compilation toolchain
 CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC = $(CROSS_COMPILE)gcc
 AR = $(CROSS_COMPILE)ar
 
-# Paths
-DRIVER_DIR := $(CURDIR)
-HPS_DIR := $(abspath $(DRIVER_DIR)/../..)
-LIBS_DIR := $(HPS_DIR)/libs
+DRIVER_DIR   := $(CURDIR)
+HPS_DIR      := $(abspath $(DRIVER_DIR)/../..)
+LIBS_DIR     := $(HPS_DIR)/libs
+FPGA_UIO_DIR  = $(DRIVER_DIR)/../fpga_uio
+FPGA_UIO_LIB  = $(FPGA_UIO_DIR)/libfpga_uio.a
 
-# Output
 TARGET = libcalculator.a
+SRCS   = calculator_driver.c
+OBJS   = $(SRCS:.c=.o)
+DEPS   = calculator_driver.h $(FPGA_UIO_DIR)/fpga_uio.h $(LIBS_DIR)/logger/logger.h
 
-# Compiler flags
-CFLAGS = -Wall -Wextra -O2 -g
-CFLAGS += -std=gnu99
-CFLAGS += -D_GNU_SOURCE
+CFLAGS  = -Wall -Wextra -O2 -g -std=gnu99 -D_GNU_SOURCE
 CFLAGS += -I$(LIBS_DIR)/logger
+CFLAGS += -I$(FPGA_UIO_DIR)
 
-# Source files
-SRCS = calculator_driver.c
-OBJS = $(SRCS:.c=.o)
+.PHONY: all clean fpga_uio
 
-# Header dependencies
-DEPS = calculator_driver.h $(LIBS_DIR)/logger/logger.h
+all: fpga_uio $(TARGET)
 
-.PHONY: all clean
+fpga_uio:
+	$(MAKE) -C $(FPGA_UIO_DIR)
 
-# Default target
-all: $(TARGET)
-
-# Create static library
 $(TARGET): $(OBJS)
-	@echo "Creating static library $@..."
-	$(AR) rcs $@ $^
-	@echo "Build complete: $(TARGET)"
+	$(AR) rcs $@ $^ $(FPGA_UIO_LIB)
 
-# Compile source files
 %.o: %.c $(DEPS)
-	@echo "Compiling $<..."
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean build artifacts
 clean:
-	@echo "Cleaning calculator driver..."
-	rm -f $(TARGET) $(OBJS) *~
-	@echo "Clean complete"
+	rm -f $(OBJS) $(TARGET)
+	$(MAKE) -C $(FPGA_UIO_DIR) clean

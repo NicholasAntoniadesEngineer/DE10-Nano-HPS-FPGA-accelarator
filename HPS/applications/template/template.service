@@ -1,0 +1,17 @@
+[Unit]
+Description=template - HPS Application
+After=sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/template --once
+RemainAfterExit=yes
+
+# Must run as root to access /dev/mem
+User=root
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

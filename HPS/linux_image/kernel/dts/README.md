@@ -49,10 +49,10 @@ Add the QSys slave base offset — e.g. QSys offset `0x00010000` → reg `0xFF21
 
 ```bash
 # Full build (inside Docker):
-make hps-kernel
+make kernel
 
-# Kernel-only (inside the kernel Makefile):
-cd HPS/linux_image/kernel && make kernel
+# Kernel-only (inside the kernel sub-directory):
+cd HPS/linux_image/kernel && make
 ```
 
 Output DTB: `HPS/linux_image/kernel/build/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb`

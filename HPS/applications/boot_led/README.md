@@ -4,21 +4,19 @@ Visual indicator that the custom Linux image is running on the DE10-Nano.
 
 ## Overview
 
-This application displays LED patterns on the DE10-Nano's user LEDs to provide visual confirmation that:
+This application drives the DE10-Nano's user LEDs via the FPGA calculator IP to provide visual confirmation that:
 - The custom Linux image has booted successfully
 - The HPS-FPGA bridge is functional
-- The system is running
+- The calculator IP is responding
+
+It generates pseudo-random calculator operations at ~30 Hz. Each completed calculation causes the FPGA `calculator_led_display` module to latch `result[7:0]` onto the board's LEDs, producing a continuous random flicker pattern.
 
 ## Features
 
-- Startup animation (LEDs fill and flash)
-- Multiple continuous patterns:
-  - Heartbeat (double-pulse like a heartbeat)
-  - Knight Rider (bouncing light)
-  - Binary counter
-- Runs automatically as systemd service
+- Random 30 Hz LED pattern driven by FPGA calculator computations
+- Uses the shared `calculator_driver` library (UIO-based — no `/dev/mem`)
+- Runs automatically as a systemd service
 - Clean shutdown on SIGTERM/SIGINT
-- No external dependencies (uses direct /dev/mem access)
 
 ## Building
 
@@ -28,9 +26,6 @@ make
 
 # Native compile on DE10-Nano
 make CROSS_COMPILE=
-
-# Custom LED offset (if your QSys design differs)
-make LED_OFFSET=0x10010
 ```
 
 ## Installation
@@ -79,96 +74,36 @@ systemctl disable boot-led
 ### Manual Execution
 
 ```bash
-# Run startup pattern and continue with heartbeat
-sudo ./boot_led
+# Run continuously (random LED flicker via FPGA calculator)
+./boot_led
 
-# Run startup pattern only, then exit
-sudo ./boot_led --oneshot
+# Run for ~5 seconds then exit
+./boot_led --oneshot
 
-# Run as background daemon
-sudo ./boot_led --daemon
-
-# Select different patterns
-sudo ./boot_led --pattern 0    # Heartbeat (default)
-sudo ./boot_led --pattern 1    # Knight Rider
-sudo ./boot_led --pattern 2    # Binary counter
+# Fork into background
+./boot_led --daemon
 
 # Show help
 ./boot_led --help
 ```
 
-## LED Patterns
+## LED Behavior
 
-### Startup Pattern
-
-On boot, the LEDs display:
-1. LEDs fill from right to left (one at a time)
-2. All LEDs flash 3 times
-3. Transition to continuous pattern
-
-### Heartbeat Pattern (Default)
-
-A double-pulse pattern resembling a heartbeat:
-- Center LEDs light briefly
-- Pause
-- Wider center LEDs light
-- Longer pause
-- Repeat
-
-This pattern indicates the system is alive and responsive.
-
-### Knight Rider Pattern
-
-Classic bouncing light effect:
-- Two LEDs move back and forth
-- Creates a scanning appearance
-
-### Binary Counter Pattern
-
-LEDs display an incrementing 8-bit counter:
-- Counts from 0 to 255
-- Wraps around
-- Good for debugging
+LEDs display `result[7:0]` from each FPGA calculator operation. A software xorshift32 PRNG seeds pseudo-random operands and operations (ADD/SUB/MUL/DIV) every ~33 ms (~30 Hz). The FPGA `calculator_led_display` module latches the low byte of each result onto `LED[7:0]` on each `calc_done` pulse, producing a random flicker pattern for as long as the service runs.
 
 ## Hardware Requirements
 
-- DE10-Nano with FPGA programmed
-- LED PIO connected to lightweight HPS-FPGA bridge
-- Default offset assumes standard GHRD configuration
-
-## Customization
-
-### LED PIO Offset
-
-If your FPGA design uses a different LED offset, specify it at compile time:
-
-```bash
-make LED_OFFSET=0x10010
-```
-
-Or modify `LED_PIO_OFFSET` in boot_led.c.
-
-### Pattern Timing
-
-Timing constants can be adjusted in boot_led.c:
-- `STARTUP_PATTERN_DELAY_US` - Startup animation speed
-- `HEARTBEAT_ON_US` / `HEARTBEAT_OFF_US` - Heartbeat timing
-- `KNIGHT_RIDER_DELAY_US` - Knight rider speed
+- DE10-Nano with FPGA programmed with the calculator design
+- Calculator IP connected to the lightweight HPS-to-FPGA bridge
+- UIO kernel driver enabled (`CONFIG_UIO_PDRV_GENIRQ=y`) with a device tree node for the calculator IP
 
 ## Troubleshooting
 
 ### LEDs not responding
 
-1. Check FPGA is programmed with a design that has LED PIO
-2. Verify LED PIO offset matches your QSys configuration
-3. Ensure running as root (needed for /dev/mem)
-
-### Permission denied
-
-Run as root:
-```bash
-sudo ./boot_led
-```
+1. Check FPGA is programmed with a design that includes the calculator IP
+2. Verify the UIO device exists: `ls /sys/class/uio/*/name` (expect `fpga-calculator`)
+3. Check HPS-to-FPGA bridges are enabled: `cat /sys/class/fpga_bridge/*/state`
 
 ### Service fails to start
 
@@ -177,12 +112,14 @@ Check logs:
 journalctl -u boot-led -f
 ```
 
+The service does not require root — it accesses hardware via `/dev/uioN`.
+
 ## Files
 
 | File | Description |
 |------|-------------|
-| `boot_led.c` | Main application source |
-| `Makefile` | Build system |
+| `boot_led.c` | Main application source (30 Hz PRNG loop via FPGA calculator) |
+| `Makefile` | Cross-compilation build system (`arm-linux-gnueabihf-`) |
 | `boot-led.service` | Systemd service unit |
 | `README.md` | This documentation |
 

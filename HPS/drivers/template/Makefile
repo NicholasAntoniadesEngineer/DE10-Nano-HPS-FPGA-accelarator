@@ -1,31 +1,32 @@
-# ============================================================================
-# Custom IP Driver Build (TEMPLATE)
-# ============================================================================
-# Rename "template" references to match your IP name.
-# This builds a static library (.a) for linking into HPS applications.
-# ============================================================================
-
 CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC = $(CROSS_COMPILE)gcc
 AR = $(CROSS_COMPILE)ar
-CFLAGS = -Wall -Wextra -O2 -I.
 
-# Add paths to shared libraries (e.g., logger) if needed:
-# CFLAGS += -I../../applications/shared/logger
+DRIVER_DIR   := $(CURDIR)
+FPGA_UIO_DIR  = $(DRIVER_DIR)/../fpga_uio
+FPGA_UIO_LIB  = $(FPGA_UIO_DIR)/libfpga_uio.a
 
 TARGET = libtemplate.a
-SRCS = template_driver.c
-OBJS = $(SRCS:.c=.o)
+SRCS   = template_driver.c
+OBJS   = $(SRCS:.c=.o)
+DEPS   = template_driver.h $(FPGA_UIO_DIR)/fpga_uio.h
 
-.PHONY: all clean
+CFLAGS  = -Wall -Wextra -O2 -std=gnu99 -D_GNU_SOURCE
+CFLAGS += -I$(FPGA_UIO_DIR)
 
-all: $(TARGET)
+.PHONY: all clean fpga_uio
+
+all: fpga_uio $(TARGET)
+
+fpga_uio:
+	$(MAKE) -C $(FPGA_UIO_DIR)
 
 $(TARGET): $(OBJS)
-	$(AR) rcs $@ $^
+	$(AR) rcs $@ $^ $(FPGA_UIO_LIB)
 
-%.o: %.c template_driver.h
+%.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET)
+	$(MAKE) -C $(FPGA_UIO_DIR) clean

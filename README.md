@@ -101,20 +101,27 @@ FPGA/
   quartus/                # Quartus project files + QSys system
   hdl/                    # Top-level Verilog (DE10_NANO_SoC_GHRD.v)
   ip/custom/calculator/   # Calculator IP (8 Verilog files + _hw.tcl)
+  ip/custom/template/     # Template IP scaffold for new accelerators
+  mk/                     # Modular Makefile fragments (qsys, quartus, etc.)
   generated/              # QSys-generated HDL (overlaid by qsys_check.sh)
   build/output_files/     # Quartus output (.rbf for SD card)
 HPS/
-  drivers/calculator/     # /dev/mem + mmap calculator driver
+  drivers/calculator/     # UIO-based calculator driver (/dev/uioN + mmap)
+  drivers/template/       # UIO driver template for new IP
   libs/logger/            # Shared logging library
   applications/
-    calculator_test/      # Test suite (24+ test cases)
+    calculator_test/      # Test suite (33 test cases)
     calculator_demo/      # Demo service (systemd, auto-start)
     boot_led/             # LED heartbeat at boot (systemd)
+    devmem2/              # /dev/mem read/write tool (cross-compiled)
   linux_image/
     kernel/               # Linux kernel (socfpga_defconfig)
+    kernel/dts/           # Device tree sources (single source of truth)
     rootfs/               # Debian rootfs (debootstrap + overlays)
     bootloader/           # U-Boot + SPL + device tree
     scripts/              # SD image creation, rootfs build
+scripts/
+  new_ip.sh               # End-to-end scaffold for a new FPGA IP + UIO driver
 docker/
   scripts/                # setup.sh, docker-build.sh, docker-clean.sh
   Dockerfile              # Quartus 18.1 + ARM GCC container

@@ -30,9 +30,13 @@ DTS node via sysfs.
 drivers/
 ├── README.md               # This file
 ├── Makefile                 # Builds all drivers
+├── fpga_uio/               # Shared UIO infrastructure library (libfpga_uio.a)
+│   ├── fpga_uio.h           # Device handle, API declarations
+│   ├── fpga_uio.c           # Device discovery, mmap, IRQ wait, re-arm
+│   └── Makefile
 ├── calculator/             # Calculator IP driver
 │   ├── calculator_driver.h  # Register definitions, API
-│   ├── calculator_driver.c  # UIO implementation (/dev/uioN)
+│   ├── calculator_driver.c  # IP-specific logic (links fpga_uio)
 │   └── Makefile
 └── template/               # Template for new IP drivers
     ├── template_driver.h        # Copy and rename for your IP
@@ -83,7 +87,7 @@ Update the `REG_*` constants to match your Verilog register file (`template_regi
 
 ### 5. Register the driver in the build system
 
-Edit `HPS/drivers/Makefile` to add your new driver:
+Edit `HPS/drivers/Makefile` to add your new driver to `USERSPACE_DRIVERS` and add a build recipe:
 
 ```makefile
 USERSPACE_DRIVERS = calculator moving_average
@@ -92,6 +96,8 @@ moving_average:
 	@echo -e "$(YELLOW)Building moving_average driver...$(NC)"
 	@$(MAKE) -C moving_average CROSS_COMPILE=$(CROSS_COMPILE)
 ```
+
+> **Note:** Each driver's individual `Makefile` automatically builds `fpga_uio` as a prerequisite and bundles `libfpga_uio.a` into the driver's static library. You do not need to link `fpga_uio` separately in your application.
 
 ### 6. Link the driver into your application
 

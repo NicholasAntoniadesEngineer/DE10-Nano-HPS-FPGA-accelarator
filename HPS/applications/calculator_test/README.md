@@ -6,7 +6,7 @@ Comprehensive test suite for the hardware calculator IP core. Tests all operatio
 
 ## Features
 
-- **24+ Test Cases:** Comprehensive coverage of calculator operations (ADD, SUB, MUL, DIV)
+- **33 Test Cases:** Comprehensive coverage of calculator operations (ADD, SUB, MUL, DIV) including 3 IEEE 754 edge cases (div-by-zero, overflow, underflow)
 - **Comprehensive Logging:** 5-level logging system (ERROR, WARN, INFO, DEBUG, TRACE)
 - **Colored Output:** Easy-to-read pass/fail indicators
 - **LED Observation:** Delays between tests to watch LED changes
@@ -19,11 +19,10 @@ Comprehensive test suite for the hardware calculator IP core. Tests all operatio
 | File | Description |
 |------|-------------|
 | `main.c` | Test harness with colored output, reporting, and logging |
-| `calculator_driver.c/h` | Memory-mapped I/O driver with comprehensive logging |
-| `test_cases.c/h` | 30 comprehensive basic operation test cases |
-| `hft_test_cases.c/h` | 29 HFT operation test cases |
+| `test_cases.c/h` | 33 test cases (30 basic operations + 3 IEEE 754 edge cases) |
 | `Makefile` | Cross-compilation build system |
-| `../libs/logger/` | Reusable logging library (timestamps, levels, dumps) |
+| `../../drivers/calculator/` | Shared UIO-based calculator driver |
+| `../../libs/logger/` | Reusable logging library (timestamps, levels, dumps) |
 
 ## Building
 
@@ -58,9 +57,9 @@ make CROSS_COMPILE=
 scp calculator_test root@<board-ip>:/root/
 
 # Run on DE10-Nano
-ssh root@<board-ip>
+ssh root@192.168.2.2
 cd /root
-sudo ./calculator_test
+./calculator_test
 ```
 
 ### Method 2: SD Card
@@ -92,10 +91,10 @@ umount /mnt
 ### Basic Usage
 
 ```bash
-sudo ./calculator_test
+./calculator_test
 ```
 
-**Note:** Requires root privileges for `/dev/mem` access.
+Hardware access uses the Linux UIO framework (`/dev/uioN`). Root is not required.
 
 ### Command-Line Options
 
@@ -134,37 +133,36 @@ DE10-Nano SoC - HPS to FPGA Communication Test
 ========================================================================
 
 Initializing calculator driver...
-Calculator driver initialized
-  Physical base: 0xFF280000
-  Virtual base:  0xb6f80000
+Calculator driver initialized (UIO: /dev/uio0, fpga-calculator)
+Hardware version: 0x00010001
 
-[OK] Calculator driver initialized successfully
+✓ Calculator driver initialized successfully
 
-Running 30 test cases...
+Running 33 test cases...
 
 Note: Watch LED[7:0] to see result register bits change in real-time!
 
-------------------------------------------------------------------------
-[Test 1/30] Basic addition: 1.0 + 2.0 = 3.0
-------------------------------------------------------------------------
+────────────────────────────────────────────────────────────────────────
+[Test 1/33] Basic addition: 1.0 + 2.0 = 3.0
+────────────────────────────────────────────────────────────────────────
   Operation:    ADD
   Operand A:    1.000000
   Operand B:    2.000000
   Expected:     3.000000
   Result:       3.000000
-  Status:       PASS
+  Status:       ✓ PASS
 
-[... 29 more tests ...]
+[... 32 more tests ...]
 
 ========================================================================
                         TEST SUMMARY
 ========================================================================
-Total tests:    30
-Passed:         30
+Total tests:    33
+Passed:         33
 Failed:         0
 Success rate:   100.0%
 ========================================================================
-ALL TESTS PASSED!
+✓ ALL TESTS PASSED!
 Hardware calculator is functioning correctly.
 ========================================================================
 ```
@@ -201,7 +199,7 @@ Hardware calculator is functioning correctly.
 - Decimal results
 - Repeating decimals
 
-### Edge Cases (4 cases)
+### Edge Cases and Special Values (4 cases)
 - Large + Small numbers
 - Very large × Very small
 - Unity operations
@@ -212,6 +210,13 @@ Hardware calculator is functioning correctly.
 - One third (1/3)
 - Temperature conversion
 - Physics calculations
+
+### IEEE 754 Edge Cases — expect hardware error (3 cases)
+- Division by zero (1.0 / 0.0)
+- Overflow (1e38 × 10)
+- Underflow (1e-38 / 1e10)
+
+These three cases use `expect_error = true`: the test passes only when the calculator hardware asserts the ERROR flag.
 
 ## LED Observation
 
@@ -226,12 +231,14 @@ During testing, observe LED[7:0] on the DE10-Nano:
 
 ## Troubleshooting
 
-### Error: "Could not open /dev/mem"
+### Error: "Failed to open UIO device 'fpga-calculator'"
 
-**Solution:** Run as root
+**Solution:** Verify the UIO device exists and the FPGA is programmed:
 ```bash
-sudo ./calculator_test
+ls /sys/class/uio/*/name    # Expect: fpga-calculator
+cat /sys/class/fpga_bridge/*/state   # Expect: enabled
 ```
+If not present, check that `CONFIG_UIO_PDRV_GENIRQ=y` is set in the kernel and the DTS has the correct `compatible = "generic-uio"` node for the calculator IP.
 
 ### Error: "Calculator not initialized"
 
@@ -243,7 +250,7 @@ sudo ./calculator_test
 **Solutions:**
 1. Program FPGA: `make fast-flash` (from FPGA directory)
 2. Check QSys integration (see `../../documentation/deployment/deployment_workflow.md`)
-3. Verify base address in `generated/soc_system/hps_0.h`
+3. Verify the UIO device name matches `CALC_UIO_NAME` in `calculator_driver.h` (`fpga-calculator`)
 
 ### Error: "Calculator operation timeout"
 
@@ -310,7 +317,7 @@ int main() {
 }
 ```
 
-Link with: `gcc -lm your_program.c calculator_driver.c -o your_program`
+Link with: `gcc -lm your_program.c ../../drivers/calculator/calculator_driver.c ../../libs/logger/logger.c -o your_program`
 
 ## License
 

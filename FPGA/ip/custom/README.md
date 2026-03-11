@@ -9,7 +9,7 @@ ip/custom/
 ├── README.md                          # This file
 ├── template/                          # Template — copy this to start a new IP
 │   ├── template_hw.tcl                    # Platform Designer component definition
-│   ├── template.v                         # Top-level wrapper
+│   ├── template_ip.v                      # Top-level wrapper
 │   ├── template_avalon_mm.v              # Avalon-MM slave interface
 │   ├── template_registers.v              # Register file
 │   └── template_core.v                   # Core logic placeholder
@@ -96,7 +96,7 @@ sed -i 's/template/moving_average/g; s/MYIP/MOVING_AVG/g' *.v *.tcl
 ```
 
 The template includes:
-- **`template.v`** — Top-level wrapper wiring Avalon-MM, registers, and core
+- **`template_ip.v`** — Top-level wrapper wiring Avalon-MM, registers, and core
 - **`template_avalon_mm.v`** — Bus interface (usually unchanged)
 - **`template_registers.v`** — Register file with control/status/result pattern
 - **`template_core.v`** — Placeholder computation (replace with your logic)

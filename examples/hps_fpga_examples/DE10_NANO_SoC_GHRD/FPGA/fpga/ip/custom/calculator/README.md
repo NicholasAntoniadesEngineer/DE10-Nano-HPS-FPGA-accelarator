@@ -14,21 +14,25 @@ Hardware-accelerated floating-point calculator IP core for DE10-Nano FPGA with I
 
 ## Register Map (Avalon-MM)
 
-| Offset | Register | Access | Description |
-|--------|----------|--------|-------------|
-| 0x00   | CONTROL  | R/W    | [31]=start, [1:0]=operation |
-| 0x04   | OPERAND_A| W      | 32-bit float operand A |
-| 0x08   | OPERAND_B| W      | 32-bit float operand B |
-| 0x0C   | RESULT   | R      | 32-bit float result |
-| 0x10   | STATUS   | R      | [0]=busy, [1]=error, [2]=done |
-| 0x14   | INT_EN   | R/W    | Interrupt enable |
+| Offset | Register   | Access | Description |
+|--------|------------|--------|-------------|
+| 0x00   | CONTROL    | R/W    | [31]=start, [3:0]=operation |
+| 0x04   | OPERAND_A  | W      | 32-bit float operand A |
+| 0x08   | OPERAND_B  | W      | 32-bit float operand B |
+| 0x0C   | RESULT     | R      | 32-bit float result |
+| 0x10   | STATUS     | R      | [0]=busy, [1]=error, [2]=done, [3]=buf_full |
+| 0x14   | INT_ENABLE | R/W    | [0]=interrupt enable |
+| 0x2C   | ERROR_CODE | R      | Detailed error information |
+| 0x3C   | VERSION    | R      | IP version (e.g., 0x00010001 = v1.1) |
 
 ## Operation Codes
 
-- `2'b00`: ADD (A + B)
-- `2'b01`: SUB (A - B)
-- `2'b10`: MUL (A * B)
-- `2'b11`: DIV (A / B)
+| Code | Operation |
+|------|-----------|
+| 0    | ADD (A + B) |
+| 1    | SUB (A - B) |
+| 2    | MUL (A × B) |
+| 3    | DIV (A / B) |
 
 ## Module Hierarchy
 
@@ -57,4 +61,6 @@ calculator.v                    # Top-level wrapper
 
 ## Integration
 
-Connected to HPS via lightweight Avalon-MM bridge at base address 0x00080000 (configurable in QSys).
+Connected to HPS via lightweight Avalon-MM bridge. Base address is assigned by QSys (default: `0x0000` on the LW bridge, mapped to `0xFF200000` from HPS). Verify the actual address in your QSys project's address map.
+
+> **Note:** This is a reference example from the original DE10-Nano GHRD. The main project uses the UIO framework (`/dev/uioN`) for hardware access. See `HPS/drivers/calculator/` for the current driver.

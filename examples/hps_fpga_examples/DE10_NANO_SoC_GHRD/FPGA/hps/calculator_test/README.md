@@ -4,10 +4,11 @@
 
 Comprehensive test suite for the hardware calculator IP core. Tests all operations (ADD, SUB, MUL, DIV) with various inputs including edge cases and real-world examples.
 
+> **Note:** This is a reference example from the original DE10-Nano GHRD. It uses `/dev/mem` for hardware access. The main project (see `HPS/applications/calculator_test/`) uses the Linux UIO framework and has 33 test cases.
+
 ## Features
 
-- **30 Test Cases:** Comprehensive coverage of calculator operations
-- **29 HFT Test Cases:** High-frequency trading operation tests
+- **30 Test Cases:** Comprehensive coverage of calculator operations (ADD, SUB, MUL, DIV)
 - **Comprehensive Logging:** 5-level logging system (ERROR, WARN, INFO, DEBUG, TRACE)
 - **Colored Output:** Easy-to-read pass/fail indicators
 - **LED Observation:** Delays between tests to watch LED changes
@@ -20,9 +21,8 @@ Comprehensive test suite for the hardware calculator IP core. Tests all operatio
 | File | Description |
 |------|-------------|
 | `main.c` | Test harness with colored output, reporting, and logging |
-| `calculator_driver.c/h` | Memory-mapped I/O driver with comprehensive logging |
+| `calculator_driver.c/h` | `/dev/mem`-based driver (reference example) |
 | `test_cases.c/h` | 30 comprehensive basic operation test cases |
-| `hft_test_cases.c/h` | 29 HFT operation test cases |
 | `Makefile` | Cross-compilation build system |
 | `../libs/logger/` | Reusable logging library (timestamps, levels, dumps) |
 

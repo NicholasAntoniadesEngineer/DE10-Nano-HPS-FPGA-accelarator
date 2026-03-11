@@ -283,7 +283,10 @@ linux_image/
 │   ├── u-boot-socfpga/   # U-Boot source (cloned at build time)
 │   └── build/            # Build output (u-boot-with-spl.sfp, u-boot.img)
 ├── kernel/
+│   ├── Makefile          # Kernel build (download, configure, compile, dtbs)
 │   ├── linux-socfpga/    # Kernel source (git submodule, socfpga-5.15)
+│   ├── configs/          # Kernel defconfig and DE10-Nano config fragment
+│   ├── dts/              # Custom DTS/DTSI files (single source of truth)
 │   └── build/            # Out-of-tree build (.config, zImage, DTB, modules)
 ├── rootfs/
 │   ├── build_rootfs.sh   # Rootfs builder (debootstrap + packages)
