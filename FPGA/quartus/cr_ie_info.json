@@ -1,0 +1,22 @@
+{
+	"system" : {
+		"platform" : "linux64",
+		"os_name" : "Debian GNU/Linux",
+		"os_version" : "9"
+	},
+	"error" : {
+		"executable" : "quartus_sta",
+		"comment" : "not_applicable",
+		"error_message" : "",
+		"source_file" : "/quartus/tsm/a2t/a2t_recursive_visitor.cpp",
+		"line" : "14908",
+		"stack_trace" : "\t0x7ffffe70e2aa: tsm_a2t + 0xcd2aa (_ZN21A2T_RECURSIVE_VISITOR45create_reg_node_using_synth_name_for_bcm_atomEP13CDB_ATOM_NODERKSs + 0x1aa)\n\t0x7ffffe6f2d13: tsm_a2t + 0xb1d13 (_ZN21A2T_RECURSIVE_VISITOR35create_reg_node_for_buried_dff_typeE19DB_BURIED_PORT_TYPEtP13CDB_ATOM_NODE10DB_PORT_ID + 0x483)\n\t0x7ffffe67579c: tsm_a2t + 0x3479c (_ZN21A2T_RECURSIVE_VISITOR27create_buried_to_buried_arcEP13CDB_ATOM_NODE20TAPI_TIMING_EDGE_ARC + 0x1c0)\n\t0x7ffffe6fe3b3: tsm_a2t + 0xbd3b3 (_ZN21A2T_RECURSIVE_VISITOR24visit_bcm_supported_atomEP13CDB_ATOM_NODEP14CDB_ATOM_OTERMP8TDB_EDGERb + 0x1073)\n\t0x7ffffe700274: tsm_a2t + 0xbf274 (_ZN21A2T_RECURSIVE_VISITOR10visit_atomEP13CDB_ATOM_NODEP14CDB_ATOM_OTERMP8TDB_EDGE + 0xb4)\n\t0x7ffffe703c9a: tsm_a2t + 0xc2c9a (_ZN21A2T_RECURSIVE_VISITOR31set_arguments_and_process_otermEP14CDB_ATOM_OTERM + 0x5a)\n\t0x7ffffe706005: tsm_a2t + 0xc5005 (_ZN21A2T_RECURSIVE_VISITOR37build_or_update_tdb_netlist_for_atomsERSt6vectorIP13CDB_ATOM_NODESaIS2_EEP24TDB_NETLIST_ATOM_DELETOR + 0x625)\n\t0x7ffffe70c05d: tsm_a2t + 0xcb05d (_ZN11A2T_VISITOR33call_update_tdb_netlist_for_atomsEv + 0x8d)\n\t0x7ffffec828ff: tsm_sta + 0x33a8ff (_Z32sta_update_tdb_netlist_for_atomsP16CDB_ATOM_NETLISTPSt6vectorIP13CDB_ATOM_NODESaIS3_EEP10CMP_FACADEbb + 0xff)\n\t0x7ffffebe26c8: tsm_sta + 0x29a6c8 (_Z54sta_update_tdb_netlist_for_all_atoms_and_interconnectsP16CDB_ATOM_NETLISTP10CMP_FACADE + 0x168)\n\t0x7ffffea43475: tsm_sta + 0xfb475 (sta_set_operating_conditions + 0x876)\n\t0x7fffcf6a1117: tcl8.6 + 0x51117 (TclNRRunCallbacks + 0x47)\n\t0x7fffcf6a2937: tcl8.6 + 0x52937 (TclEvalEx + 0x947)\n\t0x7fffcf6a2c26: tcl8.6 + 0x52c26 (Tcl_EvalEx + 0x16)\n\t0x7fffcf6a2c4d: tcl8.6 + 0x52c4d (Tcl_Eval + 0x1d)\n\t0x7fffd3cadf01: ccl_atcl + 0x2bf01 (atcl_foreach_in_collection + 0x11b)\n\t0x7fffcf6a1117: tcl8.6 + 0x51117 (TclNRRunCallbacks + 0x47)\n\t0x7fffcf6a2937: tcl8.6 + 0x52937 (TclEvalEx + 0x947)\n\t0x7fffcf74a5b6: tcl8.6 + 0xfa5b6 (Tcl_FSEvalFileEx + 0x266)\n\t0x7fffcf74a6ce: tcl8.6 + 0xfa6ce (Tcl_EvalFile + 0x2e)\n\t0x7ffff72b3f2c: comp_qexe + 0x11f2c (_Z24qexe_evaluate_tcl_scriptRKSs + 0x382)\n\t0x7ffff72badff: comp_qexe + 0x18dff (_ZL11qexe_do_tclP14QEXE_FRAMEWORKRKSsS2_RKSt4listISsSaISsEEbb + 0x597)\n\t0x7ffff72bbdab: comp_qexe + 0x19dab (_Z19qexe_run_tcl_optionP14QEXE_FRAMEWORKPKcPSt4listISsSaISsEEb + 0x57e)\n\t0x7ffff79510aa: comp_qcu + 0x3e0aa (_Z18qcu_run_tcl_optionP13QCU_FRAMEWORKPKcPSt4listISsSaISsEEb + 0x1035)\n\t0x7ffff72be5d1: comp_qexe + 0x1c5d1 (_Z18qexe_standard_mainP14QEXE_FRAMEWORKPPK22QEXE_OPTION_DEFINITIONiPPKc + 0x6b3)\n\t   0x41404a: quartus_sta + 0x1404a (_Z9qsta_mainiPPKc + 0xaa)\n\t0x7fffd53aa770: ccl_msg + 0x40770 (_Z15msg_main_threadPv + 0x10)\n\t0x7fffd26c702c: ccl_thr + 0x602c (thr_final_wrapper + 0xc)\n\t0x7fffd53aa82f: ccl_msg + 0x4082f (_Z18msg_thread_wrapperPFPvS_ES_ + 0x62)\n\t0x7fffd2d3a559: ccl_mem + 0xa559 (_Z18mem_thread_wrapperPFPvS_ES_ + 0x99)\n\t0x7fffd2b07f92: ccl_err + 0x8f92 (_Z18err_thread_wrapperPFPvS_ES_ + 0x27)\n\t0x7fffd26c73f2: ccl_thr + 0x63f2 (thr_thread_wrapper + 0x15)\n\t0x7fffd53ac832: ccl_msg + 0x42832 (_Z12msg_exe_mainiPPKcPFiiS1_E + 0xa3)\n\t0x7fffcd3c42e1: c.so.6 + 0x202e1 (__libc_start_main + 0xf1)\n\t   0x4088f5: quartus_sta + 0x88f5\n",
+		"subsystem" : "A2T"
+	},
+	"quartus" : {
+		"quartus_bits" : "64",
+		"version" : "18.1.1",
+		"build" : "646",
+		"edition" : "Lite Edition"
+	}
+}

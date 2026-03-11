@@ -1,0 +1,49 @@
+# ============================================================================
+# Root Filesystem Package List for DE10-Nano
+# ============================================================================
+# Essential packages for DE10-Nano Linux image
+# ============================================================================
+
+# Network and connectivity
+openssh-server
+net-tools
+iputils-ping
+curl
+wget
+ifupdown
+
+# Development tools
+build-essential
+gcc
+make
+git
+vim
+nano
+
+# System utilities
+htop
+less
+sudo
+bash-completion
+
+# Python (for scripts and tools)
+python3
+python3-pip
+
+# FPGA and hardware access
+device-tree-compiler
+u-boot-tools
+
+# File system tools
+dosfstools
+e2fsprogs
+
+# Network time synchronization
+ntpsec-ntpdate
+
+# Additional utilities
+rsync
+tar
+gzip
+unzip
+login

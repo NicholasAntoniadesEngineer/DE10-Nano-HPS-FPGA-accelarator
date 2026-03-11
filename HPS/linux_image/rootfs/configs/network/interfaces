@@ -1,0 +1,13 @@
+# Network configuration for DE10-Nano
+# Static IP: 192.168.2.2 — connect Mac to board via USB-Ethernet adapter
+# Mac side: sudo ifconfig en13 192.168.2.1 netmask 255.255.255.0
+# SSH:       ssh root@192.168.2.2  (password: root)
+
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 192.168.2.2
+    netmask 255.255.255.0
+    gateway 192.168.2.1

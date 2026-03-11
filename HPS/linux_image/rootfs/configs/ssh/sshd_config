@@ -1,0 +1,27 @@
+# SSH Server Configuration for DE10-Nano
+# Customized for development environment
+
+Port 22
+Protocol 2
+
+# Host keys
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Authentication
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+
+# Security settings
+X11Forwarding no
+PermitEmptyPasswords no
+
+# Performance
+UseDNS no
+TCPKeepAlive yes
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO

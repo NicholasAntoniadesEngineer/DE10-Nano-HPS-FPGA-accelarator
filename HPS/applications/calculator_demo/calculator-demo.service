@@ -1,0 +1,19 @@
+[Unit]
+Description=FPGA Calculator Demo - Startup Hardware Verification
+Documentation=https://github.com/nicholasantoniades/DE10-Nano-HPS-FPGA-accelarator
+After=sysinit.target
+Before=boot-led.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/calculator_demo --once --interval 2
+RemainAfterExit=yes
+
+# Must run as root to access /dev/mem
+User=root
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

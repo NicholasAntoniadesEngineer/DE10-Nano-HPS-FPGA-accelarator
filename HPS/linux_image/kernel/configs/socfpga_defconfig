@@ -1,0 +1,32 @@
+# ============================================================================
+# DE10-Nano Kernel Configuration
+# ============================================================================
+# This is a reference configuration file
+# The actual kernel config will be generated from the kernel source
+# using: make ARCH=arm socfpga_defconfig
+# ============================================================================
+#
+# Key configuration options needed:
+# - FPGA Manager support
+# - UIO support (for advanced FPGA access)
+# - Network support (Ethernet) - STMMAC driver for HPS GMAC
+# - SSH/network tools support
+# - Calculator driver (if using kernel module)
+#
+# Ethernet Configuration (HPS GMAC):
+# The DE10-Nano uses HPS Ethernet (GMAC), not FPGA Ethernet.
+# Required kernel options (should be in default socfpga_defconfig):
+#   CONFIG_STMMAC_ETH=y          # STMMAC Ethernet driver
+#   CONFIG_DWMAC_GENERIC=y       # Generic DWMAC support
+#   CONFIG_DWMAC_SOCFPGA=y       # SoCFPGA-specific support
+#
+# To customize kernel configuration:
+#   cd linux-socfpga
+#   make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+#
+# This file serves as documentation of required options.
+# The actual .config will be generated from kernel source defaults.
+#
+# Note: The default socfpga_defconfig from the kernel source should already
+# include Ethernet driver support. If Ethernet doesn't work, verify these
+# options are enabled in the generated .config file.

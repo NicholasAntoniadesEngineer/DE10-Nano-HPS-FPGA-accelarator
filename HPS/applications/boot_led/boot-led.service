@@ -1,0 +1,20 @@
+[Unit]
+Description=Boot LED Indicator for DE10-Nano
+After=calculator-demo.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/boot_led
+Restart=on-failure
+RestartSec=2
+
+# Run as root for /dev/mem access
+User=root
+
+# Resource limits
+Nice=-10
+IOSchedulingClass=realtime
+IOSchedulingPriority=0
+
+[Install]
+WantedBy=multi-user.target
