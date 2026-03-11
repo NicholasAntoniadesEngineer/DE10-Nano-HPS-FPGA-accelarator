@@ -101,9 +101,15 @@ FPGA/quartus/qsys/*.sopcinfo
 # ============================================================================
 # Device Tree Files
 # ============================================================================
-# Device tree files are generated from .qsys or built with U-Boot
-*.dts
+# Ignore auto-generated DTS/DTB files (from QSys or U-Boot build outputs)
 *.dtb
+
+# Ignore root-level DTS (QSys-generated handoff)
+/*.dts
+
+# Keep hand-authored DTS source files in the kernel dts/ directory
+!HPS/linux_image/kernel/dts/*.dts
+!HPS/linux_image/kernel/dts/*.dtsi
 
 # ============================================================================
 # Modelsim/Simulation (intermediate)

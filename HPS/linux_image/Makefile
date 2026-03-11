@@ -225,7 +225,7 @@ fpga:
 		uboot="$(UBOOT_IMG)"; \
 		if [ ! -f "$$preloader" ]; then echo "ERROR: Bootloader not found: $$preloader"; echo "Build with: make bootloader"; missing=1; fi; \
 		if [ ! -f "$$uboot" ]; then echo "ERROR: U-Boot not found: $$uboot"; echo "Build with: make bootloader"; missing=1; fi; \
-		if ! ls "$(FPGA_DIR)/generated/"*.dtb >/dev/null 2>&1; then echo "WARNING: No DTB found under: $(FPGA_DIR)/generated/ (U-Boot DTB will be used)"; fi; \
+		if [ ! -f "$(REPO_ROOT)/HPS/linux_image/kernel/build/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb" ]; then echo "ERROR: Kernel DTB not found. Run: make hps-kernel"; missing=1; fi; \
 		if ! ls "$(REPO_ROOT)/FPGA/build/output_files/"*.rbf >/dev/null 2>&1; then \
 			echo "ERROR: No RBF found under: $(REPO_ROOT)/FPGA/build/output_files/"; \
 			missing=1; \
@@ -378,20 +378,26 @@ linux-image:
 	@echo ""
 	@mkdir -p $(BUILD_DIR)/.timing
 	@rm -f $(BUILD_DIR)/.timing/build_times.csv
-	@# Step 1: Check FPGA artifacts
+	@# Step 1: Check FPGA artifacts (skip Quartus if RBF already exists)
 	@echo -e "$(BLUE)[STEP 1/3]$(NC) $(TIMESTAMP) | Checking FPGA artifacts..."
-	@$(MAKE) fpga
+	@if [ ! -f "$(FPGA_RBF)" ]; then \
+		echo -e "$(YELLOW)[INFO]$(NC) FPGA RBF not found — running full FPGA build..."; \
+		$(MAKE) -C $(REPO_ROOT) fpga; \
+	else \
+		echo -e "$(GREEN)[OK]$(NC) FPGA RBF exists, skipping Quartus compile."; \
+		echo -e "$(CYAN)[INFO]$(NC) Run 'make fpga' explicitly to recompile FPGA."; \
+	fi
 	@# Step 2: Build kernel and rootfs (parallel or serial)
 	@echo ""
 	@if [ "$(PARALLEL_BUILD)" = "1" ]; then \
 		echo -e "$(BLUE)[STEP 2/3]$(NC) $(TIMESTAMP) | Building kernel and rootfs in PARALLEL ($(PARALLEL_JOBS) jobs)"; \
 		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   Set PARALLEL_BUILD=0 for serial builds"; \
-		$(MAKE) -j$(PARALLEL_JOBS) task-kernel task-rootfs; \
+		$(MAKE) -j$(PARALLEL_JOBS) task-kernel rootfs; \
 	else \
 		echo -e "$(BLUE)[STEP 2/3]$(NC) $(TIMESTAMP) | Building kernel and rootfs SEQUENTIALLY"; \
 		echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) |   Set PARALLEL_BUILD=1 for parallel builds"; \
 		$(MAKE) task-kernel; \
-		$(MAKE) task-rootfs; \
+		$(MAKE) rootfs; \
 	fi
 	@# Step 3: Create SD image
 	@echo ""
@@ -565,10 +571,10 @@ sd-image-update:
 	else \
 		echo -e "$(GREEN)[OK] FPGA bitstream up-to-date$(NC)"; \
 	fi; \
-	DTB_SRC="$(FPGA_DIR)/generated/soc_system.dtb"; \
-	if [ -f "$$DTB_SRC" ] && [ "$$DTB_SRC" -nt "$$BOOT_MOUNT/soc_system.dtb" ]; then \
+	DTB_SRC="$(REPO_ROOT)/HPS/linux_image/kernel/build/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb"; \
+	if [ -f "$$DTB_SRC" ] && [ "$$DTB_SRC" -nt "$$BOOT_MOUNT/socfpga.dtb" ]; then \
 		echo -e "$(YELLOW)Updating device tree (DTB)...$(NC)"; \
-		cp "$$DTB_SRC" "$$BOOT_MOUNT/soc_system.dtb"; \
+		cp "$$DTB_SRC" "$$BOOT_MOUNT/socfpga.dtb"; \
 		updated=1; \
 	else \
 		echo -e "$(GREEN)[OK] Device tree up-to-date$(NC)"; \

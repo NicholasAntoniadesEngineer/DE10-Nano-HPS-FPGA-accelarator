@@ -198,7 +198,7 @@ echo "Loading device tree..."
 fatload mmc 0:1 0x02000000 socfpga.dtb
 echo "Loading kernel..."
 fatload mmc 0:1 0x01000000 zImage
-setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait quiet loglevel=3
+setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait quiet loglevel=3 uio_pdrv_genirq.of_id=generic-uio
 echo "Booting..."
 bootz 0x01000000 - 0x02000000
 BOOTSCRIPT

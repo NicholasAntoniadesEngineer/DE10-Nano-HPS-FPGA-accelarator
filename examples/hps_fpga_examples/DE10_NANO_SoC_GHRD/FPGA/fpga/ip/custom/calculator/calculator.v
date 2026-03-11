@@ -4,7 +4,6 @@
 // Top-level wrapper for hardware-accelerated floating-point calculator
 // Integrates Avalon-MM interface, register file, computation core, and LED display
 // ============================================================================
-// Author: Claude Code
 // Date: 2026-01-16
 // Version: 1.0
 // ============================================================================

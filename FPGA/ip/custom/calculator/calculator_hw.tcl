@@ -15,8 +15,6 @@ set_module_property NAME calculator
 set_module_property VERSION 1.1
 set_module_property INTERNAL false
 set_module_property OPAQUE_ADDRESS_MAP true
-set_module_property AUTHOR "Claude Code"
-set_module_property DISPLAY_NAME "Hardware Calculator"
 set_module_property INSTANTIATE_IN_SYSTEM_MODULE true
 set_module_property EDITABLE true
 set_module_property REPORT_TO_TALKBACK false
@@ -39,12 +37,6 @@ add_fileset_file calculator_float_ops.v      VERILOG PATH calculator_float_ops.v
 add_fileset_file calculator_led_display.v    VERILOG PATH calculator_led_display.v
 add_fileset_file calculator_price_buffer.v   VERILOG PATH calculator_price_buffer.v
 add_fileset_file calculator_hft_ops.v        VERILOG PATH calculator_hft_ops.v
-
-# ============================================================================
-# Parameters
-# ============================================================================
-# Currently no user-configurable parameters
-# Future: Add parameters for pipeline depth, precision, etc.
 
 # ============================================================================
 # Clock and Reset Interface

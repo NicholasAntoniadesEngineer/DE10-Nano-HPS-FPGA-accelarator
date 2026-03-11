@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for the Terasic DE10-Nano Board
+ *
+ * Based on socfpga_cyclone5_de0_nano_soc.dts from linux-socfpga (socfpga-5.15).
+ * Customized for the DE10-Nano HPS-FPGA Calculator Accelerator project:
+ *   - FPGA bridges enabled (lwhps2fpga + hps2fpga)
+ *   - Calculator FPGA IP node on Lightweight HPS-to-FPGA bridge
+ *
+ * To add a new FPGA IP peripheral, see README.md in this directory.
+ */
+
+#include "socfpga_cyclone5.dtsi"
+
+/ {
+	model = "Terasic DE10-Nano";
+	compatible = "terasic,de10-nano", "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		/* uio_pdrv_genirq.of_id: enable DT matching for "generic-uio" compatible nodes.
+		 * Without this, uio_pdrv_genirq's OF match table is empty (Linux default)
+		 * and the driver won't bind to FPGA IP nodes from the device tree. */
+		bootargs = "earlyprintk uio_pdrv_genirq.of_id=generic-uio";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@0 {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>; /* 1GB DDR3 */
+	};
+
+	aliases {
+		ethernet0 = &gmac1;
+	};
+
+	regulator_3_3v: 3-3-v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+};
+
+/* ============================================================
+ * HPS Peripherals
+ * ============================================================ */
+
+/* Gigabit Ethernet - HPS EMAC1 via RGMII to KSZ9031RNX PHY */
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii";
+
+	txd0-skew-ps = <0>;
+	txd1-skew-ps = <0>;
+	txd2-skew-ps = <0>;
+	txd3-skew-ps = <0>;
+	rxd0-skew-ps = <420>;
+	rxd1-skew-ps = <420>;
+	rxd2-skew-ps = <420>;
+	rxd3-skew-ps = <420>;
+	txen-skew-ps = <0>;
+	txc-skew-ps = <1860>;
+	rxdv-skew-ps = <420>;
+	rxc-skew-ps = <1680>;
+
+	max-frame-size = <3800>;
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+/* I2C0 - ADXL345 accelerometer on the DE10-Nano board */
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	adxl345: adxl345@53 {
+		compatible = "adi,adxl345";
+		reg = <0x53>;
+
+		interrupt-parent = <&portc>;
+		interrupts = <3 2>;
+	};
+};
+
+/* SD/MMC - micro SD card slot */
+&mmc0 {
+	vmmc-supply = <&regulator_3_3v>;
+	vqmmc-supply = <&regulator_3_3v>;
+	status = "okay";
+};
+
+/* UART0 - serial console via FTDI USB-UART on mini-USB connector */
+&uart0 {
+	status = "okay";
+};
+
+/* USB1 - mini-USB OTG connector */
+&usb1 {
+	status = "okay";
+};
+
+/* ============================================================
+ * FPGA Bridges
+ * ============================================================
+ * These are disabled by default in socfpga.dtsi.
+ * Enable the two HPS-to-FPGA bridges so the ARM can access
+ * FPGA peripherals (calculator IP) via the Avalon-MM bus.
+ *
+ * bridge-enable = <1> tells the kernel driver to enable the
+ * bridge at probe time (secondary to U-Boot "bridge enable").
+ * ============================================================ */
+
+/* Lightweight HPS-to-FPGA bridge - base 0xFF200000, 2MB window */
+&fpga_bridge0 {
+	status = "okay";
+	bridge-enable = <1>;
+};
+
+/* HPS-to-FPGA bridge - base 0xC0000000, 960MB window */
+&fpga_bridge1 {
+	status = "okay";
+	bridge-enable = <1>;
+};
+
+/* ============================================================
+ * FPGA Peripherals (on Lightweight HPS-to-FPGA bridge)
+ * ============================================================
+ * Placed directly under &soc (not &base_fpga_region) so the
+ * kernel probes them immediately. U-Boot programs the FPGA
+ * before Linux boots — no Linux FPGA Manager firmware step.
+ *
+ * To add a new FPGA IP:
+ *   1. Note the QSys base address (e.g., 0x1000)
+ *   2. CPU address = 0xFF200000 + QSys base
+ *   3. Add a node below inside &soc { ... }
+ *   4. Rebuild: cd docker && ./scripts/docker-build.sh
+ *
+ * Calculator IP - IEEE 754 floating-point accelerator
+ *   QSys: calculator_0.s0 at base 0x0 on h2f_lw_axi_master
+ *   Registers: CONTROL, OPERAND_A, OPERAND_B, RESULT, STATUS,
+ *              INT_ENABLE, ERROR_CODE, VERSION (16 x 32-bit)
+ *   Interrupt: f2h_irq0, IRQ 0 → GIC SPI 40
+ * ============================================================ */
+
+&soc {
+	calculator0: calculator@ff200000 {
+		compatible = "generic-uio";
+		reg = <0xff200000 0x40>;
+		interrupts = <0 40 4>;
+		interrupt-parent = <&intc>;
+		linux,uio-name = "fpga-calculator";
+		status = "okay";
+	};
+};

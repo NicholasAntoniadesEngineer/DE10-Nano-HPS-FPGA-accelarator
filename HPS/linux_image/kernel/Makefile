@@ -314,17 +314,19 @@ $(KERNEL_DIR)/.git/config:
 kernel-config: $(KERNEL_BUILD_DIR)/.config
 	@echo -e "$(GREEN)Kernel configured$(NC)"
 
-$(KERNEL_BUILD_DIR)/.config: kernel-download
+$(KERNEL_BUILD_DIR)/.config: kernel-download $(wildcard $(CURDIR)/configs/*.cfg)
 	@echo -e "$(YELLOW)Configuring kernel...$(NC)"
 	@mkdir -p $(KERNEL_BUILD_DIR)
 	@echo -e "$(YELLOW)Verifying kernel source structure...$(NC)"
 	@cd $(KERNEL_DIR) && \
+	if git config core.sparsecheckout 2>/dev/null | grep -qv '^false$$'; then \
+		echo -e "$(YELLOW)Fixing sparse-checkout config...$(NC)"; \
+		git config core.sparsecheckout false; \
+	fi; \
 	if [ ! -d "arch" ]; then \
-		echo -e "$(RED)ERROR: Kernel source appears incomplete - 'arch' directory not found$(NC)"; \
-		echo -e "$(YELLOW)Kernel directory: $(KERNEL_DIR)$(NC)"; \
-		echo -e "$(YELLOW)Contents:$$(ls -la | head -10)$(NC)"; \
-		echo -e "$(YELLOW)Try: make kernel-distclean && make kernel-download$(NC)"; \
-		exit 1; \
+		echo -e "$(YELLOW)'arch' missing — restoring from git...$(NC)"; \
+		git checkout HEAD -- arch/ 2>&1 | tail -3 || \
+		(echo -e "$(RED)ERROR: Could not restore kernel source. Run: make kernel-distclean && make kernel-download$(NC)" && exit 1); \
 	fi; \
 	echo -e "$(YELLOW)Searching for suitable defconfig...$(NC)"; \
 	DEFCONFIG=""; \
@@ -371,7 +373,17 @@ $(KERNEL_BUILD_DIR)/.config: kernel-download
 		CCACHE_CMD="ccache "; \
 	fi; \
 	$(MAKE) O=$(abspath $(KERNEL_BUILD_DIR)) ARCH=$(ARCH) CROSS_COMPILE="$${CCACHE_CMD}$(CROSS_COMPILE_BASE)" $$DEFCONFIG || \
-	(echo -e "$(RED)ERROR: Failed to configure kernel with $$DEFCONFIG$(NC)" && exit 1)
+	(echo -e "$(RED)ERROR: Failed to configure kernel with $$DEFCONFIG$(NC)" && exit 1); \
+	CFG_FRAGMENT="$(CURDIR)/configs/de10_nano.cfg"; \
+	if [ -f "$$CFG_FRAGMENT" ]; then \
+		echo -e "$(YELLOW)Applying DE10-Nano config fragment: $$CFG_FRAGMENT$(NC)"; \
+		KCONFIG_CONFIG=$(abspath $(KERNEL_BUILD_DIR))/.config \
+			$(KERNEL_DIR)/scripts/kconfig/merge_config.sh -m \
+			$(abspath $(KERNEL_BUILD_DIR))/.config \
+			$$CFG_FRAGMENT && \
+		$(MAKE) O=$(abspath $(KERNEL_BUILD_DIR)) ARCH=$(ARCH) CROSS_COMPILE="$${CCACHE_CMD}$(CROSS_COMPILE_BASE)" olddefconfig && \
+		echo -e "$(GREEN)[OK] Config fragment applied$(NC)"; \
+	fi
 	@if [ -f "$(KERNEL_BUILD_DIR)/.config" ]; then \
 		echo -e "$(GREEN)Kernel configuration complete$(NC)"; \
 		echo -e "$(GREEN)Config file: $(KERNEL_BUILD_DIR)/.config$(NC)"; \
@@ -396,6 +408,29 @@ kernel-integrate-driver: kernel-config
 
 kernel-build: ccache-check kernel-config kernel-integrate-driver
 	@set -e; \
+	DTS_SRC_DIR="$(CURDIR)/dts"; \
+	DTS_DST_DIR="$(KERNEL_DIR)/arch/arm/boot/dts"; \
+	DTS_MAKEFILE="$$DTS_DST_DIR/Makefile"; \
+	CCACHE_CMD=""; \
+	if [ "$(USE_CCACHE)" = "1" ] && command -v ccache >/dev/null 2>&1; then \
+		CCACHE_CMD="ccache "; \
+	fi; \
+	echo -e "$(YELLOW)Installing custom device tree sources...$(NC)"; \
+	if [ -d "$$DTS_SRC_DIR" ] && ls $$DTS_SRC_DIR/*.dts $$DTS_SRC_DIR/*.dtsi >/dev/null 2>&1; then \
+		cp $$DTS_SRC_DIR/*.dts $$DTS_SRC_DIR/*.dtsi "$$DTS_DST_DIR/" 2>/dev/null || true; \
+		echo -e "$(GREEN)[OK] Copied custom DTS/DTSI files into kernel source$(NC)"; \
+		if ! grep -q "socfpga_cyclone5_de10_nano.dtb" "$$DTS_MAKEFILE"; then \
+			sed -i '/socfpga_cyclone5_de0_nano_soc\.dtb/a\\tsocfpga_cyclone5_de10_nano.dtb \\' "$$DTS_MAKEFILE"; \
+			echo -e "$(GREEN)[OK] Added DE10-Nano DTB to kernel DTS Makefile$(NC)"; \
+		fi; \
+		echo -e "$(YELLOW)Rebuilding device trees...$(NC)"; \
+		cd $(KERNEL_DIR) && \
+		$(MAKE) O=$(abspath $(KERNEL_BUILD_DIR)) ARCH=$(ARCH) CROSS_COMPILE="$${CCACHE_CMD}$(CROSS_COMPILE_BASE)" \
+			dtbs -j$$(nproc 2>/dev/null || echo 4); \
+		echo -e "$(GREEN)[OK] Device trees built$(NC)"; \
+	else \
+		echo -e "$(YELLOW)[WARN] No custom DTS files found in $$DTS_SRC_DIR$(NC)"; \
+	fi; \
 	needs_rebuild=0; \
 	if [ ! -f "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" ]; then \
 		echo -e "$(YELLOW)Building kernel: image does not exist$(NC)"; \
@@ -415,7 +450,7 @@ kernel-build: ccache-check kernel-config kernel-integrate-driver
 	fi; \
 	if [ $$needs_rebuild -eq 0 ]; then \
 		echo -e "$(GREEN)===========================================$(NC)"; \
-		echo -e "$(GREEN)Kernel is up-to-date - skipping build$(NC)"; \
+		echo -e "$(GREEN)Kernel is up-to-date - skipping zImage rebuild$(NC)"; \
 		echo -e "$(GREEN)===========================================$(NC)"; \
 		echo -e "$(GREEN)Existing image: $(KERNEL_BUILD_DIR)/arch/arm/boot/zImage$(NC)"; \
 		image_date=$$(date -r "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || stat -c %y "$(KERNEL_BUILD_DIR)/arch/arm/boot/zImage" 2>/dev/null | cut -d. -f1); \
@@ -428,7 +463,6 @@ kernel-build: ccache-check kernel-config kernel-integrate-driver
 	CCACHE_NOW=$$(command -v ccache 2>/dev/null); \
 	if [ -n "$$CCACHE_NOW" ]; then \
 		echo -e "$(GREEN)[ccache] ENABLED - using $$CCACHE_NOW$(NC)"; \
-		echo -e "$(GREEN)[ccache] Cache hits will dramatically speed up compilation$(NC)"; \
 	else \
 		echo -e "$(YELLOW)[ccache] DISABLED - set CCACHE_AUTO_INSTALL=1 to auto-install$(NC)"; \
 	fi; \
@@ -443,24 +477,6 @@ kernel-build: ccache-check kernel-config kernel-integrate-driver
 	if ! grep -q "mtune=cortex-a9" Makefile; then \
 		sed -i '/^KBUILD_CFLAGS[[:space:]]*+=/s/$$/ -mtune=cortex-a9 -mfpu=vfpv3/' Makefile && \
 		sed -i '/^KBUILD_AFLAGS[[:space:]]*+=/s/$$/ -mtune=cortex-a9 -mfpu=vfpv3/' Makefile || true; \
-	fi; \
-	CCACHE_CMD=""; \
-	if [ "$(USE_CCACHE)" = "1" ] && command -v ccache >/dev/null 2>&1; then \
-		CCACHE_CMD="ccache "; \
-	fi; \
-	echo -e "$(YELLOW)Installing DE10-Nano device tree source...$(NC)"; \
-	DTS_REPO="$(CURDIR)/dts/socfpga_cyclone5_de10_nano.dts"; \
-	DTS_DEST="$(KERNEL_DIR)/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dts"; \
-	DTS_MAKEFILE="$(KERNEL_DIR)/arch/arm/boot/dts/Makefile"; \
-	if [ -f "$$DTS_REPO" ]; then \
-		cp "$$DTS_REPO" "$$DTS_DEST"; \
-		echo -e "$(GREEN)[OK] Copied DE10-Nano DTS into kernel source$(NC)"; \
-		if ! grep -q "socfpga_cyclone5_de10_nano.dtb" "$$DTS_MAKEFILE"; then \
-			sed -i '/socfpga_cyclone5_de0_nano_soc\.dtb/a\\tsocfpga_cyclone5_de10_nano.dtb \\' "$$DTS_MAKEFILE"; \
-			echo -e "$(GREEN)[OK] Added DE10-Nano DTB to kernel DTS Makefile$(NC)"; \
-		fi; \
-	else \
-		echo -e "$(YELLOW)[WARN] DE10-Nano DTS not found at $$DTS_REPO$(NC)"; \
 	fi; \
 	cd $(KERNEL_DIR) && \
 	$(MAKE) O=$(abspath $(KERNEL_BUILD_DIR)) ARCH=$(ARCH) CROSS_COMPILE="$${CCACHE_CMD}$(CROSS_COMPILE_BASE)" \

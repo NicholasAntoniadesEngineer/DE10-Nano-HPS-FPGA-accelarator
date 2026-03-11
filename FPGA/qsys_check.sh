@@ -5,6 +5,7 @@
 # - Reuse existing generated artifacts when available
 # - Generate QSys HDL/sopcinfo when missing
 # - Copy generated outputs into the GUI-visible directory for Platform Designer compatibility
+# - Overlay custom IP source files onto generated submodules (ip/custom/ is canonical)
 
 set -euo pipefail
 
@@ -15,7 +16,8 @@ QSYS_BASE="$4"
 QSYS_STAMP="$5"
 QSYS_SOPCINFO="$6"
 QSYS_GENERATE_CMD="${7:-qsys-generate}"
-IP_SEARCH_PATH="${8:-}"
+# Arg 8: space-separated custom IP directories (auto-discovered by Makefile)
+IP_SEARCH_PATHS="${8:-}"
 
 # qsys-generate creates a synthesis/ subdirectory automatically, so output to parent
 generatedOutputDir="$GENERATED_DIR/$QSYS_BASE"
@@ -35,19 +37,46 @@ ensure_stamp() {
 # QSys regeneration always overwrites submodules with template stubs.
 # This ensures our fixes (combinatorial reads, IEEE 754 normalization, etc.)
 # survive QSys regeneration — ip/custom/ is the canonical source of truth.
+#
+# Iterates over ALL custom IP directories (not just one hardcoded path).
 overlay_custom_ip() {
-	local custom_dir
-	custom_dir="$(dirname "$IP_SEARCH_PATH")"
 	local submodules_dir="$guiSynthesisDir/submodules"
 	local gen_submodules_dir="$generatedSynthesisDir/submodules"
-	if [ -n "$IP_SEARCH_PATH" ] && [ -d "$IP_SEARCH_PATH" ]; then
-		for f in "$IP_SEARCH_PATH"/*.v; do
+	local overlaid=0
+
+	for ip_dir in $IP_SEARCH_PATHS; do
+		[ -d "$ip_dir" ] || continue
+		for f in "$ip_dir"/*.v; do
 			[ -f "$f" ] || continue
 			base="$(basename "$f")"
-			[ -f "$submodules_dir/$base" ] && cp "$f" "$submodules_dir/$base"
-			[ -f "$gen_submodules_dir/$base" ] && cp "$f" "$gen_submodules_dir/$base"
+			[ -f "$submodules_dir/$base" ] && cp "$f" "$submodules_dir/$base" && overlaid=1
+			[ -f "$gen_submodules_dir/$base" ] && cp "$f" "$gen_submodules_dir/$base" && overlaid=1
 		done
+	done
+
+	if [ "$overlaid" -eq 1 ]; then
 		echo "Overlaid ip/custom/ source files onto submodules"
+	fi
+}
+
+# Build the --search-path argument for qsys-generate from all custom IP directories.
+# Format: --search-path=/path/to/ip1,/path/to/ip2,...,$
+build_search_path_arg() {
+	if [ -z "$IP_SEARCH_PATHS" ]; then
+		echo ""
+		return
+	fi
+	local paths=""
+	for ip_dir in $IP_SEARCH_PATHS; do
+		[ -d "$ip_dir" ] || continue
+		if [ -z "$paths" ]; then
+			paths="$ip_dir"
+		else
+			paths="$paths,$ip_dir"
+		fi
+	done
+	if [ -n "$paths" ]; then
+		echo "--search-path=$paths,\$"
 	fi
 }
 
@@ -121,13 +150,10 @@ fi
 echo "This may take several minutes..."
 mkdir -p "$generatedOutputDir"
 
-# Note: SET_QSYS_GENERATE_ENV is handled by Makefile if needed (for Cygwin)
-# qsys-generate will create synthesis/ subdirectory automatically
-# --search-path tells QSys where to find custom IP components (_hw.tcl files)
-# The trailing ,$ means "also search default Quartus IP libraries"
-SEARCH_PATH_ARG=""
-if [ -n "$IP_SEARCH_PATH" ]; then
-	SEARCH_PATH_ARG="--search-path=$IP_SEARCH_PATH,\$"
+# Build search path from all discovered custom IP directories
+SEARCH_PATH_ARG="$(build_search_path_arg)"
+if [ -n "$SEARCH_PATH_ARG" ]; then
+	echo "Custom IP search paths: $SEARCH_PATH_ARG"
 fi
 
 # Generate to a temp directory first, then copy to final location.

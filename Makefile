@@ -46,12 +46,9 @@ FPGA_SOPCINFO := $(FPGA_DIR)/generated/soc_system.sopcinfo
 FPGA_SOF := $(FPGA_BUILD_DIR)/output_files/DE10_NANO_SoC_GHRD.sof
 FPGA_RBF := $(FPGA_BUILD_DIR)/output_files/DE10_NANO_SoC_GHRD.rbf
 
-# Device Tree (built by U-Boot for DE10-Nano)
-# DTB_SOURCE controls which DTB generation method to use:
-#   uboot - Use U-Boot's built-in DE10-Nano device tree (recommended, no SoC EDS needed)
-#   qsys  - Generate from QSys sopcinfo (requires SoC EDS)
-DTB_SOURCE ?= uboot
-FPGA_DTB := $(HPS_DIR)/linux_image/bootloader/build/arch/arm/dts/socfpga_cyclone5_de10_nano.dtb
+# Device Tree (built from our owned DTS in HPS/linux_image/kernel/dts/)
+# Edit HPS/linux_image/kernel/dts/socfpga_cyclone5_de10_nano.dts to add custom IP.
+FPGA_DTB := $(HPS_DIR)/linux_image/kernel/build/arch/arm/boot/dts/socfpga_cyclone5_de10_nano.dtb
 
 # Bootloaders (built by U-Boot with DE10-Nano support)
 PRELOADER_BIN := $(HPS_DIR)/linux_image/bootloader/build/u-boot-with-spl.sfp
@@ -191,7 +188,7 @@ help:
 	@echo "  fpga-qsys        - Generate QSys system (sopcinfo)"
 	@echo "  fpga-sof         - Compile FPGA bitstream (SOF)"
 	@echo "  fpga-rbf         - Convert SOF to RBF"
-	@echo "  fpga-dtb         - Generate device tree from QSys"
+	@echo "  fpga-dtb         - Check DTB exists (built by hps-kernel)"
 	@echo "  fpga-check       - Verify FPGA artifacts exist"
 	@echo ""
 	@echo "HPS Targets:"
@@ -219,9 +216,8 @@ help:
 	@echo "  CROSS_COMPILE=...   - Cross-compiler prefix"
 	@echo "  USE_CCACHE=1/0      - Enable ccache for kernel"
 	@echo ""
-	@echo "DTB Strategy: $(DTB_SOURCE)"
-	@echo "  uboot: U-Boot built-in DE10-Nano device tree (default, no SoC EDS needed)"
-	@echo "  qsys:  Generate from QSys sopcinfo (requires SoC EDS)"
+	@echo "DTB: $(FPGA_DTB)"
+	@echo "  Built from HPS/linux_image/kernel/dts/socfpga_cyclone5_de10_nano.dts"
 
 # ============================================================================
 # Status and Diagnostics
@@ -248,7 +244,7 @@ status:
 		echo -e "  $(YELLOW)[--]$(NC) FPGA RBF: Not built"; \
 	fi
 	@if [ -f "$(FPGA_DTB)" ]; then \
-		echo -e "  $(GREEN)[OK]$(NC) Device Tree: $(FPGA_DTB) ($(DTB_SOURCE)-generated)"; \
+		echo -e "  $(GREEN)[OK]$(NC) Device Tree: $(FPGA_DTB)"; \
 	else \
 		echo -e "  $(YELLOW)[--]$(NC) Device Tree: Not built"; \
 	fi
@@ -349,31 +345,22 @@ fpga-rbf-only:
 	$(call log_ok,RBF created: $(FPGA_RBF))
 
 # DTB generation (called from fpga target, runs in parallel with RBF)
+# DTB is produced by the kernel build from HPS/linux_image/kernel/dts/
 fpga-dtb-only:
-ifeq ($(DTB_SOURCE),uboot)
-	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Using U-Boot generated DTB (skipping QSys DTB generation)"
 	@if [ ! -f "$(FPGA_DTB)" ]; then \
-		echo -e "$(RED)[ERROR]$(NC) DTB file not found: $(FPGA_DTB)"; \
+		echo -e "$(RED)[ERROR]$(NC) DTB not found: $(FPGA_DTB)"; \
+		echo -e "$(CYAN)[INFO]$(NC) Run 'make hps-kernel' first to build the DTB"; \
 		exit 1; \
 	fi
 	$(call log_ok,DTB verified: $(FPGA_DTB))
-else
-	@$(MAKE) -C $(FPGA_DIR) dtb
-	$(call log_ok,DTB created: $(FPGA_DTB))
-endif
 
 # Standalone targets (for manual use)
+fpga-dtb: fpga-dtb-only
+
 fpga-rbf: fpga-sof
 	$(call log_header,FPGA RBF Generation)
 	@$(MAKE) -C $(FPGA_DIR) rbf
 	$(call log_ok,RBF created: $(FPGA_RBF))
-
-fpga-dtb: fpga-qsys
-	$(call log_header,Device Tree Generation (from QSys))
-	$(call log_info,DTB Source: $(DTB_SOURCE))
-	$(call log_info,This DTB describes FPGA peripherals from QSys design)
-	@$(MAKE) -C $(FPGA_DIR) dtb
-	$(call log_ok,DTB created: $(FPGA_DTB))
 
 fpga-check:
 	$(call log_header,Checking FPGA Artifacts)
@@ -385,8 +372,8 @@ fpga-check:
 		echo -e "$(GREEN)[OK]$(NC) FPGA RBF: $(FPGA_RBF)"; \
 	fi; \
 	if [ ! -f "$(FPGA_DTB)" ]; then \
-		echo -e "$(YELLOW)[MISSING]$(NC) Device Tree: $(FPGA_DTB)"; \
-		echo "  (Optional - kernel may have built-in DTB)"; \
+		echo -e "$(RED)[MISSING]$(NC) Device Tree: $(FPGA_DTB)"; \
+		echo "  Run 'make hps-kernel' to build DTB from HPS/linux_image/kernel/dts/"; \
 	else \
 		echo -e "$(GREEN)[OK]$(NC) Device Tree: $(FPGA_DTB)"; \
 	fi; \
@@ -438,8 +425,27 @@ applications:
 # SD Card Image Targets
 # ============================================================================
 
-sd-image: fpga applications
+sd-image: applications
 	$(call log_header,SD Card Image Creation)
+	@fpga_stale=0; \
+	if [ ! -f "$(FPGA_RBF)" ]; then \
+		echo -e "$(YELLOW)[INFO]$(NC) FPGA RBF not found — will build."; \
+		fpga_stale=1; \
+	else \
+		for src in $(FPGA_DIR)/hdl/*.v $(FPGA_DIR)/ip/custom/**/*.v $(FPGA_DIR)/ip/custom/**/*.tcl $(FPGA_DIR)/quartus/qsys/soc_system.qsys; do \
+			if [ -f "$$src" ] && [ "$$src" -nt "$(FPGA_RBF)" ]; then \
+				echo -e "$(YELLOW)[INFO]$(NC) FPGA source changed: $$src — will recompile."; \
+				fpga_stale=1; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if [ $$fpga_stale -eq 1 ]; then \
+		$(MAKE) fpga; \
+	else \
+		echo -e "$(GREEN)[OK]$(NC) FPGA RBF is up-to-date, skipping Quartus compile."; \
+		echo -e "$(CYAN)[INFO]$(NC) Run 'make fpga' to force recompile."; \
+	fi
 	$(call log_info,Building kernel and rootfs (parallel=$(PARALLEL_BUILD)))
 	$(call start_timer,sd-image-total)
 	@$(MAKE) -C $(HPS_DIR)/linux_image linux-image \
