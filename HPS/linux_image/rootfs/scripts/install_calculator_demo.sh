@@ -9,7 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOTFS_DIR="${SCRIPT_DIR}/../build/rootfs"
+ROOTFS_DIR="${ROOTFS_DIR:-${SCRIPT_DIR}/../build/rootfs}"
 
 HPS_DIR="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
 DEMO_DIR="${HPS_DIR}/applications/calculator_demo"

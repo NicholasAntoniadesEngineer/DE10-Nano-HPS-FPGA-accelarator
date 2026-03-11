@@ -910,8 +910,8 @@ run_post_install_scripts() {
     mount -t sysfs sysfs "$ROOTFS_DIR/sys" || true
     mount -o bind /dev "$ROOTFS_DIR/dev" || true
     
-    # Run scripts in order
-    for script in "$SCRIPTS_DIR"/*.sh; do
+    # Run setup_*.sh scripts in order (inside chroot — these configure system state)
+    for script in "$SCRIPTS_DIR"/setup_*.sh; do
         if [ -f "$script" ]; then
             print_step "Running $(basename "$script")..."
             # Copy script to rootfs and run in chroot
@@ -934,220 +934,32 @@ run_post_install_scripts() {
 
 install_hps_applications() {
     print_header "Installing HPS Applications"
-    
-    # Find the applications directory
-    # Try relative path first (normal build), then Docker volume fallback (/workspace)
-    local HPS_APPS_DIR
-    HPS_APPS_DIR="$(cd "$SCRIPT_DIR/../../applications" 2>/dev/null && pwd)" || true
-    if [ ! -d "$HPS_APPS_DIR" ] && [ -d "/workspace/HPS/applications" ]; then
-        HPS_APPS_DIR="/workspace/HPS/applications"
-        echo "  Using Docker workspace applications: $HPS_APPS_DIR"
-    fi
 
-    if [ ! -d "$HPS_APPS_DIR" ]; then
-        echo -e "${YELLOW}Applications directory not found, skipping...${NC}"
+    if [ ! -d "$SCRIPTS_DIR" ]; then
+        echo -e "${YELLOW}No scripts directory found, skipping application installation${NC}"
         return
     fi
-    
-    # Install boot_led if available
-    local BOOT_LED_DIR="$HPS_APPS_DIR/boot_led"
-    if [ -d "$BOOT_LED_DIR" ]; then
-        print_step "Installing boot LED indicator..."
-        
-        # Build boot_led if not already built
-        if [ ! -f "$BOOT_LED_DIR/boot_led" ]; then
-            echo "  Building boot_led..."
-            if ! make -C "$BOOT_LED_DIR" CROSS_COMPILE=arm-linux-gnueabihf- >/dev/null 2>&1; then
-                echo -e "${YELLOW}  Warning: Failed to build boot_led, skipping${NC}"
-            fi
+
+    local found=0
+    for script in "$SCRIPTS_DIR"/install_*.sh; do
+        [ -f "$script" ] || continue
+        found=1
+        local scriptname
+        scriptname=$(basename "$script")
+        print_step "Running $scriptname..."
+        local tmp_script="/tmp/.rootfs-install-$$.sh"
+        tr -d '\015' < "$script" > "$tmp_script"
+        chmod +x "$tmp_script"
+        if ! ROOTFS_DIR="$ROOTFS_DIR" bash "$tmp_script"; then
+            print_error "Application install script failed: $scriptname"
+            rm -f "$tmp_script"
+            exit 1
         fi
-        
-        # Install binary
-        if [ -f "$BOOT_LED_DIR/boot_led" ]; then
-            mkdir -p "$ROOTFS_DIR/usr/local/bin"
-            cp "$BOOT_LED_DIR/boot_led" "$ROOTFS_DIR/usr/local/bin/"
-            chmod 755 "$ROOTFS_DIR/usr/local/bin/boot_led"
-            echo "  Installed boot_led to /usr/local/bin/"
-            
-            # Install systemd service
-            if [ -f "$BOOT_LED_DIR/boot-led.service" ]; then
-                mkdir -p "$ROOTFS_DIR/etc/systemd/system"
-                cp "$BOOT_LED_DIR/boot-led.service" "$ROOTFS_DIR/etc/systemd/system/"
-                chmod 644 "$ROOTFS_DIR/etc/systemd/system/boot-led.service"
-                
-                # Enable service on boot
-                mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
-                ln -sf /etc/systemd/system/boot-led.service \
-                       "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/boot-led.service"
-                echo "  Enabled boot-led.service on boot"
-            fi
-        fi
-    fi
-    
-    # Install calculator_demo if available
-    local DEMO_DIR="$HPS_APPS_DIR/calculator_demo"
-    if [ -d "$DEMO_DIR" ]; then
-        print_step "Installing calculator demo service..."
+        rm -f "$tmp_script"
+    done
 
-        # Build if not already built
-        if [ ! -f "$DEMO_DIR/calculator_demo" ]; then
-            echo "  Building calculator_demo..."
-            if ! make -C "$DEMO_DIR" CROSS_COMPILE=arm-linux-gnueabihf- >/dev/null 2>&1; then
-                echo -e "${YELLOW}  Warning: Failed to build calculator_demo, skipping${NC}"
-            fi
-        fi
-
-        # Install binary
-        if [ -f "$DEMO_DIR/calculator_demo" ]; then
-            mkdir -p "$ROOTFS_DIR/usr/local/bin"
-            cp "$DEMO_DIR/calculator_demo" "$ROOTFS_DIR/usr/local/bin/"
-            chmod 755 "$ROOTFS_DIR/usr/local/bin/calculator_demo"
-            echo "  Installed calculator_demo to /usr/local/bin/"
-
-            # Install and enable systemd service
-            if [ -f "$DEMO_DIR/calculator-demo.service" ]; then
-                mkdir -p "$ROOTFS_DIR/etc/systemd/system"
-                cp "$DEMO_DIR/calculator-demo.service" "$ROOTFS_DIR/etc/systemd/system/"
-                chmod 644 "$ROOTFS_DIR/etc/systemd/system/calculator-demo.service"
-
-                mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
-                ln -sf /etc/systemd/system/calculator-demo.service \
-                       "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/calculator-demo.service"
-                echo "  Enabled calculator-demo.service on boot"
-            fi
-        fi
-    fi
-
-    # Install calculator_test binary (manual test tool)
-    local TEST_DIR="$HPS_APPS_DIR/calculator_test"
-    if [ -d "$TEST_DIR" ]; then
-        print_step "Installing calculator_test tool..."
-
-        if [ ! -f "$TEST_DIR/calculator_test" ]; then
-            echo "  Building calculator_test..."
-            if ! make -C "$TEST_DIR" CROSS_COMPILE=arm-linux-gnueabihf- >/dev/null 2>&1; then
-                echo -e "${YELLOW}  Warning: Failed to build calculator_test, skipping${NC}"
-            fi
-        fi
-
-        if [ -f "$TEST_DIR/calculator_test" ]; then
-            mkdir -p "$ROOTFS_DIR/usr/local/bin"
-            cp "$TEST_DIR/calculator_test" "$ROOTFS_DIR/usr/local/bin/"
-            chmod 755 "$ROOTFS_DIR/usr/local/bin/calculator_test"
-            echo "  Installed calculator_test to /usr/local/bin/"
-        fi
-    fi
-
-    # Build and install devmem2 — a single-file /dev/mem read/write tool
-    # (GPL-2.0, Jan-Derk Bakker, 2000 — standard embedded Linux debug utility)
-    # Not available in Debian armhf repos; must cross-compile from source.
-    print_step "Building and installing devmem2..."
-    local DEVMEM2_SRC="$REPO_ROOT/HPS/tools/devmem2.c"
-    local DEVMEM2_BIN="$REPO_ROOT/HPS/tools/devmem2"
-
-    # Embed source if not already present
-    mkdir -p "$(dirname "$DEVMEM2_SRC")"
-    if [ ! -f "$DEVMEM2_SRC" ]; then
-        cat > "$DEVMEM2_SRC" << 'DEVMEM2_SOURCE'
-/*
- * devmem2.c: Simple program to read/write from/to any location in memory.
- * Copyright (C) 2000, Jan-Derk Bakker — GPL v2
- */
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <termios.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-
-#define FATAL do { fprintf(stderr, "Error at line %d, file %s (%d) [%s]\n", \
-  __LINE__, __FILE__, errno, strerror(errno)); exit(1); } while(0)
-
-#define MAP_SIZE 4096UL
-#define MAP_MASK (MAP_SIZE - 1)
-
-int main(int argc, char **argv) {
-    int fd;
-    void *map_base, *virt_addr;
-    unsigned long read_result, writeval;
-    off_t target;
-    int access_type = 'w';
-
-    if(argc < 2) {
-        fprintf(stderr, "\nUsage:\t%s { address } [ type [ data ] ]\n"
-            "\taddress : memory address to act upon\n"
-            "\ttype    : access operation type : [b]yte, [h]alfword, [w]ord\n"
-            "\tdata    : data to be written\n\n", argv[0]);
-        exit(1);
-    }
-    target = strtoul(argv[1], 0, 0);
-    if(argc > 2) access_type = tolower(argv[2][0]);
-
-    if((fd = open("/dev/mem", O_RDWR | O_SYNC)) == -1) FATAL;
-    printf("/dev/mem opened.\n");
-    fflush(stdout);
-
-    map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, target & ~MAP_MASK);
-    if(map_base == (void *) -1) FATAL;
-    printf("Memory mapped at address %p.\n", map_base);
-    fflush(stdout);
-
-    virt_addr = map_base + (target & MAP_MASK);
-    switch(access_type) {
-        case 'b': read_result = *((unsigned char *)  virt_addr); break;
-        case 'h': read_result = *((unsigned short *) virt_addr); break;
-        case 'w': read_result = *((unsigned long *)  virt_addr); break;
-        default:
-            fprintf(stderr, "Illegal data type '%c'.\n", access_type);
-            exit(2);
-    }
-    printf("Value at address 0x%lX (%p): 0x%lX\n", (unsigned long)target, virt_addr, read_result);
-    fflush(stdout);
-
-    if(argc > 3) {
-        writeval = strtoul(argv[3], 0, 0);
-        switch(access_type) {
-            case 'b':
-                *((unsigned char *)  virt_addr) = writeval;
-                read_result = *((unsigned char *)  virt_addr); break;
-            case 'h':
-                *((unsigned short *) virt_addr) = writeval;
-                read_result = *((unsigned short *) virt_addr); break;
-            case 'w':
-                *((unsigned long *)  virt_addr) = writeval;
-                read_result = *((unsigned long *)  virt_addr); break;
-        }
-        printf("Written 0x%lX; readback 0x%lX\n", writeval, read_result);
-        fflush(stdout);
-    }
-
-    if(munmap(map_base, MAP_SIZE) == -1) FATAL;
-    close(fd);
-    return 0;
-}
-DEVMEM2_SOURCE
-    fi
-
-    # Cross-compile for ARM (armhf)
-    if [ ! -f "$DEVMEM2_BIN" ] || [ "$DEVMEM2_SRC" -nt "$DEVMEM2_BIN" ]; then
-        if command -v arm-linux-gnueabihf-gcc &>/dev/null; then
-            arm-linux-gnueabihf-gcc -O2 -o "$DEVMEM2_BIN" "$DEVMEM2_SRC"
-            echo "  Cross-compiled devmem2 (ARM)"
-        else
-            echo -e "${YELLOW}  Warning: arm-linux-gnueabihf-gcc not found, skipping devmem2${NC}"
-        fi
-    fi
-
-    if [ -f "$DEVMEM2_BIN" ]; then
-        mkdir -p "$ROOTFS_DIR/usr/local/bin"
-        cp "$DEVMEM2_BIN" "$ROOTFS_DIR/usr/local/bin/devmem2"
-        chmod 755 "$ROOTFS_DIR/usr/local/bin/devmem2"
-        echo "  Installed devmem2 to /usr/local/bin/devmem2"
+    if [ "$found" -eq 0 ]; then
+        echo -e "${YELLOW}No install_*.sh scripts found, skipping${NC}"
     fi
 
     echo -e "${GREEN}HPS applications installed${NC}"

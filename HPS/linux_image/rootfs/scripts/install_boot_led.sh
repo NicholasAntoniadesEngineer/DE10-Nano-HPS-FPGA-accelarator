@@ -10,7 +10,7 @@ set -e
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOTFS_DIR="${SCRIPT_DIR}/../build/rootfs"
+ROOTFS_DIR="${ROOTFS_DIR:-${SCRIPT_DIR}/../build/rootfs}"
 
 # Source locations (relative to HPS directory)
 HPS_DIR="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
