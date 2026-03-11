@@ -13,8 +13,9 @@ CC = $(CROSS_COMPILE)gcc
 STRIP = $(CROSS_COMPILE)strip
 
 # Library and driver paths
-LOGGER_DIR = ../../libs/logger
-DRIVER_DIR = ../../drivers/calculator
+LOGGER_DIR   = ../../libs/logger
+DRIVER_DIR   = ../../drivers/calculator
+FPGA_UIO_DIR = ../../drivers/fpga_uio
 
 # Compiler flags
 CFLAGS = -Wall -Wextra -O2 -g
@@ -22,16 +23,17 @@ CFLAGS += -std=gnu99
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += -I$(LOGGER_DIR)
 CFLAGS += -I$(DRIVER_DIR)
+CFLAGS += -I$(FPGA_UIO_DIR)
 
 # Linker flags
 LDFLAGS = -lm  # Link math library for fabsf()
 
 # Source files
-SRCS = main.c test_cases.c $(DRIVER_DIR)/calculator_driver.c $(LOGGER_DIR)/logger.c
-OBJS = main.o test_cases.o calculator_driver.o logger.o
+SRCS = main.c test_cases.c $(DRIVER_DIR)/calculator_driver.c $(FPGA_UIO_DIR)/fpga_uio.c $(LOGGER_DIR)/logger.c
+OBJS = main.o test_cases.o calculator_driver.o fpga_uio.o logger.o
 
 # Header dependencies
-DEPS = test_cases.h $(DRIVER_DIR)/calculator_driver.h $(LOGGER_DIR)/logger.h
+DEPS = test_cases.h $(DRIVER_DIR)/calculator_driver.h $(FPGA_UIO_DIR)/fpga_uio.h $(LOGGER_DIR)/logger.h
 
 # ============================================================================
 # Build Rules
@@ -69,6 +71,11 @@ logger.o: $(LOGGER_DIR)/logger.c $(LOGGER_DIR)/logger.h
 calculator_driver.o: $(DRIVER_DIR)/calculator_driver.c $(DRIVER_DIR)/calculator_driver.h
 	@echo "Compiling calculator driver..."
 	$(CC) $(CFLAGS) -c $(DRIVER_DIR)/calculator_driver.c -o $@
+
+# Compile fpga_uio shared library
+fpga_uio.o: $(FPGA_UIO_DIR)/fpga_uio.c $(FPGA_UIO_DIR)/fpga_uio.h
+	@echo "Compiling fpga_uio..."
+	$(CC) $(CFLAGS) -c $(FPGA_UIO_DIR)/fpga_uio.c -o $@
 
 # Clean build artifacts
 clean:
