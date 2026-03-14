@@ -21,6 +21,7 @@ incremental_db/
 *.chg
 *.qarlog
 *.html
+!drone_design/**/*.html
 *.csv
 *.txt.user
 
@@ -252,10 +253,11 @@ build/.timing/
 *.normalized.*
 .*.normalized.*
 
-# Python Cache
+# Python Cache / Virtual Environments
 __pycache__/
 *.pyc
 *.pyo
+.venv/
 
 # ============================================================================
 # Build Artifacts Summary

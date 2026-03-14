@@ -1,0 +1,156 @@
+{
+    "_meta": {
+        "description": "Single source of truth for all drone dimensions. The 3D model (modeling/drone_3d_model.py) reads directly from this file. Edit values here — the model and exports will reflect changes automatically.",
+        "units": "mm (all dimensions), degrees (all angles)",
+        "version": "1.0.0"
+    },
+
+    "frame": {
+        "_doc": "Main frame plates — JLCPCB FR4 PCB",
+        "plate_size": 120.0,
+        "plate_corner_radius": 2.0,
+        "bottom_plate_thickness": 2.0,
+        "top_plate_thickness": 1.6,
+        "plate_spacing": 20.0,
+        "arm_slot_width": 1.7,
+        "arm_slot_length": 40.0
+    },
+
+    "arms": {
+        "_doc": "Motor arms — 1.6mm FR4, I-beam profile. Motor-to-motor diagonal 450mm.",
+        "motor_to_motor_diagonal": 450.0,
+        "arm_tab": 40.0,
+        "arm_width": 25.0,
+        "arm_thickness": 1.6,
+        "arm_flange_width": 6.0,
+        "arm_web_width": 3.0,
+        "motor_mount_section_length": 30.0,
+        "arm_angles_deg": [45, 135, 225, 315]
+    },
+
+    "landing_gear": {
+        "_doc": "L-shaped landing legs — 2.0mm FR4",
+        "leg_width": 20.0,
+        "leg_height": 80.0,
+        "leg_thickness": 2.0,
+        "foot_length": 40.0,
+        "foot_thickness": 2.0,
+        "leg_angles_deg": [0, 90, 180, 270],
+        "lightening_hole_width": 10.0,
+        "lightening_hole_height": 18.0,
+        "lightening_hole_end_radius": 5.0,
+        "lightening_hole_count": 3
+    },
+
+    "motor": {
+        "_doc": "SunnySky X2212 980KV brushless motor",
+        "bell_outer_diameter": 27.5,
+        "body_height": 26.0,
+        "shaft_diameter": 3.17,
+        "shaft_protrusion": 13.0,
+        "base_plate_diameter": 22.0,
+        "mount_bolt_pattern": [16.0, 19.0]
+    },
+
+    "propeller": {
+        "_doc": "GemFan 1045 — 10x4.5 inch, 2-blade",
+        "diameter": 254.0,
+        "hub_diameter": 18.0,
+        "hub_height": 14.0,
+        "blade_width": 23.0,
+        "blade_thickness": 2.5
+    },
+
+    "esc": {
+        "_doc": "FVT LittleBee 30A BLHeli_32 electronic speed controller",
+        "length": 35.0,
+        "width": 17.0,
+        "height": 5.5
+    },
+
+    "de10_nano": {
+        "_doc": "Terasic DE10-Nano FPGA board — from User Manual",
+        "board_width": 68.58,
+        "board_length": 107.95,
+        "pcb_thickness": 1.6,
+        "tallest_component_height": 17.0,
+        "standoff_height": 15.0,
+        "gpio_header_length": 50.8,
+        "gpio_header_width": 5.08,
+        "gpio_header_height": 8.5,
+        "heatsink_width": 40.0,
+        "heatsink_length": 40.0,
+        "heatsink_height": 8.0
+    },
+
+    "daughter_board": {
+        "_doc": "Custom daughter board — sensor hub, level shifters, power regulation",
+        "width": 85.0,
+        "length": 100.0,
+        "pcb_thickness": 1.6,
+        "gap_above_de10": 12.0
+    },
+
+    "battery": {
+        "_doc": "Tattu 4S 2200mAh 45C LiPo",
+        "length": 106.0,
+        "width": 35.0,
+        "height": 30.0,
+        "cg_offset_x": -36.0
+    },
+
+    "reservoir": {
+        "_doc": "TPU collapsible 300ml water reservoir",
+        "width": 50.0,
+        "length": 80.0,
+        "height": 40.0,
+        "offset_x": 25.0
+    },
+
+    "pump": {
+        "_doc": "Kamoer NKP-DC-S06B peristaltic pump",
+        "total_length": 64.0,
+        "width": 38.0,
+        "height": 30.0,
+        "motor_section_diameter": 25.0,
+        "pump_head_diameter": 34.0,
+        "bracket_width": 25.0,
+        "bracket_height": 40.0,
+        "bracket_thickness": 1.6
+    },
+
+    "tof_sensor": {
+        "_doc": "VL53L1X ToF sensor on Pololu carrier #3415",
+        "board_width": 13.0,
+        "board_length": 18.0,
+        "board_height": 2.0,
+        "sensor_module_height": 2.5
+    },
+
+    "camera": {
+        "_doc": "OV5640 DVP camera on custom adapter PCB",
+        "adapter_pcb_width": 25.0,
+        "adapter_pcb_length": 30.0,
+        "adapter_pcb_thickness": 1.6,
+        "lens_barrel_diameter": 10.0,
+        "lens_barrel_height": 8.0
+    },
+
+    "nose_boom": {
+        "_doc": "Forward PCB boom arm for watering nozzle — FR4 I-beam",
+        "length": 380.0,
+        "width": 20.0,
+        "thickness": 1.6,
+        "flange_width": 4.0,
+        "web_width": 3.0
+    },
+
+    "assembly": {
+        "_doc": "Assembly-level placement parameters and derived geometry",
+        "esc_radial_fraction": 0.55,
+        "kagome_cell_size": 18.0,
+        "kagome_hole_radius": 6.0,
+        "kagome_min_web": 3.0,
+        "kagome_fillet_radius": 2.0
+    }
+}
