@@ -597,6 +597,7 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None):
     <button class="btn" id="btn-center">Fit All</button>
     <button class="btn" id="btn-axes">Axes</button>
     <button class="btn" id="btn-kicad">KiCad Export</button>
+    <button class="btn" id="btn-delete-all" style="background:#662222;">Delete All</button>
     <div class="ctrl">
         <span>BG:</span>
         <button class="btn" id="btn-bg-dark">Dark</button>
@@ -1025,6 +1026,21 @@ var KICAD_FILES = {kicad_json};
             a.click();
             URL.revokeObjectURL(a.href);
         }}
+    }});
+
+    // Delete All — remove every loaded part so user can reload
+    document.getElementById('btn-delete-all').addEventListener('click', function() {{
+        var names = Object.keys(parts);
+        for (var i = 0; i < names.length; i++) {{
+            var p = parts[names[i]];
+            scene.remove(p.mesh);
+            if (p.mesh.geometry) p.mesh.geometry.dispose();
+            if (p.mesh.material) p.mesh.material.dispose();
+        }}
+        parts = {{}};
+        selectedPart = null;
+        document.getElementById('parts-container').innerHTML = '';
+        document.getElementById('selection-panel').style.display = 'none';
     }});
 
     window.addEventListener('resize', function() {{

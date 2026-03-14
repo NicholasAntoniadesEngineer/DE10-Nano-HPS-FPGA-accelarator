@@ -33,36 +33,41 @@ def _blade_chord_at(t):
 def _make_tapered_blade(flip=False):
     """Build one tapered-chord propeller blade along the +X axis.
 
-    The blade is constructed from five extruded segments unioned together,
-    each with the interpolated chord width at that radial station.
+    The blade planform is traced as a 2D polygon (leading edge + trailing
+    edge outline at multiple span stations) and extruded to blade thickness.
+    Rounded tip via a semicircular arc.
     If *flip* is True the blade is mirrored to the -X axis.
     """
     blade_length = (PROP_DIAMETER - PROP_HUB_D) / 2
     hub_r = PROP_HUB_D / 2
-    n_segments = 5
+    n_stations = 12
     sign = -1.0 if flip else 1.0
 
-    result = None
-    for i in range(n_segments):
-        t0 = i / n_segments
-        t1 = (i + 1) / n_segments
-        t_mid = (t0 + t1) / 2.0
+    # Collect (x, half_chord) at each station from root to tip
+    stations = []
+    for i in range(n_stations + 1):
+        t = i / n_stations
+        r = hub_r + t * blade_length
+        half_c = _blade_chord_at(t) / 2.0
+        stations.append((sign * r, half_c))
 
-        r_inner = hub_r + t0 * blade_length
-        r_outer = hub_r + t1 * blade_length
-        seg_len = r_outer - r_inner
-        chord = _blade_chord_at(t_mid)
+    # Build the blade outline: leading edge root→tip, then trailing edge tip→root
+    # Leading edge (+Y side)
+    pts_leading = [(x, +hc) for x, hc in stations]
+    # Trailing edge (-Y side), reversed
+    pts_trailing = [(x, -hc) for x, hc in reversed(stations)]
 
-        cx = sign * (r_inner + seg_len / 2.0)
-        seg = (
-            cq.Workplane("XY")
-            .center(cx, 0)
-            .ellipse(seg_len / 2.0, chord / 2.0)
-            .extrude(PROP_BLADE_T)
-        )
-        result = seg if result is None else result.union(seg)
+    # Combine into a closed polyline
+    outline = pts_leading + pts_trailing
 
-    return result
+    # Build 2D wire and extrude
+    wp = cq.Workplane("XY").moveTo(*outline[0])
+    for pt in outline[1:]:
+        wp = wp.lineTo(*pt)
+    wp = wp.close()
+    blade = wp.extrude(PROP_BLADE_T)
+
+    return blade
 
 
 def make_prop_hub():
