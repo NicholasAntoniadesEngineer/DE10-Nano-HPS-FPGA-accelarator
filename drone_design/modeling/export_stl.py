@@ -44,6 +44,7 @@ from components.electronics.standoff import make_standoff
 from components.sensors.tof_board import make_tof_board
 from components.sensors.tof_bracket import make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH
 from components.sensors.camera import make_camera
+from components.sensors.camera_bracket import make_camera_bracket, CAM_BRACKET_TAB_H, CAM_BRACKET_T
 from components.payload.battery import make_battery
 from components.payload.reservoir import make_reservoir
 from components.payload.pump import make_pump
@@ -55,7 +56,7 @@ from components.payload.tubing import make_tubing_segment
 from components.assembly_constants import (
     BOTTOM_THICK, TOP_THICK, DE10_STANDOFF,
     PLATE_SIZE,
-    MOTOR_R, ARM_LENGTH, ARM_WIDTH, ARM_TAB, ARM_THICK, ARM_ANGLES,
+    MOTOR_R, ARM_LENGTH, ARM_WIDTH, MOUNT_FLANGE_LEN, ARM_THICK, ARM_ANGLES,
     MOTOR_TOTAL_H, ESC_H, ESC_RADIAL_FRAC,
     LEG_ANGLES, LEG_THICK,
     DE10_W, DE10_L,
@@ -64,7 +65,7 @@ from components.assembly_constants import (
     PUMP_W, PUMP_BRACKET_H, PUMP_BRACKET_T,
     BRACKET_BASE_D, BRACKET_T, BRACKET_BACK_H,
     PUMP_BASE_H, PUMP_BASE_D,
-    BOOM_LENGTH, BOOM_THICK,
+    BOOM_LENGTH, BOOM_THICK, BOOM_WIDTH,
     TOF_H, TOF_L,
     GROUND_Z, BOTTOM_Z, TOP_Z, DE10_Z, DB_Z, ARM_CENTER_Z,
 )
@@ -366,7 +367,7 @@ def build_positioned_parts():
         meta=COMPONENT_CATALOG["top_plate"])
 
     # ── Arms (4x) ──
-    arm_offset = ARM_LENGTH / 2 - ARM_TAB / 2
+    arm_offset = ARM_LENGTH / 2 - MOUNT_FLANGE_LEN / 2
     for i, angle in enumerate(ARM_ANGLES):
         rad = math.radians(angle)
         cx = arm_offset * math.cos(rad)
@@ -426,22 +427,25 @@ def build_positioned_parts():
     add("daughter_board", "Daughter Board", "#801A1A",
         make_daughter_board, (), (0, 0, DB_Z), meta=COMPONENT_CATALOG["daughter_board"])
 
-    # ── Battery ──
+    # ── Battery (5mm gap below plate for ToF bracket clearance) ──
     add("battery", "Battery (4S 2200mAh)", "#262626",
-        make_battery, (), (BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3),
+        make_battery, (), (BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 5),
         meta=COMPONENT_CATALOG["battery"])
 
     # ── Water delivery system ──
+    # Layout (overlap-free, verified by collision_check.py):
+    #   Reservoir: right-front (+X, +Y) — clear of battery (rear) and ToF down (center)
+    #   Pump bracket: right-rear (+X, -Y) — clear of reservoir and landing legs
     RES_L = 80.0
-    res_x = RES_OFFSET_X       # -15
-    res_y = 25                  # offset to clear ToF down sensor
+    res_x = RES_OFFSET_X       # 32 (right side)
+    res_y = 35                  # +Y side, clear of ToF down at origin
     res_z = BOTTOM_Z - RES_H - 5
     add("reservoir", "Water Reservoir (300ml)", "#4D99E6",
         make_reservoir, (), (res_x, res_y, res_z),
         meta=COMPONENT_CATALOG["reservoir"])
 
-    bracket_x = PLATE_SIZE / 2 - 15
-    bracket_y = -20
+    bracket_x = 28
+    bracket_y = -36
     add("pump_bracket", "Pump Bracket (FR4)", "#1A7326",
         make_pump_bracket, (), (bracket_x, bracket_y, BOTTOM_Z), (180, 0, 0),
         meta=COMPONENT_CATALOG["pump_bracket"])
@@ -460,9 +464,18 @@ def build_positioned_parts():
         make_nose_boom, (), (boom_center_x, 0, boom_z),
         meta=COMPONENT_CATALOG["nose_boom"])
 
+    # ── Camera bracket (L-bracket bolted to boom underside, offset to -Y) ──
     cam_x = PLATE_SIZE / 2 + 30
+    cam_bracket_y = -(BOOM_WIDTH / 2 + 2)
+    add("camera_bracket", "Camera Bracket (FR4)", "#1A7326",
+        make_camera_bracket, (),
+        (cam_x, cam_bracket_y, boom_z - BOOM_THICK / 2), (-90, 0, 0))
+
+    # ── Camera (mounted on bracket tab, lens facing down) ──
+    cam_y = cam_bracket_y - CAM_BRACKET_T - 2
+    cam_z = boom_z - BOOM_THICK / 2 - CAM_BRACKET_TAB_H / 2
     add("camera", "OV5640 Camera Module", "#1A1A1A",
-        make_camera, (), (cam_x, 0, boom_z - 2), meta=COMPONENT_CATALOG["camera"])
+        make_camera, (), (cam_x, cam_y, cam_z), meta=COMPONENT_CATALOG["camera"])
 
     # Tubing: reservoir outlet → pump inlet
     res_outlet_x = res_x
@@ -1246,6 +1259,7 @@ def main():
         "standoff": (make_standoff, (DE10_STANDOFF,)),
         "drip_nozzle": (make_drip_nozzle, ()),
         "camera": (make_camera, ()),
+        "camera_bracket": (make_camera_bracket, ()),
         "nose_boom": (make_nose_boom, ()),
         "boom_root": (make_boom_root, ()),
         "boom_tip": (make_boom_tip, ()),
@@ -1262,6 +1276,14 @@ def main():
     print("\nBuilding positioned assembly parts...")
     positioned = build_positioned_parts()
     print(f"  {len(positioned)} parts built")
+
+    # ── Collision detection ──
+    print("\nRunning collision detection...")
+    from collision_check import check_assembly_overlaps, print_overlap_report, print_bbox_summary
+    overlaps = check_assembly_overlaps(positioned)
+    print_overlap_report(overlaps)
+    if "--verbose" in sys.argv or "-v" in sys.argv:
+        print_bbox_summary(positioned)
 
     # Export positioned STLs and collect base64 data for viewer
     print("\nExporting positioned parts + generating viewer...")

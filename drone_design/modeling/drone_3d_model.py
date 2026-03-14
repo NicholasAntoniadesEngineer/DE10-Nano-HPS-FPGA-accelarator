@@ -50,6 +50,7 @@ from components.electronics.standoff import make_standoff
 from components.sensors.tof_board import make_tof_board
 from components.sensors.tof_bracket import make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH
 from components.sensors.camera import make_camera
+from components.sensors.camera_bracket import make_camera_bracket, CAM_BRACKET_TAB_H, CAM_BRACKET_T
 from components.payload.battery import make_battery
 from components.payload.reservoir import make_reservoir
 from components.payload.pump import make_pump
@@ -90,7 +91,7 @@ def build_assembly():
 
     # ── Arms (4x, X-config) ──
     arm = make_arm()
-    arm_offset = ARM_LENGTH / 2 - ARM_TAB / 2
+    arm_offset = ARM_LENGTH / 2 - MOUNT_FLANGE_LEN / 2
 
     for i, angle in enumerate(ARM_ANGLES):
         rad = math.radians(angle)
@@ -161,24 +162,27 @@ def build_assembly():
              name="daughter_board", color=cq.Color(0.5, 0.1, 0.1, 1.0))
 
     # ── Battery (shifted rearward for CG balance) ──
-    assy.add(make_battery(), loc=cq.Location((BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3)),
+    # 5mm gap below bottom plate to clear ToF bracket
+    assy.add(make_battery(), loc=cq.Location((BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 5)),
              name="battery", color=cq.Color(0.15, 0.15, 0.15, 1.0))
 
     # ── Water delivery system ──
-    # Layout: reservoir behind center (x=-15), pump bracket near boom root (x=45),
-    # tubing connects reservoir→pump, then pump→boom→nozzle.
+    # Layout (overlap-free, verified by collision_check.py):
+    #   Reservoir: right-front (+X, +Y) — clear of battery (rear) and ToF down (center)
+    #   Pump bracket: right-rear (+X, -Y) — clear of reservoir and landing legs
+    #   Tubing runs below bottom plate connecting reservoir→pump→boom→nozzle
 
-    # Reservoir — offset to +Y side to clear bottom ToF sensor at origin
+    # Reservoir — right-front quadrant, clear of battery (x<2) and ToF (x<7)
     RES_L = _D["reservoir"]["length"]
-    res_x = RES_OFFSET_X      # -15 (behind center)
-    res_y = 25                 # offset to one side, clear of ToF down at (0,0)
+    res_x = RES_OFFSET_X      # 32 (right side, X range [7, 57])
+    res_y = 35                 # +Y side (Y range [-5, 75])
     res_z = BOTTOM_Z - RES_H - 5
     assy.add(make_reservoir(), loc=cq.Location((res_x, res_y, res_z)),
              name="reservoir", color=cq.Color(0.3, 0.6, 0.9, 0.6))
 
-    # Pump bracket — near boom root, other side of frame
-    bracket_x = PLATE_SIZE / 2 - 15  # 45mm, near front edge
-    bracket_y = -20                   # offset to opposite side from reservoir
+    # Pump bracket — right-rear, separated from reservoir by Y gap
+    bracket_x = 28                    # centered at x=28 (X range [0.5, 55.5])
+    bracket_y = -36                   # -Y side (Y range [-66, -6])
     assy.add(make_pump_bracket(),
              loc=cq.Location((bracket_x, bracket_y, BOTTOM_Z), (180, 0, 0)),
              name="pump_bracket", color=cq.Color(0.1, 0.45, 0.15, 1.0))
@@ -198,9 +202,18 @@ def build_assembly():
              loc=cq.Location((boom_center_x, 0, boom_z)),
              name="nose_boom", color=cq.Color(0.1, 0.45, 0.15, 1.0))
 
-    # ── Camera (under boom, lens facing down) ──
+    # ── Camera bracket (L-bracket bolted to boom underside) ──
     cam_x = PLATE_SIZE / 2 + 30
-    assy.add(make_camera(), loc=cq.Location((cam_x, 0, boom_z - 2)),
+    cam_bracket_y = -(BOOM_WIDTH / 2 + 2)  # offset to -Y side of boom
+    assy.add(make_camera_bracket(),
+             loc=cq.Location((cam_x, cam_bracket_y, boom_z - BOOM_THICK / 2),
+                             (-90, 0, 0)),
+             name="camera_bracket", color=cq.Color(0.1, 0.45, 0.15, 1.0))
+
+    # ── Camera (mounted on bracket tab, lens facing down) ──
+    cam_y = cam_bracket_y - CAM_BRACKET_T - 2  # below bracket tab
+    cam_z = boom_z - BOOM_THICK / 2 - CAM_BRACKET_TAB_H / 2
+    assy.add(make_camera(), loc=cq.Location((cam_x, cam_y, cam_z)),
              name="camera", color=cq.Color(0.1, 0.1, 0.1, 1.0))
 
     # ── Tubing: reservoir outlet → pump inlet ──
@@ -208,18 +221,19 @@ def build_assembly():
     res_outlet_x = res_x
     res_outlet_y = res_y + RES_L / 2  # +Y face of reservoir
     res_outlet_z = res_z + RES_H / 2
-    dx = pump_x - res_outlet_x
-    dy = pump_y - res_outlet_y
-    dz = pump_z - res_outlet_z
-    tube_res_pump_len = math.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
-    yaw = math.degrees(math.atan2(dy, dx))
-    pitch = math.degrees(math.atan2(-dz, math.sqrt(dx ** 2 + dy ** 2)))
+    tdx = pump_x - res_outlet_x
+    tdy = pump_y - res_outlet_y
+    tdz = pump_z - res_outlet_z
+    tube_res_pump_len = math.sqrt(tdx ** 2 + tdy ** 2 + tdz ** 2)
+    yaw = math.degrees(math.atan2(tdy, tdx))
+    pitch = math.degrees(math.atan2(-tdz, math.sqrt(tdx ** 2 + tdy ** 2)))
     assy.add(make_tubing_segment(tube_res_pump_len),
              loc=cq.Location((res_outlet_x, res_outlet_y, res_outlet_z),
                              (pitch, 0, yaw)),
              name="tubing_res_to_pump", color=cq.Color(0.8, 0.8, 0.85, 0.7))
 
     # ── Tubing: pump outlet → along boom to nozzle ──
+    # Runs along boom centerline, offset 4mm below boom
     boom_tube_start_x = PLATE_SIZE / 2
     boom_tube_len = BOOM_LENGTH - 20
     assy.add(make_tubing_segment(boom_tube_len),
@@ -266,7 +280,7 @@ def main():
     print(f"  Adjacent motor distance:     {ADJ_MOTOR_DIST:.1f} mm")
     print(f"  Prop diameter (10\"):          {PROP_DIAMETER:.1f} mm")
     print(f"  Adjacent prop clearance:     {ADJ_MOTOR_DIST - PROP_DIAMETER:.1f} mm")
-    arm_offset = ARM_LENGTH / 2 - ARM_TAB / 2
+    arm_offset = ARM_LENGTH / 2 - MOUNT_FLANGE_LEN / 2
     arm_tip = arm_offset + ARM_LENGTH / 2
     print(f"  Arm tip from center:         {arm_tip:.2f} mm (should = {MOTOR_R})")
     print(f"  Arm total length:            {ARM_LENGTH:.2f} mm")

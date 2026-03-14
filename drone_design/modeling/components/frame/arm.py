@@ -2,9 +2,11 @@
 
 The arm is split into two interlocking sections:
 
-  Inner section  — contains the frame-plate tab (40 mm) and the main I-beam
-                   body.  In the overlap region the flanges are omitted so the
-                   inner web can slide *between* the outer section's flanges.
+  Inner section  — contains a bolt-on mounting flange (30 mm) at the frame end
+                   and the main I-beam body.  The flange has two rows of M2
+                   clearance holes for bolting to the frame plate's radial rail.
+                   In the overlap region the flanges are omitted so the inner
+                   web can slide *between* the outer section's flanges.
 
   Outer section  — contains the circular motor mounting plate at the tip and
                    a full I-beam body.  The overlap region keeps its full
@@ -19,11 +21,18 @@ Overlap mechanics
 * Effective arm length range: ARM_LENGTH (default/maximum) down to
   ARM_LENGTH - OVERLAP_LEN + 10 mm (one-hole minimum engagement).
 
+Mounting flange
+---------------
+* 30 mm long, full arm width (25 mm), full thickness — no I-beam cutouts.
+* 2 rows of M2 clearance holes (2.2 mm dia) at +/-5 mm from arm centerline.
+* 3 holes per row at 10 mm pitch, starting 5 mm from the frame end (6 total).
+* User bolts 2-4 holes through matching holes on the frame plate's radial rail.
+
 Coordinate system
 -----------------
 Both functions return geometry centred on the **full-length arm origin**
 (X = 0 is the arm mid-point) so they can be positioned identically in an
-assembly.  The tab/inner end is at X = -ARM_LENGTH/2; the motor tip is at
+assembly.  The flange/inner end is at X = -ARM_LENGTH/2; the motor tip is at
 X = +ARM_LENGTH/2.
 """
 
@@ -36,8 +45,14 @@ _D = json.loads((Path(__file__).resolve().parents[3] / "cad" / "dimensions.json"
 
 MOTOR_TO_MOTOR_DIAG = _D["arms"]["motor_to_motor_diagonal"]
 MOTOR_R       = MOTOR_TO_MOTOR_DIAG / 2
-ARM_TAB       = _D["arms"]["arm_tab"]
-ARM_LENGTH    = MOTOR_R + ARM_TAB / 2
+
+# Mounting flange parameters (replaces old press-fit tab)
+MOUNT_FLANGE_LEN  = 30.0   # mm — length of the bolt-on mounting flange
+MOUNT_HOLE_D      = 2.2    # mm — M2 clearance hole diameter
+MOUNT_ROW_OFFSET  = 5.0    # mm — perpendicular offset from arm centerline
+MOUNT_HOLE_PITCH  = 10.0   # mm — along-arm spacing between mounting holes
+
+ARM_LENGTH    = MOTOR_R + MOUNT_FLANGE_LEN / 2
 ARM_WIDTH     = _D["arms"]["arm_width"]
 ARM_THICK     = _D["arms"]["arm_thickness"]
 ARM_FLANGE    = _D["arms"]["arm_flange_width"]
@@ -54,12 +69,6 @@ MOTOR_BASE_D        = _D["motor"]["base_plate_diameter"]     # 25 mm
 M2_CLEAR_D          = 2.4   # M2 motor-bolt clearance hole
 SLIDER_HOLE_D       = 2.2   # M2 clearance for slider/adjustment holes
 
-# Pin header connection specs
-HEADER_PITCH      = _D["connections"]["header_pitch"]
-HEADER_HOLE_D     = _D["connections"]["header_hole_diameter"]
-ARM_PINS_PER_SIDE = _D["connections"]["arm_header_pins_per_side"]
-ARM_HEADER_OFFSET = _D["connections"]["arm_header_offset_from_slot"]
-
 # ---------------------------------------------------------------------------
 # Overlap / slider parameters
 # ---------------------------------------------------------------------------
@@ -69,7 +78,7 @@ OVERLAP_HOLE_PITCH = 10.0 # mm — spacing between adjustment holes
 
 # The overlap zone is centred on the body mid-point (between tab end and
 # motor section start) so that both sections are roughly equal in length.
-_body_start = -ARM_LENGTH / 2 + ARM_TAB         # right edge of tab region
+_body_start = -ARM_LENGTH / 2 + MOUNT_FLANGE_LEN  # right edge of flange region
 _body_end   =  ARM_LENGTH / 2 - MOTOR_SECTION   # left edge of motor section
 _body_mid   = (_body_start + _body_end) / 2
 
@@ -148,16 +157,18 @@ def _punch_slider_holes(body, hole_xs):
 # ---------------------------------------------------------------------------
 
 def make_arm_inner():
-    """Return the inner (tab) section of the modular arm.
+    """Return the inner (flange) section of the modular arm.
 
-    Spans from X = -ARM_LENGTH/2 (tab end) to X = OVERLAP_RIGHT.
+    Spans from X = -ARM_LENGTH/2 (frame end) to X = OVERLAP_RIGHT.
+
+    The first 30 mm (MOUNT_FLANGE_LEN) is a solid mounting flange — full arm
+    width, full thickness, no I-beam cutouts.  Two rows of M2 clearance holes
+    (2.2 mm dia) are drilled through the flange for bolting to the frame
+    plate's radial rail.
 
     In the overlap zone (OVERLAP_LEFT to OVERLAP_RIGHT) the flanges are
     removed, leaving a bare web strip that slides between the outer section's
     flanges.  M2 adjustment holes are punched through the web in this zone.
-
-    The tab end carries two rows of pin-header through-holes that align with
-    matching holes on the frame plates.
     """
     inner_left  = -ARM_LENGTH / 2
     inner_right =  OVERLAP_RIGHT
@@ -174,8 +185,8 @@ def make_arm_inner():
     )
 
     # Weight-relief pockets in the non-overlap body region
-    # (from right edge of tab to left edge of overlap zone)
-    relief_left  = inner_left + ARM_TAB
+    # (from right edge of mounting flange to left edge of overlap zone)
+    relief_left  = inner_left + MOUNT_FLANGE_LEN
     relief_right = OVERLAP_LEFT
     body = _cut_weight_relief(body, relief_left, relief_right)
 
@@ -185,15 +196,17 @@ def make_arm_inner():
     # M2 adjustment holes in the overlap web
     body = _punch_slider_holes(body, OVERLAP_HOLE_XS)
 
-    # Pin-header holes along the tab (two rows, matching frame-plate holes)
-    hole_r  = HEADER_HOLE_D / 2
-    span    = (ARM_PINS_PER_SIDE - 1) * HEADER_PITCH
-    tab_cx  = inner_left + ARM_TAB / 2
+    # Mounting flange bolt holes — 2 rows of 3 holes (6 total)
+    # Rows at +/-MOUNT_ROW_OFFSET from centerline, holes spaced at
+    # MOUNT_HOLE_PITCH along arm length starting 5 mm from frame end.
+    hole_r = MOUNT_HOLE_D / 2
+    holes_per_row = 3
+    first_hole_offset = 5.0  # mm from the frame end
 
     for side in [-1, 1]:
-        hy = side * ARM_HEADER_OFFSET
-        for i in range(ARM_PINS_PER_SIDE):
-            hx = tab_cx + (-span / 2 + i * HEADER_PITCH)
+        hy = side * MOUNT_ROW_OFFSET
+        for i in range(holes_per_row):
+            hx = inner_left + first_hole_offset + i * MOUNT_HOLE_PITCH
             h = (
                 cq.Workplane("XY")
                 .center(hx, hy)

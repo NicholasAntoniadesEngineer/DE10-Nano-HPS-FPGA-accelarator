@@ -1,4 +1,4 @@
-"""Skeleton frame plate with Kagome-lattice cutouts and pin header mounting holes."""
+"""Skeleton frame plate with Kagome-lattice cutouts and bolt-on arm mounting rails."""
 
 import json
 import math
@@ -9,8 +9,6 @@ _D = json.loads((Path(__file__).resolve().parents[3] / "cad" / "dimensions.json"
 
 PLATE_SIZE     = _D["frame"]["plate_size"]
 PLATE_CORNER_R = _D["frame"]["plate_corner_radius"]
-SLOT_W         = _D["frame"]["arm_slot_width"]
-SLOT_L         = _D["frame"]["arm_slot_length"]
 ARM_ANGLES     = _D["arms"]["arm_angles_deg"]
 DE10_W         = _D["de10_nano"]["board_width"]
 DE10_L         = _D["de10_nano"]["board_length"]
@@ -19,16 +17,21 @@ KAGOME_HOLE_R  = _D["assembly"]["kagome_hole_radius"]
 KAGOME_WEB_MIN = _D["assembly"]["kagome_min_web"]
 KAGOME_FILLET_R = _D["assembly"]["kagome_fillet_radius"]
 
-# Pin header connection specs
+# Pin header connection specs (retained for leg headers)
 HEADER_PITCH       = _D["connections"]["header_pitch"]
 HEADER_HOLE_D      = _D["connections"]["header_hole_diameter"]
-ARM_PINS_PER_SIDE  = _D["connections"]["arm_header_pins_per_side"]
-ARM_HEADER_OFFSET  = _D["connections"]["arm_header_offset_from_slot"]
 LEG_HEADER_PINS    = _D["connections"]["leg_header_pins"]
 LEG_ANGLES         = _D["landing_gear"]["leg_angles_deg"]
 LEG_WIDTH          = _D["landing_gear"]["leg_width"]
 LEG_THICK          = _D["landing_gear"]["leg_thickness"]
 TAB_DEPTH          = _D["landing_gear"]["mounting_tab_depth"]
+
+# Arm mounting rail constants
+ARM_MOUNT_HOLE_D    = 2.2    # M2 clearance hole diameter
+ARM_MOUNT_ROW_OFFSET = 5.0   # Perpendicular distance from arm centerline to each bolt row
+ARM_MOUNT_PITCH     = 10.0   # Along-radial hole spacing
+ARM_MOUNT_START     = 15.0   # Radial distance from center to first hole
+ARM_MOUNT_EDGE_MARGIN = 5.0  # Margin from plate edge
 
 
 def _kagome_cutouts(plate, thick, keepout_circles):
@@ -74,30 +77,40 @@ def _kagome_cutouts(plate, thick, keepout_circles):
     return plate
 
 
-def _add_arm_header_holes(plate, thick):
-    """Add pin header through-holes along both sides of each arm slot.
+def _add_arm_mounting_rails(plate, thick):
+    """Drill radial rows of M2 bolt holes along each arm angle for adjustable arm mounting.
 
-    Two rows of holes parallel to each arm slot, offset by ARM_HEADER_OFFSET
-    from the slot centerline. These align with matching holes on the arm tab
-    for male-to-male header soldering.
+    Two parallel rows of holes per arm, offset +/-ARM_MOUNT_ROW_OFFSET perpendicular
+    to the arm centerline. Holes run from ARM_MOUNT_START out to the plate edge
+    minus ARM_MOUNT_EDGE_MARGIN, spaced at ARM_MOUNT_PITCH.
     """
-    hole_r = HEADER_HOLE_D / 2
-    span = (ARM_PINS_PER_SIDE - 1) * HEADER_PITCH
-    start = -span / 2
+    hole_r = ARM_MOUNT_HOLE_D / 2
+    # Maximum radial distance: from center to plate corner along a 45-degree arm
+    # is PLATE_SIZE/2 * sqrt(2), but we conservatively use the inscribed circle
+    # (distance to edge midpoint) for a square plate.
+    # For a square plate, the max radial distance to the edge along angle theta is:
+    # min(PLATE_SIZE/2 / |cos(theta)|, PLATE_SIZE/2 / |sin(theta)|)
+    half = PLATE_SIZE / 2
 
     for angle in ARM_ANGLES:
         rad = math.radians(angle)
         cos_a, sin_a = math.cos(rad), math.sin(rad)
-        # Perpendicular direction (offset from slot center)
+        # Perpendicular direction
         perp_x, perp_y = -sin_a, cos_a
 
-        for side in [-1, 1]:
-            ox = side * ARM_HEADER_OFFSET * perp_x
-            oy = side * ARM_HEADER_OFFSET * perp_y
-            for i in range(ARM_PINS_PER_SIDE):
-                dist = start + i * HEADER_PITCH
-                hx = dist * cos_a + ox
-                hy = dist * sin_a + oy
+        # Compute max radial distance to plate edge along this angle
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_radial = min(half / abs_cos, half / abs_sin) - ARM_MOUNT_EDGE_MARGIN
+
+        # Generate hole positions along the radial line
+        dist = ARM_MOUNT_START
+        while dist <= max_radial:
+            cx = dist * cos_a
+            cy = dist * sin_a
+            for side in [-1, 1]:
+                hx = cx + side * ARM_MOUNT_ROW_OFFSET * perp_x
+                hy = cy + side * ARM_MOUNT_ROW_OFFSET * perp_y
                 hole = (
                     cq.Workplane("XY")
                     .center(hx, hy)
@@ -105,8 +118,33 @@ def _add_arm_header_holes(plate, thick):
                     .extrude(thick)
                 )
                 plate = plate.cut(hole)
+            dist += ARM_MOUNT_PITCH
 
     return plate
+
+
+def _arm_rail_keepouts():
+    """Generate keepout circles along the arm mounting rail paths."""
+    keepouts = []
+    half = PLATE_SIZE / 2
+
+    for angle in ARM_ANGLES:
+        rad = math.radians(angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_radial = min(half / abs_cos, half / abs_sin) - ARM_MOUNT_EDGE_MARGIN
+
+        dist = ARM_MOUNT_START
+        while dist <= max_radial:
+            cx = dist * cos_a
+            cy = dist * sin_a
+            # Keepout radius covers the two rows plus some margin
+            keepouts.append((cx, cy, ARM_MOUNT_ROW_OFFSET + 4.0))
+            dist += ARM_MOUNT_PITCH
+
+    return keepouts
 
 
 def _add_leg_header_holes(plate, thick):
@@ -145,7 +183,7 @@ def _add_leg_header_holes(plate, thick):
 
 
 def make_skeleton_plate(thick, is_bottom=True):
-    """Create a plate with Kagome-lattice cutouts, arm header holes, and leg mount holes."""
+    """Create a plate with Kagome-lattice cutouts, arm mounting rails, and leg mount holes."""
     plate = (
         cq.Workplane("XY")
         .rect(PLATE_SIZE, PLATE_SIZE)
@@ -153,24 +191,11 @@ def make_skeleton_plate(thick, is_bottom=True):
         .edges("|Z").fillet(PLATE_CORNER_R)
     )
 
-    # Arm slots
-    for angle in ARM_ANGLES:
-        slot = (
-            cq.Workplane("XY")
-            .transformed(rotate=(0, 0, angle))
-            .rect(SLOT_W, SLOT_L)
-            .extrude(thick)
-        )
-        plate = plate.cut(slot)
+    # Arm mounting rails (radial rows of M2 bolt holes)
+    plate = _add_arm_mounting_rails(plate, thick)
 
-    # Pin header holes along arm slots
-    plate = _add_arm_header_holes(plate, thick)
-
-    keepouts = []
-    for angle in ARM_ANGLES:
-        rad = math.radians(angle)
-        for dist in range(0, int(SLOT_L / 2) + 5, 8):
-            keepouts.append((dist * math.cos(rad), dist * math.sin(rad), 8.0))
+    # Keepout zones for kagome cutouts: arm rail paths
+    keepouts = _arm_rail_keepouts()
 
     if not is_bottom:
         central = (

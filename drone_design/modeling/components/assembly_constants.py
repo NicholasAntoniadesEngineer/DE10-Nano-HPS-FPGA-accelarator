@@ -28,14 +28,12 @@ PLATE_CORNER_R = _D["frame"]["plate_corner_radius"]
 BOTTOM_THICK   = _D["frame"]["bottom_plate_thickness"]
 TOP_THICK      = _D["frame"]["top_plate_thickness"]
 PLATE_SPACING  = _D["frame"]["plate_spacing"]
-SLOT_W         = _D["frame"]["arm_slot_width"]
-SLOT_L         = _D["frame"]["arm_slot_length"]
 
 # ─── Arms ─────────────────────────────────────────────────────────────────────
 MOTOR_TO_MOTOR_DIAG = _D["arms"]["motor_to_motor_diagonal"]
 MOTOR_R      = MOTOR_TO_MOTOR_DIAG / 2
-ARM_TAB      = _D["arms"]["arm_tab"]
-ARM_LENGTH   = MOTOR_R + ARM_TAB / 2
+MOUNT_FLANGE_LEN = 30.0  # mm — bolt-on mounting flange length
+ARM_LENGTH   = MOTOR_R + MOUNT_FLANGE_LEN / 2
 ARM_WIDTH    = _D["arms"]["arm_width"]
 ARM_THICK    = _D["arms"]["arm_thickness"]
 ARM_FLANGE   = _D["arms"]["arm_flange_width"]

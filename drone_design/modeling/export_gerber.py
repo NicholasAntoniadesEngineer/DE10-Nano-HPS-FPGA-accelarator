@@ -40,17 +40,15 @@ _CONN = _D["connections"]
 HEADER_PITCH = _CONN["header_pitch"]
 HEADER_HOLE_D = _CONN["header_hole_diameter"]
 HEADER_PAD_D = _CONN["header_pad_diameter"]
-ARM_PINS_PER_SIDE = _CONN["arm_header_pins_per_side"]
-ARM_HEADER_OFFSET = _CONN["arm_header_offset_from_slot"]
 LEG_HEADER_PINS = _CONN["leg_header_pins"]
 BOOM_HEADER_PINS = _CONN["boom_header_pins"]
 BOOM_HEADER_INSET = _CONN["boom_header_inset"]
 
 from components.assembly_constants import (
     PLATE_SIZE, PLATE_CORNER_R, BOTTOM_THICK, TOP_THICK,
-    SLOT_W, SLOT_L, ARM_ANGLES,
+    ARM_ANGLES,
     DE10_W, DE10_L, DE10_STANDOFF,
-    ARM_LENGTH, ARM_WIDTH, ARM_THICK, ARM_TAB, ARM_WEB, ARM_FLANGE,
+    ARM_LENGTH, ARM_WIDTH, ARM_THICK, MOUNT_FLANGE_LEN, ARM_WEB, ARM_FLANGE,
     MOTOR_SECTION, MOTOR_MOUNT_RECT,
     LEG_WIDTH, LEG_HEIGHT, LEG_THICK, FOOT_LENGTH, FOOT_THICK,
     LEG_HOLE_W, LEG_HOLE_H, LEG_HOLE_R, LEG_HOLE_N,
@@ -346,20 +344,27 @@ def generate_bottom_plate():
     # Board outline: rounded rectangle
     segs.extend(_rounded_rect_outline(PLATE_SIZE, PLATE_SIZE, PLATE_CORNER_R))
 
-    # Arm slots (4x, rotated rectangles)
-    for angle in ARM_ANGLES:
-        segs.extend(_rotated_rect_outline(SLOT_W, SLOT_L, 0, 0, angle))
-
     # Battery strap slots (2x)
     for dy in [-20, 20]:
         segs.extend(_rect_outline(25, 3, 0, dy))
 
-    # Keepout zones for Kagome computation
+    # Keepout zones for Kagome computation (along arm rail paths)
     keepouts = []
+    _MOUNT_PITCH = 10.0
+    _MOUNT_START = 15.0
+    _MOUNT_EDGE = 5.0
+    _MOUNT_ROW_OFF = 5.0
+    half = PLATE_SIZE / 2
     for angle in ARM_ANGLES:
         rad = math.radians(angle)
-        for dist in range(0, int(SLOT_L / 2) + 5, 8):
-            keepouts.append((dist * math.cos(rad), dist * math.sin(rad), 8.0))
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_r = min(half / abs_cos, half / abs_sin) - _MOUNT_EDGE
+        dist = _MOUNT_START
+        while dist <= max_r:
+            keepouts.append((dist * cos_a, dist * sin_a, _MOUNT_ROW_OFF + 4.0))
+            dist += _MOUNT_PITCH
     for dy in [-20, 20]:
         keepouts.append((0, dy, 15.0))
 
@@ -380,17 +385,21 @@ def generate_bottom_plate():
     for hx, hy in holes:
         content += "\n" + _through_hole_pad(hx, hy, 2.7, 4.5)  # M2.5 hole
 
-    # Arm header holes (matching arm tab pin rows at each slot angle)
-    slot_half = SLOT_L / 2
+    # Arm mounting rail holes (radial rows of M2 bolt holes along each arm angle)
     for angle in ARM_ANGLES:
         rad = math.radians(angle)
         cos_a, sin_a = math.cos(rad), math.sin(rad)
-        for side in [-1, 1]:
-            # Offset perpendicular to slot axis
-            perp_x = -sin_a * side * ARM_HEADER_OFFSET
-            perp_y = cos_a * side * ARM_HEADER_OFFSET
-            content += "\n" + _header_pad_row(
-                perp_x, perp_y, ARM_PINS_PER_SIDE, HEADER_PITCH, angle_deg=angle)
+        perp_x, perp_y = -sin_a, cos_a
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_r = min(half / abs_cos, half / abs_sin) - _MOUNT_EDGE
+        dist = _MOUNT_START
+        while dist <= max_r:
+            for side in [-1, 1]:
+                hx = dist * cos_a + side * _MOUNT_ROW_OFF * perp_x
+                hy = dist * sin_a + side * _MOUNT_ROW_OFF * perp_y
+                content += "\n" + _through_hole_pad(hx, hy, 2.2, 4.0)  # M2 clearance
+            dist += _MOUNT_PITCH
 
     # Leg header holes (matching mounting tab overlap area)
     _LEG_ANGLES = [0, 90, 180, 270]
@@ -416,19 +425,22 @@ def generate_top_plate():
     # Board outline
     segs.extend(_rounded_rect_outline(PLATE_SIZE, PLATE_SIZE, PLATE_CORNER_R))
 
-    # Arm slots
-    for angle in ARM_ANGLES:
-        segs.extend(_rotated_rect_outline(SLOT_W, SLOT_L, 0, 0, angle))
-
     # Central rectangular opening for DE10-Nano access
     segs.extend(_rounded_rect_outline(72, 110, PLATE_CORNER_R))
 
-    # Keepouts
+    # Keepouts (along arm rail paths + central opening)
     keepouts = []
+    half = PLATE_SIZE / 2
     for angle in ARM_ANGLES:
         rad = math.radians(angle)
-        for dist in range(0, int(SLOT_L / 2) + 5, 8):
-            keepouts.append((dist * math.cos(rad), dist * math.sin(rad), 8.0))
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_r = min(half / abs_cos, half / abs_sin) - 5.0
+        dist = 15.0
+        while dist <= max_r:
+            keepouts.append((dist * cos_a, dist * sin_a, 9.0))
+            dist += 10.0
     keepouts.append((0, 0, 58.0))  # central opening keepout
 
     # Kagome cutouts
@@ -451,7 +463,7 @@ def generate_arm():
     segs.extend(_rect_outline(ARM_LENGTH, ARM_WIDTH))
 
     # I-beam cutouts (two side channels)
-    body_inner = -ARM_LENGTH / 2 + ARM_TAB
+    body_inner = -ARM_LENGTH / 2 + MOUNT_FLANGE_LEN
     body_outer = ARM_LENGTH / 2 - MOTOR_SECTION
     cutout_length = (body_outer - body_inner) - 10
     cutout_cx = (body_inner + body_outer) / 2
@@ -472,11 +484,13 @@ def generate_arm():
     for hx, hy in holes:
         content += "\n" + _through_hole_pad(hx, hy, 3.2, 5.0)  # M3 clearance
 
-    # Pin header holes along tab (two rows for plate connection)
-    tab_cx = -ARM_LENGTH / 2 + ARM_TAB / 2
+    # Mounting flange bolt holes (2 rows of 3 M2 holes)
+    flange_start_x = -ARM_LENGTH / 2 + 5.0  # 5mm from frame end
     for side in [-1, 1]:
-        hy = side * ARM_HEADER_OFFSET
-        content += "\n" + _header_pad_row(tab_cx, hy, ARM_PINS_PER_SIDE, HEADER_PITCH)
+        hy = side * 5.0  # ±5mm from centerline
+        for i in range(3):
+            hx = flange_start_x + i * 10.0
+            content += "\n" + _through_hole_pad(hx, hy, 2.2, 4.0)  # M2 clearance
 
     content += "\n" + _text_sexpr("ARM", 0, 0, "F.SilkS", 2, 0.2)
     content += "\n" + _text_sexpr(f"{ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm  FR4 {ARM_THICK:.1f}mm", 0, 4, "F.SilkS", 1.0, 0.12)
@@ -636,7 +650,7 @@ Order as standard FR4 PCB from any fabricator (JLCPCB, PCBWay, OSH Park).
 Files:
   bottom_plate.kicad_pcb  — {PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm, {BOTTOM_THICK:.1f}mm FR4, Kagome cutouts + arm/leg header holes
   top_plate.kicad_pcb     — {PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm, {TOP_THICK:.1f}mm FR4, central opening + cutouts
-  arm.kicad_pcb           — {ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm, {ARM_THICK:.1f}mm FR4, I-beam, M3 motor holes + 2x{ARM_PINS_PER_SIDE} header pads
+  arm.kicad_pcb           — {ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm, {ARM_THICK:.1f}mm FR4, I-beam, M3 motor holes + 6x M2 mounting flange holes
   landing_leg.kicad_pcb   — L-shape, {LEG_THICK:.1f}mm FR4, lightening holes + {LEG_HEADER_PINS} header pads
   nose_boom.kicad_pcb     — {BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm, {BOOM_THICK:.1f}mm FR4, I-beam + 2x{BOOM_HEADER_PINS} root header pads
   pump_bracket.kicad_pcb  — {_D['pump_bracket']['base_width']:.0f}x{_D['pump_bracket']['base_depth']:.0f}mm, {_D['pump_bracket']['thickness']:.1f}mm FR4, frame + pump mounting holes
