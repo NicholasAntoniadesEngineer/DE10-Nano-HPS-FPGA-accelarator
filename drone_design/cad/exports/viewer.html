@@ -282,7 +282,7 @@ var KICAD_FILES = {"arm.kicad_pcb": "KGtpY2FkX3BjYiAodmVyc2lvbiAyMDIyMTAxOCkgKGd
         var color = new THREE.Color(colorHex);
         var mat = new THREE.MeshPhysicalMaterial({
             color: color, metalness: 0.2, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.2,
-            wireframe: wireframeOn, side: THREE.DoubleSide
+            side: THREE.DoubleSide
         });
         var mesh = new THREE.Mesh(geometry, mat);
         mesh.castShadow = true; mesh.receiveShadow = true;
@@ -505,7 +505,28 @@ var KICAD_FILES = {"arm.kicad_pcb": "KGtpY2FkX3BjYiAodmVyc2lvbiAyMDIyMTAxOCkgKGd
     document.getElementById('btn-wireframe').addEventListener('click', function() {
         wireframeOn = !wireframeOn;
         var names = Object.keys(parts);
-        for (var i = 0; i < names.length; i++) parts[names[i]].mesh.material.wireframe = wireframeOn;
+        var edgeAngle = 15 * Math.PI / 180;
+        for (var i = 0; i < names.length; i++) {
+            var p = parts[names[i]];
+            if (wireframeOn) {
+                p.mesh.material.transparent = true;
+                p.mesh.material.opacity = 0.15;
+                p.mesh.material.depthWrite = false;
+                if (!p.edges) {
+                    var edgeGeo = new THREE.EdgesGeometry(p.geometry, edgeAngle);
+                    var edgeMat = new THREE.LineBasicMaterial({ color: p.mesh.material.color, linewidth: 1 });
+                    p.edges = new THREE.LineSegments(edgeGeo, edgeMat);
+                    p.mesh.add(p.edges);
+                }
+                p.edges.visible = true;
+            } else {
+                p.mesh.material.transparent = false;
+                p.mesh.material.opacity = 1.0;
+                p.mesh.material.depthWrite = true;
+                if (p.edges) p.edges.visible = false;
+            }
+            p.mesh.material.needsUpdate = true;
+        }
         this.classList.toggle('active', wireframeOn);
     });
     document.getElementById('btn-reset').addEventListener('click', function() {
