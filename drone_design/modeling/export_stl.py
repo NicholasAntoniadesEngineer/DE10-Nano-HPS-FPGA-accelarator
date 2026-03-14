@@ -7,7 +7,7 @@ Exports:
   2. Positioned parts in assembly layout (for interactive viewer)
   3. Self-contained viewer.html with all positioned STLs embedded as base64
 
-All dimensions sourced from cad/dimensions.json via drone_3d_model.py.
+All dimensions sourced from cad/dimensions.json via components/assembly_constants.py.
 
 Usage:
     source .venv/bin/activate
@@ -29,32 +29,35 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import cadquery as cq
-from drone_3d_model import (
-    make_skeleton_plate,
-    make_arm,
-    make_landing_leg,
-    make_tof_board,
-    make_tof_bracket,
-    make_pump_bracket,
-    make_motor,
-    make_propeller,
-    make_esc,
-    make_de10_nano,
-    make_daughter_board,
-    make_battery,
-    make_reservoir,
-    make_pump,
-    make_standoff,
-    make_drip_nozzle,
-    make_camera,
-    make_nose_boom,
-    make_tubing_segment,
-    # Constants
+
+# Component builders
+from components.frame.skeleton_plate import make_skeleton_plate
+from components.frame.arm import make_arm, make_arm_inner, make_arm_outer
+from components.frame.nose_boom import make_nose_boom, make_boom_root, make_boom_tip
+from components.landing_gear.landing_leg import make_landing_leg
+from components.propulsion.motor import make_motor
+from components.propulsion.propeller import make_propeller
+from components.propulsion.esc import make_esc
+from components.electronics.de10_nano import make_de10_nano
+from components.electronics.daughter_board import make_daughter_board
+from components.electronics.standoff import make_standoff
+from components.sensors.tof_board import make_tof_board
+from components.sensors.tof_bracket import make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH
+from components.sensors.camera import make_camera
+from components.payload.battery import make_battery
+from components.payload.reservoir import make_reservoir
+from components.payload.pump import make_pump
+from components.payload.pump_bracket import make_pump_bracket
+from components.payload.drip_nozzle import make_drip_nozzle
+from components.payload.tubing import make_tubing_segment
+
+# Assembly-level constants
+from components.assembly_constants import (
     BOTTOM_THICK, TOP_THICK, DE10_STANDOFF,
     PLATE_SIZE,
     MOTOR_R, ARM_LENGTH, ARM_WIDTH, ARM_TAB, ARM_THICK, ARM_ANGLES,
     MOTOR_TOTAL_H, ESC_H, ESC_RADIAL_FRAC,
-    LEG_ANGLES,
+    LEG_ANGLES, LEG_THICK,
     DE10_W, DE10_L,
     BATT_H, BATT_CG_OFFSET,
     RES_H, RES_OFFSET_X,
@@ -62,7 +65,7 @@ from drone_3d_model import (
     BRACKET_BASE_D, BRACKET_T, BRACKET_BACK_H,
     PUMP_BASE_H, PUMP_BASE_D,
     BOOM_LENGTH, BOOM_THICK,
-    TOF_H, TOF_L, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH,
+    TOF_H, TOF_L,
     GROUND_Z, BOTTOM_Z, TOP_Z, DE10_Z, DB_Z, ARM_CENTER_Z,
 )
 
@@ -130,9 +133,31 @@ COMPONENT_CATALOG = {
         "dims": f"{ARM_LENGTH:.0f} x {ARM_WIDTH} x {ARM_THICK} mm",
         "mass_g": 12, "qty": 4,
         "supplier": "JLCPCB (mechanical PCB)",
-        "notes": "I-beam profile with web cutouts for weight reduction, 4x M3 motor mount holes at tip",
-        "interface": "Tab press-fits into plate arm slots; motor bolts to tip holes",
+        "notes": "Modular two-section I-beam arm. Inner section has frame tab + web-only overlap tail. "
+                 "Outer section has full I-beam overlap collar + circular motor mount plate. "
+                 "4x M2 slider holes at 10mm pitch in 40mm overlap zone for adjustable length",
+        "interface": "Tab press-fits into plate arm slots; motor bolts to tip holes; sections bolt together via M2",
         "fabrication": "1.6mm FR4, I-beam flanges 6mm, web 3mm",
+    },
+    "arm_inner": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{ARM_THICK}mm",
+        "mass_g": 7, "qty": 4,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Inner (tab) section of modular arm. Frame-plate tab end + I-beam body. "
+                 "Overlap tail has flanges removed (web-only) to slide inside outer section. "
+                 "4x M2 adjustment holes at 10mm pitch",
+        "interface": "Tab press-fits into frame plate slot; web slides into outer section flanges",
+        "fabrication": "1.6mm FR4, routed I-beam profile",
+    },
+    "arm_outer": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{ARM_THICK}mm",
+        "mass_g": 6, "qty": 4,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Outer (motor) section of modular arm. Full I-beam overlap collar receives inner web. "
+                 "25mm circular motor mount plate with 3.5mm shaft hole + 4x M2 bolt holes on 16mm circle. "
+                 "4x M2 adjustment holes match inner section",
+        "interface": "Inner section web slides between flanges; motor bolts to circular plate",
+        "fabrication": "1.6mm FR4, routed I-beam + circular motor plate",
     },
     "motor": {
         "material": "Aluminum + copper windings",
@@ -238,10 +263,30 @@ COMPONENT_CATALOG = {
         "dims": f"{380} x {20} x {1.6}mm",
         "mass_g": 18, "qty": 1,
         "supplier": "JLCPCB (mechanical PCB)",
-        "notes": "I-beam profile forward boom. Carries camera at 30mm and drip nozzle at tip. "
-                 "Flanges 4mm, web 3mm. Internal tubing channel for water delivery",
-        "interface": "Bolts to front of frame between plates; camera adapter screws midway",
-        "fabrication": "1.6mm FR4, I-beam routed outline, 380mm length requires panelization",
+        "notes": "Modular two-section I-beam boom. Root section (190mm) attaches to frame, web-only tail slides into tip. "
+                 "Tip section (230mm) has full I-beam collar + nozzle end. 4x M2 holes at 10mm pitch in 40mm overlap",
+        "interface": "Root bolts to front of frame; sections bolt together via M2; nozzle attaches at tip",
+        "fabrication": "1.6mm FR4, I-beam routed outline, each section under 250mm (no panelization needed)",
+    },
+    "boom_root": {
+        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
+        "dims": "190 x 20 x 1.6mm",
+        "mass_g": 9, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Root section of modular nose boom. 150mm full I-beam body + 40mm web-only overlap tail. "
+                 "Pin header holes at root end for frame attachment. 4x M2 adjustment holes in overlap tail",
+        "interface": "Pin headers to frame; web tail slides into tip section collar",
+        "fabrication": "1.6mm FR4, routed I-beam profile",
+    },
+    "boom_tip": {
+        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
+        "dims": "230 x 20 x 1.6mm",
+        "mass_g": 10, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Tip section of modular nose boom. 40mm full I-beam collar receives root web + 190mm body. "
+                 "4x M2 adjustment holes in collar match root section. Nozzle mounts at far end",
+        "interface": "Root web slides into collar; drip nozzle bolts to tip",
+        "fabrication": "1.6mm FR4, routed I-beam profile",
     },
     "camera": {
         "material": "FR4 PCB + CMOS sensor + lens",
@@ -353,10 +398,11 @@ def build_positioned_parts():
             meta=COMPONENT_CATALOG["esc"])
 
     # ── Landing Gear (4x) ──
+    leg_radial_dist = PLATE_SIZE / 2 + LEG_THICK / 2
     for i, angle in enumerate(LEG_ANGLES):
         rad = math.radians(angle)
-        lx = (PLATE_SIZE / 2 + 2) * math.cos(rad)
-        ly = (PLATE_SIZE / 2 + 2) * math.sin(rad)
+        lx = leg_radial_dist * math.cos(rad)
+        ly = leg_radial_dist * math.sin(rad)
         add(f"leg_{i+1}", f"Landing Leg {i+1}", "#155A1F",
             make_landing_leg, (), (lx, ly, GROUND_Z), (0, 0, angle),
             meta=COMPONENT_CATALOG["landing_leg"])
@@ -1183,6 +1229,8 @@ def main():
         "bottom_plate": (make_skeleton_plate, (BOTTOM_THICK, True)),
         "top_plate": (make_skeleton_plate, (TOP_THICK, False)),
         "arm": (make_arm, ()),
+        "arm_inner": (make_arm_inner, ()),
+        "arm_outer": (make_arm_outer, ()),
         "landing_leg": (make_landing_leg, ()),
         "tof_board": (make_tof_board, ()),
         "tof_bracket": (make_tof_bracket, ()),
@@ -1199,6 +1247,8 @@ def main():
         "drip_nozzle": (make_drip_nozzle, ()),
         "camera": (make_camera, ()),
         "nose_boom": (make_nose_boom, ()),
+        "boom_root": (make_boom_root, ()),
+        "boom_tip": (make_boom_tip, ()),
     }
     for name, (func, args) in individual_parts.items():
         path = stl_parts_dir / f"{name}.stl"

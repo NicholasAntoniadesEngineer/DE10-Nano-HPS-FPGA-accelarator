@@ -46,7 +46,7 @@ LEG_HEADER_PINS = _CONN["leg_header_pins"]
 BOOM_HEADER_PINS = _CONN["boom_header_pins"]
 BOOM_HEADER_INSET = _CONN["boom_header_inset"]
 
-from drone_3d_model import (
+from components.assembly_constants import (
     PLATE_SIZE, PLATE_CORNER_R, BOTTOM_THICK, TOP_THICK,
     SLOT_W, SLOT_L, ARM_ANGLES,
     DE10_W, DE10_L, DE10_STANDOFF,
@@ -392,13 +392,15 @@ def generate_bottom_plate():
             content += "\n" + _header_pad_row(
                 perp_x, perp_y, ARM_PINS_PER_SIDE, HEADER_PITCH, angle_deg=angle)
 
-    # Leg header holes (matching leg top pin rows at each leg position)
+    # Leg header holes (matching mounting tab overlap area)
     _LEG_ANGLES = [0, 90, 180, 270]
-    leg_edge_offset = PLATE_SIZE / 2 - 3.0  # legs attach at plate edge
+    _LEG_THICK = _D["landing_gear"]["leg_thickness"]
+    _TAB_DEPTH = _D["landing_gear"]["mounting_tab_depth"]
+    tab_center_dist = PLATE_SIZE / 2 - _LEG_THICK / 2 - _TAB_DEPTH / 2
     for angle in _LEG_ANGLES:
         rad = math.radians(angle)
-        lx = leg_edge_offset * math.cos(rad)
-        ly = leg_edge_offset * math.sin(rad)
+        lx = tab_center_dist * math.cos(rad)
+        ly = tab_center_dist * math.sin(rad)
         content += "\n" + _header_pad_row(lx, ly, LEG_HEADER_PINS, HEADER_PITCH, angle_deg=angle + 90)
 
     content += "\n" + _text_sexpr("BOTTOM PLATE", 0, 0, "F.SilkS", 3, 0.3)
@@ -483,35 +485,55 @@ def generate_arm():
 
 
 def generate_landing_leg():
-    """Generate .kicad_pcb for one L-shaped landing leg."""
+    """Generate .kicad_pcb for one L-shaped landing leg with mounting tab.
+
+    PCB layout (unfolded flat, as manufactured):
+      - Vertical section: LEG_WIDTH x LEG_HEIGHT, centered at (0, LEG_HEIGHT/2)
+      - Foot: FOOT_LENGTH x FOOT_THICK, extending to +X at bottom
+      - Mounting tab: LEG_WIDTH x TAB_DEPTH, extending to -X at top (fold line at top edge)
+      - Lightening holes in vertical section
+      - Pin header holes in the mounting tab (for plate connection)
+
+    When assembled, the tab folds 90 degrees to sit flat under the bottom plate.
+    """
+    _LG = _D["landing_gear"]
+    tab_depth = _LG["mounting_tab_depth"]
+
     segs = []
 
     # Vertical section
     segs.extend(_rect_outline(LEG_WIDTH, LEG_HEIGHT, 0, LEG_HEIGHT / 2))
 
-    # Foot (horizontal extension at bottom)
+    # Foot (horizontal extension at bottom, extends to +X)
     foot_cx = FOOT_LENGTH / 2 - LEG_WIDTH / 2
     segs.extend(_rect_outline(FOOT_LENGTH, FOOT_THICK, foot_cx, 0))
+
+    # Mounting tab at top (extends to -X, representing inward fold under plate)
+    tab_cx = -(LEG_WIDTH / 2 + tab_depth / 2)
+    tab_cy = LEG_HEIGHT - LEG_THICK / 2  # at top edge
+    segs.extend(_rect_outline(tab_depth, LEG_WIDTH, tab_cx, tab_cy))
 
     # Lightening holes in vertical section (capsule-shaped, simplified as ovals)
     hole_spacing = (LEG_HEIGHT - 20) / LEG_HOLE_N
     for i in range(LEG_HOLE_N):
         hy = 15 + hole_spacing * (i + 0.5)
-        # Approximate capsule as rounded rectangle
         segs.extend(_rounded_rect_outline(LEG_HOLE_W, LEG_HOLE_H, LEG_HOLE_R, 0, hy))
 
     content = _outline_to_sexpr(segs)
 
-    # Pin header holes at top edge (for plate connection)
+    # Pin header holes in mounting tab (vertical through-holes when assembled)
+    tab_hole_cx = tab_cx  # center of tab
     span = (LEG_HEADER_PINS - 1) * HEADER_PITCH
-    top_y = LEG_HEIGHT - 3.0  # 3mm below top
     for i in range(LEG_HEADER_PINS):
         hx = -span / 2 + i * HEADER_PITCH
-        content += "\n" + _through_hole_pad(hx, top_y, HEADER_HOLE_D, HEADER_PAD_D)
+        content += "\n" + _through_hole_pad(hx, tab_cy, HEADER_HOLE_D, HEADER_PAD_D)
 
+    # Fold line indicator on silkscreen
+    fold_y = LEG_HEIGHT
+    content += "\n" + _text_sexpr("FOLD", -(LEG_WIDTH / 2 + tab_depth / 2), fold_y + 3, "F.SilkS", 1.0, 0.12)
     content += "\n" + _text_sexpr("LEG", 0, LEG_HEIGHT / 2, "F.SilkS", 2, 0.2)
 
-    return _kicad_pcb_wrapper("Drone Landing Leg (L-shape)", LEG_THICK, content)
+    return _kicad_pcb_wrapper("Drone Landing Leg (L-shape + Tab)", LEG_THICK, content)
 
 
 def generate_nose_boom():
