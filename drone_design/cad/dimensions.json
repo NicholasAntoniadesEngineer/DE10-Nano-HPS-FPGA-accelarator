@@ -29,12 +29,14 @@
     },
 
     "landing_gear": {
-        "_doc": "L-shaped landing legs — 2.0mm FR4",
+        "_doc": "L-shaped landing legs — 2.0mm FR4. Each leg has a horizontal mounting tab at the top that sits flat against the bottom plate underside, creating an overlap area for vertical pin header connections.",
         "leg_width": 20.0,
         "leg_height": 80.0,
         "leg_thickness": 2.0,
         "foot_length": 40.0,
         "foot_thickness": 2.0,
+        "mounting_tab_depth": 15.0,
+        "mounting_tab_thickness": 2.0,
         "leg_angles_deg": [0, 90, 180, 270],
         "lightening_hole_width": 10.0,
         "lightening_hole_height": 18.0,
@@ -156,25 +158,67 @@
     },
 
     "reservoir": {
-        "_doc": "TPU collapsible 300ml water reservoir",
+        "_doc": "TPU collapsible 300ml water reservoir with outlet barb",
         "width": 50.0,
         "length": 80.0,
         "height": 40.0,
-        "offset_x": 25.0
+        "offset_x": -15.0,
+        "fillet_radius": 5.0,
+        "outlet_barb_od": 6.0,
+        "outlet_barb_length": 10.0
     },
 
     "pump": {
-        "_doc": "Kamoer NKP-DC-S06B peristaltic pump",
-        "total_length": 54.5,
-        "width": 40.3,
-        "height": 44.0,
-        "motor_section_diameter": 25.0,
+        "_doc": "Kamoer NKP-DC-S06B peristaltic pump — 6V DC, silicone tube, 35ml/min",
+        "motor_diameter": 24.5,
+        "motor_length": 33.0,
         "pump_head_diameter": 30.5,
-        "bracket_width": 25.0,
-        "bracket_height": 40.0,
-        "bracket_thickness": 1.6,
-        "tube_fitting_diameter": 6.0,
-        "tube_fitting_length": 8.0
+        "pump_head_length": 21.5,
+        "rotor_housing_diameter": 26.0,
+        "rotor_housing_depth": 3.0,
+        "base_width": 40.3,
+        "base_depth": 54.5,
+        "base_height": 3.0,
+        "mounting_ear_width": 8.0,
+        "mounting_ear_extension": 5.0,
+        "mounting_hole_diameter": 3.2,
+        "tube_fitting_od": 6.0,
+        "tube_fitting_id": 3.0,
+        "tube_fitting_length": 10.0,
+        "tube_fitting_barb_od": 7.5,
+        "tube_fitting_barb_height": 2.0,
+        "tube_fitting_spacing": 20.0,
+        "wire_exit_diameter": 4.0
+    },
+
+    "pump_bracket": {
+        "_doc": "L-bracket pump cradle — 1.6mm FR4, bolts to bottom plate and holds pump",
+        "base_width": 55.0,
+        "base_depth": 60.0,
+        "back_height": 48.0,
+        "thickness": 1.6,
+        "gusset_size": 12.0,
+        "frame_hole_diameter": 3.2,
+        "frame_hole_inset": 6.0,
+        "pump_hole_diameter": 3.2,
+        "pump_hole_spacing_x": 50.3
+    },
+
+    "drip_nozzle": {
+        "_doc": "Adjustable drip irrigation emitter with boom-tip mounting flange",
+        "body_diameter": 10.0,
+        "body_height": 8.0,
+        "cone_top_diameter": 8.0,
+        "cone_tip_diameter": 3.0,
+        "cone_height": 15.0,
+        "barb_od": 6.0,
+        "barb_id": 3.0,
+        "barb_length": 8.0,
+        "flange_width": 20.0,
+        "flange_depth": 12.0,
+        "flange_thickness": 2.0,
+        "flange_hole_diameter": 2.2,
+        "flange_hole_spacing": 14.0
     },
 
     "tof_sensor": {
@@ -209,6 +253,37 @@
         "thickness": 1.6,
         "flange_width": 4.0,
         "web_width": 3.0
+    },
+
+    "connections": {
+        "_doc": "Male-to-male 2.54mm pin header connections between PCB sections. Headers solder through matching through-holes on overlapping PCBs for structural rigidity + electrical connectivity.",
+        "header_pitch": 2.54,
+        "header_hole_diameter": 1.0,
+        "header_pad_diameter": 1.7,
+        "arm_header_pins_per_side": 12,
+        "arm_header_offset_from_slot": 3.5,
+        "leg_header_pins": 6,
+        "leg_header_inset": 3.0,
+        "boom_header_pins": 6,
+        "boom_header_inset": 3.0,
+        "bracket_hole_diameter": 2.2,
+        "bracket_hole_count": 4
+    },
+
+    "daughter_board_mounting": {
+        "_doc": "Daughter board mounting — matches DE10-Nano M2.5 hole pattern + GPIO header receptacles",
+        "mounting_hole_diameter": 2.7,
+        "mounting_hole_inset": 4.0,
+        "gpio_receptacle_rows": 2,
+        "gpio_receptacle_cols": 20,
+        "gpio_receptacle_pitch": 2.54
+    },
+
+    "camera_mounting": {
+        "_doc": "OV5640 adapter PCB mounting holes",
+        "mounting_hole_diameter": 2.2,
+        "mounting_hole_inset_x": 3.0,
+        "mounting_hole_inset_y": 4.0
     },
 
     "assembly": {

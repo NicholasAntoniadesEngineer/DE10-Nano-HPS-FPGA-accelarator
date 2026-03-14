@@ -1,20 +1,110 @@
-"""Adjustable drip irrigation emitter — cone shape."""
+"""Adjustable drip irrigation emitter with boom-tip mounting flange.
 
+Geometry: mounting flange with M2 bolt holes (attaches to boom end),
+barbed inlet fitting on top for tubing, cylindrical body transitioning
+to a conical emitter tip pointing downward.
+"""
+
+import json
 import cadquery as cq
+from pathlib import Path
+
+_D = json.loads((Path(__file__).resolve().parents[3] / "cad" / "dimensions.json").read_text())
+_N = _D["drip_nozzle"]
+
+BODY_D       = _N["body_diameter"]
+BODY_H       = _N["body_height"]
+CONE_TOP_D   = _N["cone_top_diameter"]
+CONE_TIP_D   = _N["cone_tip_diameter"]
+CONE_H       = _N["cone_height"]
+BARB_OD      = _N["barb_od"]
+BARB_ID      = _N["barb_id"]
+BARB_L       = _N["barb_length"]
+FLANGE_W     = _N["flange_width"]
+FLANGE_DEPTH = _N["flange_depth"]
+FLANGE_T     = _N["flange_thickness"]
+FLANGE_HOLE_D = _N["flange_hole_diameter"]
+FLANGE_HOLE_S = _N["flange_hole_spacing"]
 
 
 def make_drip_nozzle():
-    """Adjustable drip emitter — cone shape."""
-    base = cq.Workplane("XY").circle(5).extrude(5)
-    tip = (
+    """Drip emitter with mounting flange and barbed inlet.
+
+    Oriented with flange at Z=0 (mounts to boom underside),
+    barb inlet extending upward (+Z), body and cone extending downward (-Z).
+    """
+
+    # --- Mounting flange (attaches to boom tip) ---
+    flange = (
         cq.Workplane("XY")
-        .workplane(offset=5)
-        .circle(4)
-        .workplane(offset=12)
-        .circle(1.5)
-        .loft()
+        .rect(FLANGE_W, FLANGE_DEPTH)
+        .extrude(FLANGE_T)
     )
+    # 2x M2 mounting holes
+    for sx in [-1, 1]:
+        hole = (
+            cq.Workplane("XY")
+            .center(sx * FLANGE_HOLE_S / 2, 0)
+            .circle(FLANGE_HOLE_D / 2)
+            .extrude(FLANGE_T)
+        )
+        flange = flange.cut(hole)
+
+    # --- Cylindrical body (below flange, extending in -Z) ---
+    body = (
+        cq.Workplane("XY")
+        .circle(BODY_D / 2)
+        .extrude(-BODY_H)
+    )
+    nozzle = flange.union(body)
+
+    # --- Conical emitter tip (-Z, below body) ---
     try:
-        return base.union(tip)
+        cone = (
+            cq.Workplane("XY")
+            .workplane(offset=-BODY_H)
+            .circle(CONE_TOP_D / 2)
+            .workplane(offset=-CONE_H)
+            .circle(CONE_TIP_D / 2)
+            .loft()
+        )
+        nozzle = nozzle.union(cone)
     except Exception:
-        return cq.Workplane("XY").circle(4).extrude(15)
+        # Fallback: simple cylinder if loft fails
+        cone = (
+            cq.Workplane("XY")
+            .circle(CONE_TOP_D / 2)
+            .extrude(-BODY_H - CONE_H)
+        )
+        nozzle = nozzle.union(cone)
+
+    # --- Barbed inlet fitting (above flange, +Z) ---
+    inlet = (
+        cq.Workplane("XY")
+        .workplane(offset=FLANGE_T)
+        .circle(BARB_OD / 2)
+        .extrude(BARB_L)
+    )
+    # Hollow bore through entire nozzle
+    bore = (
+        cq.Workplane("XY")
+        .circle(BARB_ID / 2)
+        .extrude(FLANGE_T + BARB_L)
+    )
+    bore_down = (
+        cq.Workplane("XY")
+        .circle(BARB_ID / 2)
+        .extrude(-BODY_H - CONE_H)
+    )
+    # Barb ring for tubing grip
+    barb_ring = (
+        cq.Workplane("XY")
+        .workplane(offset=FLANGE_T + BARB_L * 0.5)
+        .circle((BARB_OD + 1.5) / 2)
+        .extrude(2)
+    )
+
+    nozzle = nozzle.union(inlet).union(barb_ring)
+    nozzle = nozzle.cut(bore).cut(bore_down)
+
+    return nozzle

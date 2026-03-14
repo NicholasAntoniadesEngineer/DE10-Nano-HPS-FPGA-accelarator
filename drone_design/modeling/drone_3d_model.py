@@ -46,7 +46,7 @@ from components.electronics.de10_nano import make_de10_nano
 from components.electronics.daughter_board import make_daughter_board
 from components.electronics.standoff import make_standoff
 from components.sensors.tof_board import make_tof_board
-from components.sensors.tof_bracket import make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB
+from components.sensors.tof_bracket import make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH
 from components.sensors.camera import make_camera
 from components.payload.battery import make_battery
 from components.payload.reservoir import make_reservoir
@@ -68,10 +68,13 @@ def _load_dimensions():
 _D = _load_dimensions()
 
 # Frame
-PLATE_SIZE   = _D["frame"]["plate_size"]
-BOTTOM_THICK = _D["frame"]["bottom_plate_thickness"]
-TOP_THICK    = _D["frame"]["top_plate_thickness"]
-PLATE_SPACING = _D["frame"]["plate_spacing"]
+PLATE_SIZE     = _D["frame"]["plate_size"]
+PLATE_CORNER_R = _D["frame"]["plate_corner_radius"]
+BOTTOM_THICK   = _D["frame"]["bottom_plate_thickness"]
+TOP_THICK      = _D["frame"]["top_plate_thickness"]
+PLATE_SPACING  = _D["frame"]["plate_spacing"]
+SLOT_W         = _D["frame"]["arm_slot_width"]
+SLOT_L         = _D["frame"]["arm_slot_length"]
 
 # Arms
 MOTOR_TO_MOTOR_DIAG = _D["arms"]["motor_to_motor_diagonal"]
@@ -80,13 +83,24 @@ ARM_TAB      = _D["arms"]["arm_tab"]
 ARM_LENGTH   = MOTOR_R + ARM_TAB / 2
 ARM_WIDTH    = _D["arms"]["arm_width"]
 ARM_THICK    = _D["arms"]["arm_thickness"]
+ARM_FLANGE   = _D["arms"]["arm_flange_width"]
+ARM_WEB      = _D["arms"]["arm_web_width"]
+MOTOR_SECTION = _D["arms"]["motor_mount_section_length"]
 ARM_ANGLES   = _D["arms"]["arm_angles_deg"]
 ADJ_MOTOR_DIST = 2 * MOTOR_R * math.sin(math.radians(45))
+MOTOR_MOUNT_RECT = _D["motor"]["mount_bolt_pattern"]
 
 # Landing gear
-FOOT_THICK   = _D["landing_gear"]["foot_thickness"]
+LEG_WIDTH    = _D["landing_gear"]["leg_width"]
 LEG_HEIGHT   = _D["landing_gear"]["leg_height"]
+LEG_THICK    = _D["landing_gear"]["leg_thickness"]
+FOOT_LENGTH  = _D["landing_gear"]["foot_length"]
+FOOT_THICK   = _D["landing_gear"]["foot_thickness"]
 LEG_ANGLES   = _D["landing_gear"]["leg_angles_deg"]
+LEG_HOLE_W   = _D["landing_gear"]["lightening_hole_width"]
+LEG_HOLE_H   = _D["landing_gear"]["lightening_hole_height"]
+LEG_HOLE_R   = _D["landing_gear"]["lightening_hole_end_radius"]
+LEG_HOLE_N   = _D["landing_gear"]["lightening_hole_count"]
 
 # Motor / propulsion
 MOTOR_TOTAL_H = _D["motor"]["body_height"] + _D["motor"]["shaft_protrusion"]
@@ -105,17 +119,36 @@ BATT_H       = _D["battery"]["height"]
 BATT_CG_OFFSET = _D["battery"]["cg_offset_x"]
 RES_H        = _D["reservoir"]["height"]
 RES_OFFSET_X = _D["reservoir"]["offset_x"]
-PUMP_BRACKET_H = _D["pump"]["bracket_height"]
-PUMP_BRACKET_T = _D["pump"]["bracket_thickness"]
-PUMP_W       = _D["pump"]["width"]
+# Pump system
+PUMP_BASE_W       = _D["pump"]["base_width"]
+PUMP_BASE_D       = _D["pump"]["base_depth"]
+PUMP_BASE_H       = _D["pump"]["base_height"]
+PUMP_MOTOR_D      = _D["pump"]["motor_diameter"]
+BRACKET_BASE_W    = _D["pump_bracket"]["base_width"]
+BRACKET_BASE_D    = _D["pump_bracket"]["base_depth"]
+BRACKET_BACK_H    = _D["pump_bracket"]["back_height"]
+BRACKET_T         = _D["pump_bracket"]["thickness"]
+# Aliases used by export_stl.py and export_gerber.py
+PUMP_W         = PUMP_BASE_W
+PUMP_BRACKET_W = BRACKET_BASE_W
+PUMP_BRACKET_H = BRACKET_BACK_H
+PUMP_BRACKET_T = BRACKET_T
 
 # Boom
 BOOM_LENGTH  = _D["nose_boom"]["length"]
+BOOM_WIDTH   = _D["nose_boom"]["width"]
 BOOM_THICK   = _D["nose_boom"]["thickness"]
+BOOM_FLANGE  = _D["nose_boom"]["flange_width"]
+BOOM_WEB     = _D["nose_boom"]["web_width"]
 
 # Sensors
 TOF_H        = _D["tof_sensor"]["board_height"]
 TOF_L        = _D["tof_sensor"]["board_length"]
+
+# Assembly
+KAGOME_CELL    = _D["assembly"]["kagome_cell_size"]
+KAGOME_HOLE_R  = _D["assembly"]["kagome_hole_radius"]
+KAGOME_WEB_MIN = _D["assembly"]["kagome_min_web"]
 
 # Propeller (for clearance report)
 PROP_DIAMETER = _D["propeller"]["diameter"]
@@ -199,11 +232,14 @@ def build_assembly():
                  name=f"esc_{i+1}", color=cq.Color(0.1, 0.1, 0.1, 1.0))
 
     # ── Landing Gear ──
+    # Leg vertical section center sits at radial distance = PLATE_SIZE/2 + LEG_THICK/2
+    # so the inner face aligns with plate edge and the mounting tab extends inward
     leg = make_landing_leg()
+    leg_radial_dist = PLATE_SIZE / 2 + LEG_THICK / 2
     for i, angle in enumerate(LEG_ANGLES):
         rad = math.radians(angle)
-        lx = (PLATE_SIZE / 2 + 2) * math.cos(rad)
-        ly = (PLATE_SIZE / 2 + 2) * math.sin(rad)
+        lx = leg_radial_dist * math.cos(rad)
+        ly = leg_radial_dist * math.sin(rad)
         assy.add(leg, loc=cq.Location((lx, ly, GROUND_Z), (0, 0, angle)),
                  name=f"leg_{i+1}", color=cq.Color(0.08, 0.35, 0.12, 1.0))
 
@@ -230,41 +266,72 @@ def build_assembly():
     assy.add(make_battery(), loc=cq.Location((BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3)),
              name="battery", color=cq.Color(0.15, 0.15, 0.15, 1.0))
 
-    # ── Reservoir (forward of center, near pump/boom) ──
-    assy.add(make_reservoir(), loc=cq.Location((RES_OFFSET_X, 0, BOTTOM_Z - RES_H - 3)),
+    # ── Water delivery system ──
+    # Layout: reservoir behind center (x=-15), pump bracket near boom root (x=45),
+    # tubing connects reservoir→pump, then pump→boom→nozzle.
+
+    # Reservoir — offset to +Y side to clear bottom ToF sensor at origin
+    RES_L = _D["reservoir"]["length"]
+    res_x = RES_OFFSET_X      # -15 (behind center)
+    res_y = 25                 # offset to one side, clear of ToF down at (0,0)
+    res_z = BOTTOM_Z - RES_H - 5
+    assy.add(make_reservoir(), loc=cq.Location((res_x, res_y, res_z)),
              name="reservoir", color=cq.Color(0.3, 0.6, 0.9, 0.6))
 
-    # ── Pump ──
+    # Pump bracket — near boom root, other side of frame
+    bracket_x = PLATE_SIZE / 2 - 15  # 45mm, near front edge
+    bracket_y = -20                   # offset to opposite side from reservoir
     assy.add(make_pump_bracket(),
-             loc=cq.Location((PLATE_SIZE / 2 - 5, 0, BOTTOM_Z - PUMP_BRACKET_H)),
+             loc=cq.Location((bracket_x, bracket_y, BOTTOM_Z), (180, 0, 0)),
              name="pump_bracket", color=cq.Color(0.1, 0.45, 0.15, 1.0))
 
+    # Pump — mounted on bracket back wall
+    pump_x = bracket_x
+    pump_y = bracket_y + BRACKET_BASE_D / 2 + PUMP_BASE_H
+    pump_z = BOTTOM_Z - BRACKET_T - BRACKET_BACK_H / 2
     assy.add(make_pump(),
-             loc=cq.Location((PLATE_SIZE / 2 - 5, -(PUMP_BRACKET_T + PUMP_W / 2),
-                              BOTTOM_Z - PUMP_BRACKET_H / 2)),
+             loc=cq.Location((pump_x, pump_y, pump_z), (90, 0, 0)),
              name="pump", color=cq.Color(0.3, 0.3, 0.3, 1.0))
 
     # ── Nose Boom ──
     boom_center_x = PLATE_SIZE / 2 + BOOM_LENGTH / 2
+    boom_z = ARM_CENTER_Z - BOOM_THICK / 2
     assy.add(make_nose_boom(),
-             loc=cq.Location((boom_center_x, 0, ARM_CENTER_Z - BOOM_THICK / 2), (0, 0, 0)),
+             loc=cq.Location((boom_center_x, 0, boom_z)),
              name="nose_boom", color=cq.Color(0.1, 0.45, 0.15, 1.0))
 
     # ── Camera (under boom, lens facing down) ──
     cam_x = PLATE_SIZE / 2 + 30
-    cam_z = ARM_CENTER_Z - BOOM_THICK / 2 - 2
-    assy.add(make_camera(), loc=cq.Location((cam_x, 0, cam_z)),
+    assy.add(make_camera(), loc=cq.Location((cam_x, 0, boom_z - 2)),
              name="camera", color=cq.Color(0.1, 0.1, 0.1, 1.0))
 
-    # ── Tubing along boom ──
-    assy.add(make_tubing_segment(BOOM_LENGTH - 30),
-             loc=cq.Location((boom_center_x, 0, ARM_CENTER_Z - BOOM_THICK / 2 - 4), (0, 90, 0)),
-             name="tubing", color=cq.Color(0.8, 0.8, 0.85, 0.7))
+    # ── Tubing: reservoir outlet → pump inlet ──
+    # Reservoir outlet barb is on +Y face at mid-height
+    res_outlet_x = res_x
+    res_outlet_y = res_y + RES_L / 2  # +Y face of reservoir
+    res_outlet_z = res_z + RES_H / 2
+    dx = pump_x - res_outlet_x
+    dy = pump_y - res_outlet_y
+    dz = pump_z - res_outlet_z
+    tube_res_pump_len = math.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+    yaw = math.degrees(math.atan2(dy, dx))
+    pitch = math.degrees(math.atan2(-dz, math.sqrt(dx ** 2 + dy ** 2)))
+    assy.add(make_tubing_segment(tube_res_pump_len),
+             loc=cq.Location((res_outlet_x, res_outlet_y, res_outlet_z),
+                             (pitch, 0, yaw)),
+             name="tubing_res_to_pump", color=cq.Color(0.8, 0.8, 0.85, 0.7))
 
-    # ── Drip nozzle at boom tip ──
+    # ── Tubing: pump outlet → along boom to nozzle ──
+    boom_tube_start_x = PLATE_SIZE / 2
+    boom_tube_len = BOOM_LENGTH - 20
+    assy.add(make_tubing_segment(boom_tube_len),
+             loc=cq.Location((boom_tube_start_x, 0, boom_z - 4), (0, 90, 0)),
+             name="tubing_boom", color=cq.Color(0.8, 0.8, 0.85, 0.7))
+
+    # ── Drip nozzle (flange bolted to boom tip, body/cone pointing down) ──
     nozzle_x = PLATE_SIZE / 2 + BOOM_LENGTH
     assy.add(make_drip_nozzle(),
-             loc=cq.Location((nozzle_x, 0, ARM_CENTER_Z - BOOM_THICK / 2 - 5), (180, 0, 0)),
+             loc=cq.Location((nozzle_x, 0, boom_z - BOOM_THICK / 2)),
              name="drip_nozzle", color=cq.Color(0.4, 0.4, 0.4, 1.0))
 
     # ── ToF Sensors (6 directions) ──

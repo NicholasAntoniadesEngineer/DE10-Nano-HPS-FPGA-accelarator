@@ -33,6 +33,19 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Load connection dimensions from dimensions.json
+_DIMS_PATH = Path(__file__).parent.parent / "cad" / "dimensions.json"
+_D = json.loads(_DIMS_PATH.read_text())
+_CONN = _D["connections"]
+HEADER_PITCH = _CONN["header_pitch"]
+HEADER_HOLE_D = _CONN["header_hole_diameter"]
+HEADER_PAD_D = _CONN["header_pad_diameter"]
+ARM_PINS_PER_SIDE = _CONN["arm_header_pins_per_side"]
+ARM_HEADER_OFFSET = _CONN["arm_header_offset_from_slot"]
+LEG_HEADER_PINS = _CONN["leg_header_pins"]
+BOOM_HEADER_PINS = _CONN["boom_header_pins"]
+BOOM_HEADER_INSET = _CONN["boom_header_inset"]
+
 from drone_3d_model import (
     PLATE_SIZE, PLATE_CORNER_R, BOTTOM_THICK, TOP_THICK,
     SLOT_W, SLOT_L, ARM_ANGLES,
@@ -181,6 +194,24 @@ def _through_hole_pad(cx, cy, drill_d, pad_d=None):
       (uuid "{_uid()}")
     )
   )"""
+
+
+def _header_pad_row(cx, cy, count, pitch, angle_deg=0, drill_d=None, pad_d=None):
+    """Generate through-hole pads for a row of pin header holes."""
+    if drill_d is None:
+        drill_d = HEADER_HOLE_D
+    if pad_d is None:
+        pad_d = HEADER_PAD_D
+    pads = []
+    span = (count - 1) * pitch
+    rad = math.radians(angle_deg)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    for i in range(count):
+        offset = -span / 2 + i * pitch
+        px = cx + offset * cos_a
+        py = cy + offset * sin_a
+        pads.append(_through_hole_pad(px, py, drill_d, pad_d))
+    return "\n".join(pads)
 
 
 def _text_sexpr(text, cx, cy, layer="F.SilkS", size=1.5, thickness=0.15):
@@ -348,6 +379,28 @@ def generate_bottom_plate():
     content = _outline_to_sexpr(segs)
     for hx, hy in holes:
         content += "\n" + _through_hole_pad(hx, hy, 2.7, 4.5)  # M2.5 hole
+
+    # Arm header holes (matching arm tab pin rows at each slot angle)
+    slot_half = SLOT_L / 2
+    for angle in ARM_ANGLES:
+        rad = math.radians(angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        for side in [-1, 1]:
+            # Offset perpendicular to slot axis
+            perp_x = -sin_a * side * ARM_HEADER_OFFSET
+            perp_y = cos_a * side * ARM_HEADER_OFFSET
+            content += "\n" + _header_pad_row(
+                perp_x, perp_y, ARM_PINS_PER_SIDE, HEADER_PITCH, angle_deg=angle)
+
+    # Leg header holes (matching leg top pin rows at each leg position)
+    _LEG_ANGLES = [0, 90, 180, 270]
+    leg_edge_offset = PLATE_SIZE / 2 - 3.0  # legs attach at plate edge
+    for angle in _LEG_ANGLES:
+        rad = math.radians(angle)
+        lx = leg_edge_offset * math.cos(rad)
+        ly = leg_edge_offset * math.sin(rad)
+        content += "\n" + _header_pad_row(lx, ly, LEG_HEADER_PINS, HEADER_PITCH, angle_deg=angle + 90)
+
     content += "\n" + _text_sexpr("BOTTOM PLATE", 0, 0, "F.SilkS", 3, 0.3)
     content += "\n" + _text_sexpr(f"{PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm  FR4 {BOTTOM_THICK:.1f}mm", 0, 5, "F.SilkS", 1.2, 0.15)
 
@@ -416,6 +469,13 @@ def generate_arm():
     content = _outline_to_sexpr(segs)
     for hx, hy in holes:
         content += "\n" + _through_hole_pad(hx, hy, 3.2, 5.0)  # M3 clearance
+
+    # Pin header holes along tab (two rows for plate connection)
+    tab_cx = -ARM_LENGTH / 2 + ARM_TAB / 2
+    for side in [-1, 1]:
+        hy = side * ARM_HEADER_OFFSET
+        content += "\n" + _header_pad_row(tab_cx, hy, ARM_PINS_PER_SIDE, HEADER_PITCH)
+
     content += "\n" + _text_sexpr("ARM", 0, 0, "F.SilkS", 2, 0.2)
     content += "\n" + _text_sexpr(f"{ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm  FR4 {ARM_THICK:.1f}mm", 0, 4, "F.SilkS", 1.0, 0.12)
 
@@ -441,6 +501,14 @@ def generate_landing_leg():
         segs.extend(_rounded_rect_outline(LEG_HOLE_W, LEG_HOLE_H, LEG_HOLE_R, 0, hy))
 
     content = _outline_to_sexpr(segs)
+
+    # Pin header holes at top edge (for plate connection)
+    span = (LEG_HEADER_PINS - 1) * HEADER_PITCH
+    top_y = LEG_HEIGHT - 3.0  # 3mm below top
+    for i in range(LEG_HEADER_PINS):
+        hx = -span / 2 + i * HEADER_PITCH
+        content += "\n" + _through_hole_pad(hx, top_y, HEADER_HOLE_D, HEADER_PAD_D)
+
     content += "\n" + _text_sexpr("LEG", 0, LEG_HEIGHT / 2, "F.SilkS", 2, 0.2)
 
     return _kicad_pcb_wrapper("Drone Landing Leg (L-shape)", LEG_THICK, content)
@@ -462,6 +530,12 @@ def generate_nose_boom():
             segs.extend(_rect_outline(cutout_length, cutout_width, 0, cy))
 
     content = _outline_to_sexpr(segs)
+
+    # Root end header holes (two rows for plate connection)
+    root_x = -BOOM_LENGTH / 2 + BOOM_HEADER_INSET + 10
+    for row_offset in [-4.0, 4.0]:
+        content += "\n" + _header_pad_row(root_x + row_offset, 0, BOOM_HEADER_PINS, HEADER_PITCH, angle_deg=90)
+
     content += "\n" + _text_sexpr("BOOM", 0, 0, "F.SilkS", 2, 0.2)
     content += "\n" + _text_sexpr(f"{BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm  FR4 {BOOM_THICK:.1f}mm", 0, 4, "F.SilkS", 1.0, 0.12)
 
@@ -470,13 +544,36 @@ def generate_nose_boom():
 
 def generate_pump_bracket():
     """Generate .kicad_pcb for the pump mounting bracket."""
+    _PB = _D["pump_bracket"]
+    pb_w = _PB["base_width"]
+    pb_d = _PB["base_depth"]
+    pb_t = _PB["thickness"]
+    frame_hole_d = _PB["frame_hole_diameter"]
+    frame_inset = _PB["frame_hole_inset"]
+    pump_hole_d = _PB["pump_hole_diameter"]
+    pump_hole_sx = _PB["pump_hole_spacing_x"]
+
     segs = []
-    segs.extend(_rect_outline(PUMP_BRACKET_W, PUMP_BRACKET_H))
+    segs.extend(_rect_outline(pb_w, pb_d))
 
     content = _outline_to_sexpr(segs)
-    content += "\n" + _text_sexpr("PUMP", 0, 0, "F.SilkS", 1.5, 0.15)
 
-    return _kicad_pcb_wrapper("Drone Pump Bracket", PUMP_BRACKET_T, content)
+    # Frame mounting holes (4 corners)
+    for sx in [-1, 1]:
+        for sy in [-1, 1]:
+            hx = sx * (pb_w / 2 - frame_inset)
+            hy = sy * (pb_d / 2 - frame_inset)
+            content += "\n" + _through_hole_pad(hx, hy, frame_hole_d, frame_hole_d + 1.0)
+
+    # Pump mounting holes (2x, centered vertically)
+    for sx in [-1, 1]:
+        hx = sx * (pump_hole_sx / 2)
+        content += "\n" + _through_hole_pad(hx, 0, pump_hole_d, pump_hole_d + 1.0)
+
+    content += "\n" + _text_sexpr("PUMP BRACKET", 0, 0, "F.SilkS", 1.5, 0.15)
+    content += "\n" + _text_sexpr(f"{pb_w:.0f}x{pb_d:.0f}mm  FR4 {pb_t:.1f}mm", 0, 4, "F.SilkS", 1.0, 0.12)
+
+    return _kicad_pcb_wrapper("Drone Pump Bracket", pb_t, content)
 
 
 # =============================================================================
@@ -515,19 +612,19 @@ These are MECHANICAL PCBs — no copper traces, no electrical components.
 Order as standard FR4 PCB from any fabricator (JLCPCB, PCBWay, OSH Park).
 
 Files:
-  bottom_plate.kicad_pcb  — {PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm, {BOTTOM_THICK:.1f}mm FR4, Kagome lattice cutouts
+  bottom_plate.kicad_pcb  — {PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm, {BOTTOM_THICK:.1f}mm FR4, Kagome cutouts + arm/leg header holes
   top_plate.kicad_pcb     — {PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm, {TOP_THICK:.1f}mm FR4, central opening + cutouts
-  arm.kicad_pcb           — {ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm, {ARM_THICK:.1f}mm FR4, I-beam profile, M3 motor holes
-  landing_leg.kicad_pcb   — L-shape, {LEG_THICK:.1f}mm FR4, capsule lightening holes
-  nose_boom.kicad_pcb     — {BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm, {BOOM_THICK:.1f}mm FR4, I-beam profile
-  pump_bracket.kicad_pcb  — {PUMP_BRACKET_W:.0f}x{PUMP_BRACKET_H:.0f}mm, {PUMP_BRACKET_T:.1f}mm FR4
+  arm.kicad_pcb           — {ARM_LENGTH:.0f}x{ARM_WIDTH:.0f}mm, {ARM_THICK:.1f}mm FR4, I-beam, M3 motor holes + 2x{ARM_PINS_PER_SIDE} header pads
+  landing_leg.kicad_pcb   — L-shape, {LEG_THICK:.1f}mm FR4, lightening holes + {LEG_HEADER_PINS} header pads
+  nose_boom.kicad_pcb     — {BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm, {BOOM_THICK:.1f}mm FR4, I-beam + 2x{BOOM_HEADER_PINS} root header pads
+  pump_bracket.kicad_pcb  — {_D['pump_bracket']['base_width']:.0f}x{_D['pump_bracket']['base_depth']:.0f}mm, {_D['pump_bracket']['thickness']:.1f}mm FR4, frame + pump mounting holes
 
 Fabrication specs:
   Material:     FR4 (standard glass-epoxy)
   Finish:       HASL or bare copper (cosmetic only)
   Solder mask:  Optional (green default)
   Silkscreen:   White (part labels)
-  Min hole:     2.5mm (M2.5 standoff) / 3.2mm (M3 motor mount)
+  Min hole:     {HEADER_HOLE_D}mm (pin header) / 2.5mm (M2.5 standoff) / 3.2mm (M3 motor mount)
   Copper:       Not required — these are structural, not electrical
 
 To generate Gerber files (requires KiCad 7+):

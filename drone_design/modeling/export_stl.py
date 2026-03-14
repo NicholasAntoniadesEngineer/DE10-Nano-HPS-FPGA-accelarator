@@ -48,6 +48,7 @@ from drone_3d_model import (
     make_drip_nozzle,
     make_camera,
     make_nose_boom,
+    make_tubing_segment,
     # Constants
     BOTTOM_THICK, TOP_THICK, DE10_STANDOFF,
     PLATE_SIZE,
@@ -58,8 +59,10 @@ from drone_3d_model import (
     BATT_H, BATT_CG_OFFSET,
     RES_H, RES_OFFSET_X,
     PUMP_W, PUMP_BRACKET_H, PUMP_BRACKET_T,
+    BRACKET_BASE_D, BRACKET_T, BRACKET_BACK_H,
+    PUMP_BASE_H, PUMP_BASE_D,
     BOOM_LENGTH, BOOM_THICK,
-    TOF_H, TOF_L, TOF_BRACKET_T, TOF_BRACKET_TAB,
+    TOF_H, TOF_L, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH,
     GROUND_Z, BOTTOM_Z, TOP_Z, DE10_Z, DB_Z, ARM_CENTER_Z,
 )
 
@@ -382,78 +385,129 @@ def build_positioned_parts():
         make_battery, (), (BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3),
         meta=COMPONENT_CATALOG["battery"])
 
-    # ── Reservoir ──
+    # ── Water delivery system ──
+    RES_L = 80.0
+    res_x = RES_OFFSET_X       # -15
+    res_y = 25                  # offset to clear ToF down sensor
+    res_z = BOTTOM_Z - RES_H - 5
     add("reservoir", "Water Reservoir (300ml)", "#4D99E6",
-        make_reservoir, (), (RES_OFFSET_X, 0, BOTTOM_Z - RES_H - 3),
+        make_reservoir, (), (res_x, res_y, res_z),
         meta=COMPONENT_CATALOG["reservoir"])
 
-    # ── Pump bracket + pump ──
+    bracket_x = PLATE_SIZE / 2 - 15
+    bracket_y = -20
     add("pump_bracket", "Pump Bracket (FR4)", "#1A7326",
-        make_pump_bracket, (), (PLATE_SIZE / 2 - 5, 0, BOTTOM_Z - PUMP_BRACKET_H),
+        make_pump_bracket, (), (bracket_x, bracket_y, BOTTOM_Z), (180, 0, 0),
         meta=COMPONENT_CATALOG["pump_bracket"])
 
+    pump_x = bracket_x
+    pump_y = bracket_y + BRACKET_BASE_D / 2 + PUMP_BASE_H
+    pump_z = BOTTOM_Z - BRACKET_T - BRACKET_BACK_H / 2
     add("pump", "Peristaltic Pump", "#4D4D4D",
-        make_pump, (), (PLATE_SIZE / 2 - 5, -(PUMP_BRACKET_T + PUMP_W / 2),
-                        BOTTOM_Z - PUMP_BRACKET_H / 2),
+        make_pump, (), (pump_x, pump_y, pump_z), (90, 0, 0),
         meta=COMPONENT_CATALOG["pump"])
 
     # ── Nose boom ──
     boom_center_x = PLATE_SIZE / 2 + BOOM_LENGTH / 2
+    boom_z = ARM_CENTER_Z - BOOM_THICK / 2
     add("nose_boom", "Nose Boom (FR4 I-beam)", "#1A7326",
-        make_nose_boom, (), (boom_center_x, 0, ARM_CENTER_Z - BOOM_THICK / 2),
+        make_nose_boom, (), (boom_center_x, 0, boom_z),
         meta=COMPONENT_CATALOG["nose_boom"])
 
-    # ── Camera ──
     cam_x = PLATE_SIZE / 2 + 30
-    cam_z = ARM_CENTER_Z - BOOM_THICK / 2 - 2
     add("camera", "OV5640 Camera Module", "#1A1A1A",
-        make_camera, (), (cam_x, 0, cam_z), meta=COMPONENT_CATALOG["camera"])
+        make_camera, (), (cam_x, 0, boom_z - 2), meta=COMPONENT_CATALOG["camera"])
 
-    # ── Drip nozzle ──
+    # Tubing: reservoir outlet → pump inlet
+    res_outlet_x = res_x
+    res_outlet_y = res_y + RES_L / 2
+    res_outlet_z = res_z + RES_H / 2
+    dx_t = pump_x - res_outlet_x
+    dy_t = pump_y - res_outlet_y
+    dz_t = pump_z - res_outlet_z
+    tube_len = math.sqrt(dx_t ** 2 + dy_t ** 2 + dz_t ** 2)
+    t_yaw = math.degrees(math.atan2(dy_t, dx_t))
+    t_pitch = math.degrees(math.atan2(-dz_t, math.sqrt(dx_t ** 2 + dy_t ** 2)))
+    add("tubing_res_to_pump", "Tubing: Reservoir to Pump", "#CCCCDD",
+        make_tubing_segment, (tube_len,),
+        (res_outlet_x, res_outlet_y, res_outlet_z), (t_pitch, 0, t_yaw))
+
+    # Tubing: pump outlet → along boom to nozzle
+    boom_tube_start_x = PLATE_SIZE / 2
+    boom_tube_len = BOOM_LENGTH - 20
+    add("tubing_boom", "Tubing: Boom Run", "#CCCCDD",
+        make_tubing_segment, (boom_tube_len,),
+        (boom_tube_start_x, 0, boom_z - 4), (0, 90, 0))
+
+    # Drip nozzle at boom tip
     nozzle_x = PLATE_SIZE / 2 + BOOM_LENGTH
     add("drip_nozzle", "Drip Nozzle", "#666666",
-        make_drip_nozzle, (), (nozzle_x, 0, ARM_CENTER_Z - BOOM_THICK / 2 - 5), (180, 0, 0),
+        make_drip_nozzle, (), (nozzle_x, 0, boom_z - BOOM_THICK / 2),
         meta=COMPONENT_CATALOG["drip_nozzle"])
 
     # ── ToF sensors (6x) + mounting brackets ──
-    # Bracket offset: bracket base is TOF_BRACKET_T thick, tab rises TOF_BRACKET_TAB
-    brk_offset = TOF_BRACKET_T + 1  # gap between plate surface and bracket base
+    # Bracket: L-shaped, base in XY plane, tab rises from +Y edge in +Z.
+    # Tab outward face at Y = DEPTH/2 = 10, normal +Y.
+    # Bracket rotation orients the tab face outward in the desired direction.
+    # Sensor rotation orients sensing direction (+Z at origin) outward.
+    # Sensor is positioned flush against the tab face (half_depth from bracket).
+    brk_offset = TOF_BRACKET_T + 1  # gap between plate surface and bracket
+    half_depth = TOF_BRACKET_DEPTH / 2  # bracket origin to tab face = 10
+    tab_zcenter = TOF_BRACKET_T + TOF_BRACKET_TAB / 2  # tab face center Z = 9.1
 
     tof_positions = [
         # (sensor_name, display, sensor_pos, sensor_rot,
         #  bracket_name, bracket_display, bracket_pos, bracket_rot)
+
+        # DOWN: bracket rx=-90 rotates tab face normal +Y -> -Z.
+        #        sensor rx=180 rotates sensing dir +Z -> -Z.
         ("tof_down", "ToF Down",
-         (0, 0, BOTTOM_Z - brk_offset - TOF_BRACKET_TAB - TOF_H), (180, 0, 0),
+         (0, 0, BOTTOM_Z - brk_offset - half_depth), (180, 0, 0),
          "tof_bracket_down", "ToF Bracket Down",
-         (0, 0, BOTTOM_Z - brk_offset), (180, 0, 0)),
+         (0, 0, BOTTOM_Z - brk_offset), (-90, 0, 0)),
+
+        # UP: bracket rx=90 rotates tab face normal +Y -> +Z.
+        #     sensor no rotation, +Z stays +Z.
         ("tof_up", "ToF Up",
-         (0, 0, TOP_Z + TOP_THICK + brk_offset + TOF_BRACKET_TAB), None,
+         (0, 0, TOP_Z + TOP_THICK + brk_offset + half_depth), None,
          "tof_bracket_up", "ToF Bracket Up",
-         (0, 0, TOP_Z + TOP_THICK + brk_offset), None),
+         (0, 0, TOP_Z + TOP_THICK + brk_offset), (90, 0, 0)),
+
+        # FRONT: bracket no rotation, tab face normal +Y stays +Y.
+        #        sensor rx=-90 rotates sensing dir +Z -> +Y.
         ("tof_front", "ToF Front",
-         (0, PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB,
-          TOP_Z + TOP_THICK / 2), (90, 0, 0),
+         (0, PLATE_SIZE / 2 + brk_offset + half_depth,
+          TOP_Z + TOP_THICK / 2 + tab_zcenter), (-90, 0, 0),
          "tof_bracket_front", "ToF Bracket Front",
          (0, PLATE_SIZE / 2 + brk_offset,
-          TOP_Z + TOP_THICK / 2), (90, 0, 0)),
+          TOP_Z + TOP_THICK / 2), None),
+
+        # BACK: bracket rz=180 rotates tab face normal +Y -> -Y (Z preserved).
+        #       sensor rx=90 rotates sensing dir +Z -> -Y.
         ("tof_back", "ToF Back",
-         (0, -(PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB),
-          TOP_Z + TOP_THICK / 2), (-90, 0, 0),
+         (0, -(PLATE_SIZE / 2 + brk_offset + half_depth),
+          TOP_Z + TOP_THICK / 2 + tab_zcenter), (90, 0, 0),
          "tof_bracket_back", "ToF Bracket Back",
          (0, -(PLATE_SIZE / 2 + brk_offset),
-          TOP_Z + TOP_THICK / 2), (-90, 0, 0)),
+          TOP_Z + TOP_THICK / 2), (0, 0, 180)),
+
+        # LEFT: bracket rz=90 rotates tab face normal +Y -> -X.
+        #       sensor ry=-90 rotates sensing dir +Z -> -X.
         ("tof_left", "ToF Left",
-         (-(PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB), 0,
-          TOP_Z + TOP_THICK / 2), (0, -90, 0),
+         (-(PLATE_SIZE / 2 + brk_offset + half_depth), 0,
+          TOP_Z + TOP_THICK / 2 + tab_zcenter), (0, -90, 0),
          "tof_bracket_left", "ToF Bracket Left",
          (-(PLATE_SIZE / 2 + brk_offset), 0,
-          TOP_Z + TOP_THICK / 2), (0, -90, 0)),
+          TOP_Z + TOP_THICK / 2), (0, 0, 90)),
+
+        # RIGHT: bracket rz=-90 rotates tab face normal +Y -> +X.
+        #        sensor ry=90 rotates sensing dir +Z -> +X.
         ("tof_right", "ToF Right",
-         (PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB, 0,
-          TOP_Z + TOP_THICK / 2), (0, 90, 0),
+         (PLATE_SIZE / 2 + brk_offset + half_depth, 0,
+          TOP_Z + TOP_THICK / 2 + tab_zcenter), (0, 90, 0),
          "tof_bracket_right", "ToF Bracket Right",
          (PLATE_SIZE / 2 + brk_offset, 0,
-          TOP_Z + TOP_THICK / 2), (0, 90, 0)),
+          TOP_Z + TOP_THICK / 2), (0, 0, -90)),
     ]
     for (s_name, s_display, s_pos, s_rot,
          b_name, b_display, b_pos, b_rot) in tof_positions:
