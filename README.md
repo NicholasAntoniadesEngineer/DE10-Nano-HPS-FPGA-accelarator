@@ -1,5 +1,7 @@
 # DE10-Nano HPS-FPGA Accelerator
 
+![System Overview](documentation/references/images/system_overview.png)
+
 FPGA-accelerated IEEE 754 floating-point calculator on the Intel Cyclone V SoC (DE10-Nano). The FPGA fabric implements ADD, SUB, MUL, and DIV in pure RTL with a 7-cycle pipeline. The HPS (dual-core ARM Cortex-A9) runs Debian Linux and communicates with the calculator IP over the Lightweight HPS-to-FPGA Avalon-MM bridge.
 
 ![System Block Diagram](documentation/references/images/System%20Block%20Diagram.png)
@@ -53,14 +55,23 @@ sudo dd if=HPS/linux_image/build/de10-nano-custom.img of=/dev/rdiskN bs=4m
 ## Connect via SSH
 
 ```bash
-# Configure USB Ethernet on Mac (must re-run each session)
-sudo ifconfig en13 192.168.2.1 netmask 255.255.255.0
+# Auto-detect USB Ethernet, configure interface, and SSH in
+./scripts/ssh-to-board.sh
 
-# SSH to DE10-Nano (password: root)
-ssh root@192.168.2.2
+# Or manually (interface name varies -- check ifconfig)
+sudo ifconfig en13 192.168.2.1 netmask 255.255.255.0
+ssh root@192.168.2.2   # password: root
 ```
 
-> `en13` may vary -- check `ifconfig` output for the USB Ethernet adapter name.
+### Share Internet with Board
+
+```bash
+# Set up NAT so the board can reach the internet through your Mac
+./scripts/share-internet.sh
+
+# Tear down when done
+./scripts/share-internet.sh --stop
+```
 
 ## Run Applications
 
@@ -107,13 +118,14 @@ FPGA/
   build/output_files/     # Quartus output (.rbf for SD card)
 HPS/
   drivers/calculator/     # UIO-based calculator driver (/dev/uioN + mmap)
+  drivers/fpga_uio/       # Shared UIO library (generic mmap abstraction)
   drivers/template/       # UIO driver template for new IP
   libs/logger/            # Shared logging library
   applications/
     calculator_test/      # Test suite (33 test cases)
     calculator_demo/      # Demo service (systemd, auto-start)
     boot_led/             # LED heartbeat at boot (systemd)
-    devmem2/              # /dev/mem read/write tool (cross-compiled)
+  tools/devmem2/          # /dev/mem read/write tool (cross-compiled)
   linux_image/
     kernel/               # Linux kernel (socfpga_defconfig)
     kernel/dts/           # Device tree sources (single source of truth)
@@ -121,7 +133,12 @@ HPS/
     bootloader/           # U-Boot + SPL + device tree
     scripts/              # SD image creation, rootfs build
 scripts/
-  new_ip.sh               # End-to-end scaffold for a new FPGA IP + UIO driver
+  generate-ip-framework.sh  # Scaffold new FPGA IP + QSys + UIO driver
+  generate-app-framework.sh # Scaffold new HPS application + systemd service
+  new_ip.sh                 # Symlink to generate-ip-framework.sh
+  ssh-to-board.sh           # Auto-detect USB Ethernet, configure, SSH in
+  share-internet.sh         # NAT setup: share Mac internet with board
+  env-check.sh              # Validate host build environment
 docker/
   scripts/                # setup.sh, docker-build.sh, docker-clean.sh
   Dockerfile              # Quartus 18.1 + ARM GCC container
@@ -139,6 +156,7 @@ documentation/
 | `calculator_test` all fail same result | Calculator not responding | Check bridge state, re-flash FPGA |
 | SSH connection refused | USB Ethernet not configured | Run `ifconfig en13 192.168.2.1 ...` |
 | `dd: permission denied` | Missing Full Disk Access | Add Terminal to Full Disk Access |
+| Board can't reach internet | NAT not configured | Run `./scripts/share-internet.sh` |
 
 ## References
 
