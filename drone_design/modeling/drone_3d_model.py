@@ -73,6 +73,11 @@ MOTOR_SHAFT_H    = _D["motor"]["shaft_protrusion"]
 MOTOR_TOTAL_H    = MOTOR_BODY_H + MOTOR_SHAFT_H
 MOTOR_BASE_D     = _D["motor"]["base_plate_diameter"]
 MOTOR_MOUNT_RECT = tuple(_D["motor"]["mount_bolt_pattern"])
+MOTOR_STATOR_D   = _D["motor"]["stator_diameter"]
+MOTOR_STATOR_H   = _D["motor"]["stator_height"]
+MOTOR_BELL_T     = _D["motor"]["bell_wall_thickness"]
+MOTOR_PROP_ADAPT_D = _D["motor"]["prop_adapter_diameter"]
+MOTOR_PROP_ADAPT_H = _D["motor"]["prop_adapter_height"]
 
 # --- Propeller ---
 PROP_DIAMETER    = _D["propeller"]["diameter"]
@@ -80,11 +85,19 @@ PROP_HUB_D       = _D["propeller"]["hub_diameter"]
 PROP_HUB_H       = _D["propeller"]["hub_height"]
 PROP_BLADE_W     = _D["propeller"]["blade_width"]
 PROP_BLADE_T     = _D["propeller"]["blade_thickness"]
+PROP_TIP_CHORD   = _D["propeller"]["blade_tip_chord"]
+PROP_ROOT_CHORD  = _D["propeller"]["blade_root_chord"]
+PROP_MAX_CHORD   = _D["propeller"]["blade_max_chord"]
+PROP_MAX_STATION = _D["propeller"]["blade_max_chord_station"]
 
 # --- ESC ---
 ESC_L            = _D["esc"]["length"]
 ESC_W            = _D["esc"]["width"]
 ESC_H            = _D["esc"]["height"]
+ESC_PAD_L        = _D["esc"]["solder_pad_length"]
+ESC_PAD_W        = _D["esc"]["solder_pad_width"]
+ESC_PAD_H        = _D["esc"]["solder_pad_height"]
+ESC_PAD_N        = _D["esc"]["solder_pad_count"]
 
 # --- DE10-Nano ---
 DE10_W           = _D["de10_nano"]["board_width"]
@@ -110,6 +123,10 @@ BATT_L           = _D["battery"]["length"]
 BATT_W           = _D["battery"]["width"]
 BATT_H           = _D["battery"]["height"]
 BATT_CG_OFFSET   = _D["battery"]["cg_offset_x"]
+BATT_XT60_W      = _D["battery"]["xt60_width"]
+BATT_XT60_H      = _D["battery"]["xt60_height"]
+BATT_XT60_D      = _D["battery"]["xt60_depth"]
+BATT_CORNER_R    = _D["battery"]["corner_radius"]
 
 # --- Reservoir ---
 RES_W            = _D["reservoir"]["width"]
@@ -126,12 +143,20 @@ PUMP_HEAD_D      = _D["pump"]["pump_head_diameter"]
 PUMP_BRACKET_W   = _D["pump"]["bracket_width"]
 PUMP_BRACKET_H   = _D["pump"]["bracket_height"]
 PUMP_BRACKET_T   = _D["pump"]["bracket_thickness"]
+PUMP_TUBE_D      = _D["pump"]["tube_fitting_diameter"]
+PUMP_TUBE_L      = _D["pump"]["tube_fitting_length"]
 
 # --- ToF sensor ---
 TOF_W            = _D["tof_sensor"]["board_width"]
 TOF_L            = _D["tof_sensor"]["board_length"]
 TOF_H            = _D["tof_sensor"]["board_height"]
 TOF_SENSOR_H     = _D["tof_sensor"]["sensor_module_height"]
+TOF_HOLE_D       = _D["tof_sensor"]["mounting_hole_diameter"]
+TOF_HOLE_SX      = _D["tof_sensor"]["mounting_hole_spacing_x"]
+TOF_HOLE_SY      = _D["tof_sensor"]["mounting_hole_spacing_y"]
+TOF_PIN_W        = _D["tof_sensor"]["pin_header_width"]
+TOF_PIN_L        = _D["tof_sensor"]["pin_header_length"]
+TOF_PIN_H        = _D["tof_sensor"]["pin_header_height"]
 
 # --- Camera ---
 CAM_W            = _D["camera"]["adapter_pcb_width"]
@@ -139,6 +164,8 @@ CAM_L            = _D["camera"]["adapter_pcb_length"]
 CAM_H            = _D["camera"]["adapter_pcb_thickness"]
 CAM_LENS_D       = _D["camera"]["lens_barrel_diameter"]
 CAM_LENS_H       = _D["camera"]["lens_barrel_height"]
+CAM_FPC_W        = _D["camera"]["fpc_connector_width"]
+CAM_FPC_H        = _D["camera"]["fpc_connector_height"]
 
 # --- Nose boom ---
 BOOM_LENGTH      = _D["nose_boom"]["length"]
@@ -367,25 +394,79 @@ def make_landing_leg():
 
 
 def make_motor():
-    """SunnySky X2212 980KV brushless motor."""
-    base = cq.Workplane("XY").circle(MOTOR_BASE_D / 2).extrude(3)
+    """SunnySky X2212 980KV brushless outrunner motor.
+
+    Geometry (bottom to top):
+      1. Base mounting plate with 4x M3 bolt holes
+      2. Stator cylinder (windings) centered on the base
+      3. Outrunner bell — hollow cylinder with solid cap
+      4. Shaft through center
+      5. Prop adapter nub on top of bell cap
+    """
+    base_thick = 3.0
+
+    # 1. Base mounting plate
+    base = cq.Workplane("XY").circle(MOTOR_BASE_D / 2).extrude(base_thick)
+    # 4x M3 bolt holes at mount_bolt_pattern rectangle positions
+    for dx in [-MOTOR_MOUNT_RECT[0] / 2, MOTOR_MOUNT_RECT[0] / 2]:
+        for dy in [-MOTOR_MOUNT_RECT[1] / 2, MOTOR_MOUNT_RECT[1] / 2]:
+            hole = (
+                cq.Workplane("XY")
+                .center(dx, dy)
+                .circle(1.5)
+                .extrude(base_thick)
+            )
+            base = base.cut(hole)
+
+    # 2. Stator cylinder (windings), sitting on top of the base plate
+    stator = (
+        cq.Workplane("XY")
+        .workplane(offset=base_thick)
+        .circle(MOTOR_STATOR_D / 2)
+        .extrude(MOTOR_STATOR_H)
+    )
+
+    # 3. Outrunner bell — hollow cylinder for the full body height
+    bell_inner_r = MOTOR_BELL_OD / 2 - MOTOR_BELL_T
     bell = (
         cq.Workplane("XY")
         .circle(MOTOR_BELL_OD / 2)
-        .circle(MOTOR_BELL_OD / 2 - 1.5)
+        .circle(bell_inner_r)
         .extrude(MOTOR_BODY_H)
     )
+    # Solid cap at the top of the bell
+    cap_thick = MOTOR_BELL_T
     cap = (
         cq.Workplane("XY")
-        .workplane(offset=MOTOR_BODY_H - 3)
+        .workplane(offset=MOTOR_BODY_H - cap_thick)
         .circle(MOTOR_BELL_OD / 2)
-        .extrude(3)
+        .extrude(cap_thick)
     )
     bell = bell.union(cap)
-    motor = base.union(bell)
-    motor = motor.faces(">Z").chamfer(1.5)
+
+    # Assemble base + stator + bell
+    motor = base.union(stator).union(bell)
+
+    # Chamfer the top edge of the bell
+    try:
+        motor = motor.faces(">Z").chamfer(1.0)
+    except Exception:
+        pass
+
+    # 4. Shaft through center (full body height + protrusion)
     shaft = cq.Workplane("XY").circle(MOTOR_SHAFT_D / 2).extrude(MOTOR_TOTAL_H)
-    return motor.union(shaft)
+    motor = motor.union(shaft)
+
+    # 5. Prop adapter nub on top of the bell cap
+    prop_adapter = (
+        cq.Workplane("XY")
+        .workplane(offset=MOTOR_BODY_H)
+        .circle(MOTOR_PROP_ADAPT_D / 2)
+        .extrude(MOTOR_PROP_ADAPT_H)
+    )
+    motor = motor.union(prop_adapter)
+
+    return motor
 
 
 def make_prop_hub():
@@ -393,67 +474,166 @@ def make_prop_hub():
     return cq.Workplane("XY").circle(PROP_HUB_D / 2).extrude(PROP_HUB_H)
 
 
-def make_propeller():
-    """GemFan 1045 — 2-blade prop."""
+def _blade_chord_at(t):
+    """Return chord width at normalised span station *t* (0=root, 1=tip).
+
+    Linearly interpolates between three control points:
+      root (t=0) -> max-chord (t=PROP_MAX_STATION) -> tip (t=1).
+    """
+    if t <= PROP_MAX_STATION:
+        frac = t / PROP_MAX_STATION
+        return PROP_ROOT_CHORD + frac * (PROP_MAX_CHORD - PROP_ROOT_CHORD)
+    else:
+        frac = (t - PROP_MAX_STATION) / (1.0 - PROP_MAX_STATION)
+        return PROP_MAX_CHORD + frac * (PROP_TIP_CHORD - PROP_MAX_CHORD)
+
+
+def _make_tapered_blade(flip=False):
+    """Build one tapered-chord propeller blade along the +X axis.
+
+    The blade is constructed from five extruded segments unioned together,
+    each with the interpolated chord width at that radial station.
+    If *flip* is True the blade is mirrored to the -X axis.
+    """
     blade_length = (PROP_DIAMETER - PROP_HUB_D) / 2
-    hub = cq.Workplane("XY").circle(PROP_HUB_D / 2).extrude(PROP_BLADE_T)
-    blade1 = (
-        cq.Workplane("XY")
-        .center(PROP_HUB_D / 2 + blade_length / 2, 0)
-        .ellipse(blade_length / 2, PROP_BLADE_W / 2)
-        .extrude(PROP_BLADE_T)
-    )
-    blade2 = (
-        cq.Workplane("XY")
-        .center(-(PROP_HUB_D / 2 + blade_length / 2), 0)
-        .ellipse(blade_length / 2, PROP_BLADE_W / 2)
-        .extrude(PROP_BLADE_T)
-    )
+    hub_r = PROP_HUB_D / 2
+    n_segments = 5
+    sign = -1.0 if flip else 1.0
+
+    result = None
+    for i in range(n_segments):
+        t0 = i / n_segments
+        t1 = (i + 1) / n_segments
+        t_mid = (t0 + t1) / 2.0
+
+        r_inner = hub_r + t0 * blade_length
+        r_outer = hub_r + t1 * blade_length
+        seg_len = r_outer - r_inner
+        chord = _blade_chord_at(t_mid)
+
+        cx = sign * (r_inner + seg_len / 2.0)
+        seg = (
+            cq.Workplane("XY")
+            .center(cx, 0)
+            .ellipse(seg_len / 2.0, chord / 2.0)
+            .extrude(PROP_BLADE_T)
+        )
+        result = seg if result is None else result.union(seg)
+
+    return result
+
+
+def make_propeller():
+    """GemFan 1045 — 2-blade prop with tapered-chord blades."""
+    hub = cq.Workplane("XY").circle(PROP_HUB_D / 2).extrude(PROP_HUB_H)
+    blade1 = _make_tapered_blade(flip=False)
+    blade2 = _make_tapered_blade(flip=True)
     return hub.union(blade1).union(blade2)
 
 
 def make_esc():
-    """FVT LittleBee 30A BLHeli_32."""
-    return (
+    """FVT LittleBee 30A BLHeli_32 — PCB body with solder pads."""
+    # Main PCB body with filleted vertical edges
+    body = (
         cq.Workplane("XY")
         .rect(ESC_L, ESC_W)
         .extrude(ESC_H)
         .edges("|Z").fillet(1)
     )
 
+    # Solder pads: half on the +Y end (motor wires), half on the -Y end (power/signal)
+    pads_per_end = ESC_PAD_N // 2
+    # Evenly space pads across the width (X axis)
+    spacing = ESC_W / (pads_per_end + 1)
+
+    for end_sign in (+1, -1):
+        # Y centre of each pad row: flush against the ESC edge
+        pad_cy = end_sign * (ESC_L / 2 - ESC_PAD_L / 2)
+        for i in range(pads_per_end):
+            pad_cx = -ESC_W / 2 + spacing * (i + 1)
+            pad = (
+                cq.Workplane("XY")
+                .center(pad_cx, pad_cy)
+                .rect(ESC_PAD_W, ESC_PAD_L)
+                .extrude(ESC_H + ESC_PAD_H)
+            )
+            body = body.union(pad)
+
+    return body
+
+
+def _intel_to_cq(intel_x, intel_y):
+    """Convert Intel mechanical layout coords to CadQuery board-centered coords.
+
+    Intel layout: x along 107mm length, y along 68.6mm width.
+    CadQuery:     DE10_W (68.58) on x-axis, DE10_L (107.95) on y-axis.
+    """
+    cq_x = intel_y - DE10_W / 2
+    cq_y = intel_x - DE10_L / 2
+    return cq_x, cq_y
+
 
 def make_de10_nano():
-    """DE10-Nano FPGA board with GPIO headers and heatsink."""
+    """DE10-Nano FPGA board with mounting holes, GPIO headers, heatsink, and connectors."""
+    connectors = _D["de10_nano"]["connectors"]
+    hole_d = _D["de10_nano"]["mounting_hole_diameter"]
+    hole_inset = _D["de10_nano"]["mounting_hole_inset"]
+
+    # --- Main PCB ---
     board = (
         cq.Workplane("XY")
         .rect(DE10_W, DE10_L)
         .extrude(DE10_H)
         .edges("|Z").fillet(1)
     )
-    for dx in [-DE10_W / 2 + 10, DE10_W / 2 - 10]:
-        header = (
-            cq.Workplane("XY")
-            .center(dx, DE10_L / 2 - DE10_GPIO_L / 2 - 5)
-            .rect(DE10_GPIO_W, DE10_GPIO_L)
-            .extrude(DE10_H + DE10_GPIO_H)
-        )
-        board = board.union(header)
 
+    # --- 4x M3 mounting holes (through-hole cutouts near corners) ---
+    for sx in [-1, 1]:
+        for sy in [-1, 1]:
+            hx = sx * (DE10_W / 2 - hole_inset)
+            hy = sy * (DE10_L / 2 - hole_inset)
+            hole = (
+                cq.Workplane("XY")
+                .center(hx, hy)
+                .circle(hole_d / 2)
+                .extrude(DE10_H)
+            )
+            board = board.cut(hole)
+
+    # --- FPGA heatsink (centered on board) ---
     heatsink = (
         cq.Workplane("XY")
-        .center(0, -10)
         .rect(HS_W, HS_L)
         .extrude(DE10_H + HS_H)
     )
     board = board.union(heatsink)
 
-    eth = (
-        cq.Workplane("XY")
-        .center(-DE10_W / 2 + 10, -DE10_L / 2 + 10)
-        .rect(16, 14)
-        .extrude(DE10_COMPONENT_H)
-    )
-    return board.union(eth)
+    # --- GPIO headers (2x20 pin) ---
+    for key in ("gpio0", "gpio1"):
+        c = connectors[key]
+        cx, cy = _intel_to_cq(c["intel_x"], c["intel_y"])
+        # Header center: offset by half the header length along CQ y-axis
+        header = (
+            cq.Workplane("XY")
+            .center(cx, cy + c["length"] / 2)
+            .rect(c["width"], c["length"])
+            .extrude(DE10_H + c["height"])
+        )
+        board = board.union(header)
+
+    # --- Connectors as simple raised blocks ---
+    for key in ("hdmi", "usb_otg", "ethernet", "barrel_jack"):
+        c = connectors[key]
+        cx, cy = _intel_to_cq(c["intel_x"], c["intel_y"])
+        block = (
+            cq.Workplane("XY")
+            .center(cx, cy)
+            .rect(c["width"], c["length"])
+            .extrude(DE10_H + c["height"])
+        )
+        board = board.union(block)
+
+    return board
 
 
 def make_daughter_board():
@@ -476,14 +656,24 @@ def make_daughter_board():
 
 
 def make_battery():
-    """Tattu 4S 2200mAh 45C LiPo."""
-    return (
+    """Tattu 4S 2200mAh 45C LiPo with XT60 connector bump."""
+    # Main body with rounded vertical edges and smaller top-edge fillet
+    body = (
         cq.Workplane("XY")
         .rect(BATT_W, BATT_L)
         .extrude(BATT_H)
-        .edges("|Z").fillet(2)
-        .edges(">Z").fillet(1)
+        .edges("|Z").fillet(BATT_CORNER_R)
+        .edges(">Z").fillet(min(BATT_CORNER_R * 0.5, 1.5))
     )
+    # XT60 connector bump centred on the +Y face, at mid-height
+    xt60_z = (BATT_H - BATT_XT60_H) / 2
+    xt60 = (
+        cq.Workplane("XY")
+        .transformed(offset=(0, BATT_L / 2 + BATT_XT60_D / 2, xt60_z))
+        .rect(BATT_XT60_W, BATT_XT60_D)
+        .extrude(BATT_XT60_H)
+    )
+    return body.union(xt60)
 
 
 def make_reservoir():
@@ -506,32 +696,123 @@ def make_pump_bracket():
 
 
 def make_pump():
-    """Kamoer NKP-DC-S06B peristaltic pump."""
+    """Kamoer NKP-DC-S06B peristaltic pump with inlet/outlet tube fittings."""
+    motor_len = PUMP_L * 0.6
+    head_len = PUMP_L * 0.4
+
+    # Motor section cylinder (rear)
     motor_section = (
         cq.Workplane("YZ")
         .circle(PUMP_MOTOR_D / 2)
-        .extrude(PUMP_L * 0.6)
-        .translate((-PUMP_L * 0.3, 0, 0))
+        .extrude(motor_len)
+        .translate((-PUMP_L / 2, 0, 0))
     )
+
+    # Pump head cylinder (front, joined to motor section)
     head = (
         cq.Workplane("YZ")
         .circle(PUMP_HEAD_D / 2)
-        .extrude(PUMP_L * 0.4)
-        .translate((PUMP_L * 0.3 - PUMP_L * 0.4, 0, 0))
+        .extrude(head_len)
+        .translate((-PUMP_L / 2 + motor_len, 0, 0))
     )
-    return motor_section.union(head)
+
+    pump = motor_section.union(head)
+
+    # Tube fittings — two barbs protruding upward from the pump head top
+    head_center_x = -PUMP_L / 2 + motor_len + head_len / 2
+    fitting_spacing = PUMP_HEAD_D * 0.35
+    head_top_z = PUMP_HEAD_D / 2
+
+    for dx in [-fitting_spacing, fitting_spacing]:
+        fitting = (
+            cq.Workplane("XY")
+            .center(head_center_x + dx, 0)
+            .circle(PUMP_TUBE_D / 2)
+            .extrude(head_top_z + PUMP_TUBE_L)
+        )
+        pump = pump.union(fitting)
+
+    return pump
 
 
 def make_tof_board():
-    """VL53L1X Pololu carrier #3415."""
+    """VL53L1X Pololu carrier #3415 — PCB with mounting holes, sensor, and pin header."""
+    # PCB substrate
     board = cq.Workplane("XY").rect(TOF_W, TOF_L).extrude(TOF_H)
+
+    # Mounting holes — two at opposite corners (Pololu #3415 layout)
+    for sx, sy in [(-1, -1), (1, 1)]:
+        hole = (
+            cq.Workplane("XY")
+            .center(sx * TOF_HOLE_SX / 2, sy * TOF_HOLE_SY / 2)
+            .circle(TOF_HOLE_D / 2)
+            .extrude(TOF_H)
+        )
+        board = board.cut(hole)
+
+    # VL53L1X sensor module (4.4 x 2.4 mm optical aperture), offset toward +Y end
     sensor = (
         cq.Workplane("XY")
-        .center(0, 2)
+        .center(0, TOF_L / 2 - 4.0)
         .rect(4.4, 2.4)
         .extrude(TOF_H + TOF_SENSOR_H)
     )
-    return board.union(sensor)
+
+    # Pin header strip on bottom (-Z), along -Y edge of board
+    pin_header = (
+        cq.Workplane("XY")
+        .center(0, -(TOF_L / 2 - TOF_PIN_L / 2))
+        .rect(TOF_PIN_W, TOF_PIN_L)
+        .extrude(-TOF_PIN_H)
+    )
+
+    return board.union(sensor).union(pin_header)
+
+
+# --- ToF bracket constants ---
+TOF_BRACKET_BASE   = 15    # mm, base face width (attaches to frame plate)
+TOF_BRACKET_TAB    = 15    # mm, vertical tab width (holds ToF board)
+TOF_BRACKET_DEPTH  = 20    # mm, depth of both faces
+TOF_BRACKET_T      = 1.6   # mm, FR4 thickness
+TOF_BRACKET_HOLE_D = 2.0   # mm, M2 hole diameter
+
+
+def make_tof_bracket():
+    """L-shaped ToF sensor mounting bracket — FR4 PCB, 1.6mm thick.
+
+    Two rectangular faces at 90 degrees:
+      - Base face (XY plane): 15 x 20 mm, attaches to frame plate via 2x M2 holes
+      - Vertical tab (XZ plane): 15 x 20 mm, holds ToF board via 2x M2 holes
+    """
+    # Base face — lies flat on the frame plate
+    base = (
+        cq.Workplane("XY")
+        .rect(TOF_BRACKET_BASE, TOF_BRACKET_DEPTH)
+        .extrude(TOF_BRACKET_T)
+    )
+    # 2x M2 mounting holes in base
+    base = (
+        base.faces(">Z").workplane()
+        .pushPoints([(0, -5), (0, 5)])
+        .hole(TOF_BRACKET_HOLE_D)
+    )
+
+    # Vertical tab — perpendicular to base, rises from one edge
+    tab = (
+        cq.Workplane("XZ")
+        .center(0, TOF_BRACKET_T + TOF_BRACKET_TAB / 2)
+        .rect(TOF_BRACKET_BASE, TOF_BRACKET_TAB)
+        .extrude(TOF_BRACKET_T)
+        .translate((0, TOF_BRACKET_DEPTH / 2 - TOF_BRACKET_T, 0))
+    )
+    # 2x M2 mounting holes in tab
+    tab = (
+        tab.faces(">Y").workplane()
+        .pushPoints([(0, -5), (0, 5)])
+        .hole(TOF_BRACKET_HOLE_D)
+    )
+
+    return base.union(tab)
 
 
 def make_standoff(h):
@@ -557,15 +838,31 @@ def make_drip_nozzle():
 
 
 def make_camera():
-    """OV5640 camera on adapter PCB — lens facing DOWN (-Z)."""
-    pcb = cq.Workplane("XY").rect(CAM_W, CAM_L).extrude(CAM_H)
+    """OV5640 camera on adapter PCB — lens facing DOWN (-Z), FPC connector on top."""
+    # Adapter PCB with small corner fillets
+    pcb = (
+        cq.Workplane("XY")
+        .rect(CAM_W, CAM_L)
+        .extrude(CAM_H)
+        .edges("|Z")
+        .fillet(0.5)
+    )
+    # Lens barrel on bottom face, centered, extending in -Z
     lens = (
         cq.Workplane("XY")
-        .center(0, 0)
         .circle(CAM_LENS_D / 2)
         .extrude(-CAM_LENS_H)
     )
-    return pcb.union(lens)
+    # FPC connector block on top face (+Z), at -Y edge of PCB
+    fpc_depth = 5.0
+    fpc = (
+        cq.Workplane("XY")
+        .workplane(offset=CAM_H)
+        .center(0, -CAM_L / 2 + fpc_depth / 2)
+        .rect(CAM_FPC_W, fpc_depth)
+        .extrude(CAM_FPC_H)
+    )
+    return pcb.union(lens).union(fpc)
 
 
 def make_nose_boom():

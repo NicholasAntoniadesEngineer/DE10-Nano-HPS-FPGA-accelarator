@@ -34,6 +34,7 @@ from drone_3d_model import (
     make_arm,
     make_landing_leg,
     make_tof_board,
+    make_tof_bracket,
     make_pump_bracket,
     make_motor,
     make_propeller,
@@ -50,7 +51,7 @@ from drone_3d_model import (
     # Constants
     BOTTOM_THICK, TOP_THICK, DE10_STANDOFF,
     PLATE_SIZE,
-    MOTOR_R, ARM_LENGTH, ARM_TAB, ARM_THICK, ARM_ANGLES,
+    MOTOR_R, ARM_LENGTH, ARM_WIDTH, ARM_TAB, ARM_THICK, ARM_ANGLES,
     MOTOR_TOTAL_H, ESC_H, ESC_RADIAL_FRAC,
     LEG_ANGLES,
     DE10_W, DE10_L,
@@ -58,7 +59,7 @@ from drone_3d_model import (
     RES_H, RES_OFFSET_X,
     PUMP_W, PUMP_BRACKET_H, PUMP_BRACKET_T,
     BOOM_LENGTH, BOOM_THICK,
-    TOF_H, TOF_L,
+    TOF_H, TOF_L, TOF_BRACKET_T, TOF_BRACKET_TAB,
     GROUND_Z, BOTTOM_Z, TOP_Z, DE10_Z, DB_Z, ARM_CENTER_Z,
 )
 
@@ -102,14 +103,197 @@ def to_yup(shape):
     return shape.rotate((0, 0, 0), (1, 0, 0), -90)
 
 
+COMPONENT_CATALOG = {
+    "bottom_plate": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{BOTTOM_THICK}mm",
+        "dims": f"{PLATE_SIZE} x {PLATE_SIZE} x {BOTTOM_THICK} mm",
+        "mass_g": 42, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Kagome lattice cutouts, 4x M2.5 standoff holes, 4x arm slots, 2x battery strap slots",
+        "interface": "Arms press-fit into slots; standoffs bolt through M2.5 holes",
+        "fabrication": "Standard PCB routing, 2.0mm FR4, green soldermask",
+    },
+    "top_plate": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{TOP_THICK}mm",
+        "dims": f"{PLATE_SIZE} x {PLATE_SIZE} x {TOP_THICK} mm",
+        "mass_g": 28, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "Kagome lattice cutouts, 72x110mm central opening for DE10-Nano access",
+        "interface": "Arms press-fit into slots; landing legs bolt at edges",
+        "fabrication": "Standard PCB routing, 1.6mm FR4, green soldermask",
+    },
+    "arm": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{ARM_THICK}mm",
+        "dims": f"{ARM_LENGTH:.0f} x {ARM_WIDTH} x {ARM_THICK} mm",
+        "mass_g": 12, "qty": 4,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "I-beam profile with web cutouts for weight reduction, 4x M3 motor mount holes at tip",
+        "interface": "Tab press-fits into plate arm slots; motor bolts to tip holes",
+        "fabrication": "1.6mm FR4, I-beam flanges 6mm, web 3mm",
+    },
+    "motor": {
+        "material": "Aluminum + copper windings",
+        "dims": "\u00d827.5 x 26mm body + 13mm shaft",
+        "mass_g": 56, "qty": 4,
+        "supplier": "SunnySky X2212 980KV",
+        "notes": "Outrunner BLDC, 980KV, max thrust ~800g/motor at 4S, M3 mount pattern 16x19mm",
+        "interface": "4x M3 bolts to arm tip; 3-phase wires to ESC",
+        "electrical": "4S LiPo (14.8V), 20A max, DShot600 control",
+    },
+    "propeller": {
+        "material": "Glass-filled nylon",
+        "dims": f"\u00d8{254}mm (10 inch), 4.5 inch pitch",
+        "mass_g": 14, "qty": 4,
+        "supplier": "GemFan 1045",
+        "notes": "2-blade, CW/CCW pairs. ~800g thrust at full throttle per prop",
+        "interface": "Press-fit/collet on 3.17mm motor shaft",
+    },
+    "esc": {
+        "material": "FR4 PCB + MOSFETs",
+        "dims": f"{35} x {17} x {5.5} mm",
+        "mass_g": 8, "qty": 4,
+        "supplier": "FVT LittleBee 30A BLHeli_32",
+        "notes": "30A continuous, 35A burst. DShot600 input. BLHeli_32 firmware with telemetry",
+        "interface": "3-phase output to motor; signal wire to FPGA DShot GPIO; power from battery",
+        "electrical": "3-6S LiPo input, 30A continuous, DShot150/300/600",
+    },
+    "landing_leg": {
+        "material": "FR4 Glass Epoxy", "thickness": f"{2.0}mm",
+        "dims": f"L-shape: {20}x{80}mm vertical + {40}mm foot",
+        "mass_g": 8, "qty": 4,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "L-shaped with 3x capsule lightening holes. Foot provides ground contact area",
+        "interface": "Bolts to bottom plate edge at 0/90/180/270 degrees",
+        "fabrication": "2.0mm FR4, routed outline, no copper required",
+    },
+    "de10_nano": {
+        "material": "FR4 PCB + components",
+        "dims": f"{DE10_W:.1f} x {DE10_L:.1f} x {1.6}mm PCB ({17}mm tallest component)",
+        "mass_g": 65, "qty": 1,
+        "supplier": "Terasic DE10-Nano",
+        "notes": "Cyclone V SoC (5CSEBA6U23I7): dual ARM Cortex-A9 800MHz + 41K ALM FPGA. "
+                 "1GB DDR3, 2x 40-pin GPIO, Arduino header, HDMI, USB OTG, Ethernet, ADC",
+        "interface": "4x M2.5 standoffs to bottom plate; GPIO0 for camera+motors, GPIO1 for IMU+sensors",
+        "electrical": "5V barrel jack input, draws ~2.5-3W idle",
+    },
+    "standoff": {
+        "material": "Brass, nickel plated",
+        "dims": f"M2.5 x {DE10_STANDOFF}mm",
+        "mass_g": 2, "qty": 4,
+        "supplier": "Generic M2.5 hex standoff",
+        "notes": "Female-female hex standoff, separates DE10-Nano from bottom plate",
+        "interface": "M2.5 bolt through bottom plate hole into standoff; DE10 bolts on top",
+    },
+    "daughter_board": {
+        "material": "FR4 PCB + components",
+        "dims": f"{85} x {100} x {1.6}mm",
+        "mass_g": 35, "qty": 1,
+        "supplier": "Custom PCB (JLCPCB)",
+        "notes": "Sensor hub: TXB0104 level shifter (3.3V-1.8V for IMU), TCA9548A I2C mux (6x ToF), "
+                 "BMP390 barometer, power regulators (5V/3.3V/1.8V), battery voltage divider",
+        "interface": "Stacks above DE10-Nano on standoffs; ribbon cable to GPIO headers",
+        "electrical": "Routes IMU SPI, ToF I2C, barometer, GPS UART, battery ADC",
+    },
+    "battery": {
+        "material": "Lithium polymer cells + shrink wrap",
+        "dims": f"{106} x {35} x {30}mm",
+        "mass_g": 192, "qty": 1,
+        "supplier": "Tattu 2200mAh 4S 45C",
+        "notes": "14.8V nominal (16.8V full). 45C discharge = 99A max. ~8-12 min flight time at hover",
+        "interface": "XT60 connector to power distribution; balance lead for charging",
+        "electrical": "4S (14.8V), 2200mAh, 32.56Wh",
+    },
+    "reservoir": {
+        "material": "TPU (thermoplastic polyurethane)",
+        "dims": f"{50} x {80} x {40}mm (300ml capacity)",
+        "mass_g": 25, "qty": 1,
+        "supplier": "Custom bladder / modified hydration pack",
+        "notes": "Collapsible water reservoir, 300ml. Collapses as water depletes to maintain CG. "
+                 "Food-safe TPU, gravity-fed to pump",
+        "interface": "Silicone tubing to peristaltic pump inlet; Velcro strap to frame",
+    },
+    "pump_bracket": {
+        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
+        "dims": f"{25} x {40} x {1.6}mm",
+        "mass_g": 3, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "L-bracket to mount peristaltic pump to frame edge",
+        "interface": "Bolts to bottom plate; pump screws to bracket face",
+    },
+    "pump": {
+        "material": "POM housing + DC motor + silicone tubing",
+        "dims": f"{64} x {38} x {30}mm",
+        "mass_g": 85, "qty": 1,
+        "supplier": "Kamoer NKP-DC-S06B",
+        "notes": "6V peristaltic pump, 35ml/min flow rate. Self-priming, reversible. "
+                 "Silicone tubing is food-safe and replaceable",
+        "interface": "Silicone tubing from reservoir; outlet to drip nozzle via boom tubing",
+        "electrical": "6V DC motor, ~0.3A, PWM speed control via FPGA MOSFET",
+    },
+    "nose_boom": {
+        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
+        "dims": f"{380} x {20} x {1.6}mm",
+        "mass_g": 18, "qty": 1,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "I-beam profile forward boom. Carries camera at 30mm and drip nozzle at tip. "
+                 "Flanges 4mm, web 3mm. Internal tubing channel for water delivery",
+        "interface": "Bolts to front of frame between plates; camera adapter screws midway",
+        "fabrication": "1.6mm FR4, I-beam routed outline, 380mm length requires panelization",
+    },
+    "camera": {
+        "material": "FR4 PCB + CMOS sensor + lens",
+        "dims": f"{25} x {30} x {1.6}mm PCB + \u00d810x8mm lens barrel",
+        "mass_g": 8, "qty": 1,
+        "supplier": "Custom adapter PCB + OV5640 module",
+        "notes": "OV5640 5MP camera in DVP (parallel) mode. 1080p@30fps. "
+                 "Adapter PCB has AMS1117-2.8 (AVDD) and RT9013-1.8 (DOVDD) LDOs, "
+                 "24MHz crystal for XCLK. SCCB (I2C) for register config",
+        "interface": "16-pin ribbon to GPIO0[0:15]; 5V from header pin 11",
+        "electrical": "8-bit DVP parallel data + PCLK/VSYNC/HREF, SCCB config, 3.3V I/O",
+    },
+    "drip_nozzle": {
+        "material": "Brass + stainless steel",
+        "dims": "\u00d86 x 15mm",
+        "mass_g": 5, "qty": 1,
+        "supplier": "Generic drip irrigation nozzle",
+        "notes": "Adjustable drip nozzle, 0-60ml/min. Gravity + pump pressure. "
+                 "Barb fitting for 4mm silicone tubing",
+        "interface": "Barb press-fit into silicone tubing from boom channel",
+    },
+    "tof_sensor": {
+        "material": "FR4 PCB + VL53L1X VCSEL module",
+        "dims": f"{13} x {18} x {2}mm board + {2.5}mm sensor",
+        "mass_g": 1.5, "qty": 6,
+        "supplier": "Pololu #3415 (VL53L1X carrier)",
+        "notes": "Time-of-Flight laser ranging, 4m max range, 50Hz update rate. "
+                 "I2C interface (default addr 0x29, reassigned via TCA9548A mux). "
+                 "940nm VCSEL Class 1 eye-safe laser",
+        "interface": "I2C via TCA9548A mux on daughter board; one per mux channel",
+        "electrical": "2.6-3.5V I/O, ~20mA active, I2C up to 400kHz",
+    },
+    "tof_bracket": {
+        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
+        "dims": "15 x 20 x 15mm L-shape",
+        "mass_g": 1.0, "qty": 6,
+        "supplier": "JLCPCB (mechanical PCB)",
+        "notes": "L-shaped mounting bracket for VL53L1X ToF sensor. "
+                 "Base face attaches to frame plate, vertical tab holds sensor board. "
+                 "2x M2 holes per face",
+        "interface": "2x M2 bolts to frame plate; 2x M2 bolts to ToF board",
+        "fabrication": "1.6mm FR4, routed outline",
+    },
+}
+
+
 def build_positioned_parts():
     """Build all assembly parts at their positioned locations.
 
-    Returns list of dicts: {name, display, color_hex, shape (Z-up), shape_yup (Y-up)}
+    Returns list of dicts: {name, display, color_hex, shape, shape_yup, meta}
+    meta contains: material, mass_g, qty, dims, notes, interface, supplier
     """
     parts = []
 
-    def add(name, display, color_hex, builder, args, pos, rot=None):
+    def add(name, display, color_hex, builder, args, pos, rot=None, meta=None):
         try:
             shape = builder(*args)
             shape = apply_transform(shape, pos, rot)
@@ -120,15 +304,18 @@ def build_positioned_parts():
                 "color": color_hex,
                 "shape": shape,
                 "shape_yup": shape_yup,
+                "meta": meta or {},
             })
         except Exception as e:
             print(f"  WARNING: Failed {name}: {e}")
 
     # ── Plates ──
     add("bottom_plate", "Bottom Plate (FR4 2.0mm)", "#B87333",
-        make_skeleton_plate, (BOTTOM_THICK, True), (0, 0, BOTTOM_Z))
+        make_skeleton_plate, (BOTTOM_THICK, True), (0, 0, BOTTOM_Z),
+        meta=COMPONENT_CATALOG["bottom_plate"])
     add("top_plate", "Top Plate (FR4 1.6mm)", "#1A7326",
-        make_skeleton_plate, (TOP_THICK, False), (0, 0, TOP_Z))
+        make_skeleton_plate, (TOP_THICK, False), (0, 0, TOP_Z),
+        meta=COMPONENT_CATALOG["top_plate"])
 
     # ── Arms (4x) ──
     arm_offset = ARM_LENGTH / 2 - ARM_TAB / 2
@@ -137,26 +324,30 @@ def build_positioned_parts():
         cx = arm_offset * math.cos(rad)
         cy = arm_offset * math.sin(rad)
         add(f"arm_{i+1}", f"Arm {i+1} (FR4 I-beam)", "#B87333",
-            make_arm, (), (cx, cy, ARM_CENTER_Z - ARM_THICK / 2), (0, 0, angle))
+            make_arm, (), (cx, cy, ARM_CENTER_Z - ARM_THICK / 2), (0, 0, angle),
+            meta=COMPONENT_CATALOG["arm"])
 
     # ── Motors + Propellers + ESCs (4x each) ──
+    motor_z = ARM_CENTER_Z + ARM_THICK / 2
+    esc_r = MOTOR_R * ESC_RADIAL_FRAC
+    esc_z = ARM_CENTER_Z - ARM_THICK / 2 - ESC_H
     for i, angle in enumerate(ARM_ANGLES):
         rad = math.radians(angle)
         mx = MOTOR_R * math.cos(rad)
         my = MOTOR_R * math.sin(rad)
-        motor_z = ARM_CENTER_Z + ARM_THICK / 2
 
         add(f"motor_{i+1}", f"Motor {i+1} (X2212)", "#333333",
-            make_motor, (), (mx, my, motor_z))
+            make_motor, (), (mx, my, motor_z), meta=COMPONENT_CATALOG["motor"])
 
         add(f"prop_{i+1}", f"Propeller {i+1} (1045)", "#262626",
-            make_propeller, (), (mx, my, motor_z + MOTOR_TOTAL_H), (0, 0, angle + 30))
+            make_propeller, (), (mx, my, motor_z + MOTOR_TOTAL_H), (0, 0, angle + 30),
+            meta=COMPONENT_CATALOG["propeller"])
 
-        esc_r = MOTOR_R * ESC_RADIAL_FRAC
         ex = esc_r * math.cos(rad)
         ey = esc_r * math.sin(rad)
         add(f"esc_{i+1}", f"ESC {i+1} (30A)", "#1A1A1A",
-            make_esc, (), (ex, ey, ARM_CENTER_Z - ARM_THICK / 2 - ESC_H), (0, 0, angle))
+            make_esc, (), (ex, ey, esc_z), (0, 0, angle),
+            meta=COMPONENT_CATALOG["esc"])
 
     # ── Landing Gear (4x) ──
     for i, angle in enumerate(LEG_ANGLES):
@@ -164,11 +355,12 @@ def build_positioned_parts():
         lx = (PLATE_SIZE / 2 + 2) * math.cos(rad)
         ly = (PLATE_SIZE / 2 + 2) * math.sin(rad)
         add(f"leg_{i+1}", f"Landing Leg {i+1}", "#155A1F",
-            make_landing_leg, (), (lx, ly, GROUND_Z), (0, 0, angle))
+            make_landing_leg, (), (lx, ly, GROUND_Z), (0, 0, angle),
+            meta=COMPONENT_CATALOG["landing_leg"])
 
     # ── DE10-Nano ──
     add("de10_nano", "DE10-Nano FPGA Board", "#004D99",
-        make_de10_nano, (), (0, 0, DE10_Z))
+        make_de10_nano, (), (0, 0, DE10_Z), meta=COMPONENT_CATALOG["de10_nano"])
 
     # ── Standoffs (4x) ──
     for j, (dx, dy) in enumerate([
@@ -178,71 +370,118 @@ def build_positioned_parts():
         (DE10_W / 2 - 4, DE10_L / 2 - 4),
     ]):
         add(f"standoff_{j+1}", f"Standoff {j+1} (M2.5)", "#BFBFC7",
-            make_standoff, (DE10_STANDOFF,), (dx, dy, BOTTOM_Z + BOTTOM_THICK))
+            make_standoff, (DE10_STANDOFF,), (dx, dy, BOTTOM_Z + BOTTOM_THICK),
+            meta=COMPONENT_CATALOG["standoff"])
 
     # ── Daughter Board ──
     add("daughter_board", "Daughter Board", "#801A1A",
-        make_daughter_board, (), (0, 0, DB_Z))
+        make_daughter_board, (), (0, 0, DB_Z), meta=COMPONENT_CATALOG["daughter_board"])
 
     # ── Battery ──
     add("battery", "Battery (4S 2200mAh)", "#262626",
-        make_battery, (), (BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3))
+        make_battery, (), (BATT_CG_OFFSET, 0, BOTTOM_Z - BATT_H - 3),
+        meta=COMPONENT_CATALOG["battery"])
 
     # ── Reservoir ──
     add("reservoir", "Water Reservoir (300ml)", "#4D99E6",
-        make_reservoir, (), (RES_OFFSET_X, 0, BOTTOM_Z - RES_H - 3))
+        make_reservoir, (), (RES_OFFSET_X, 0, BOTTOM_Z - RES_H - 3),
+        meta=COMPONENT_CATALOG["reservoir"])
 
     # ── Pump bracket + pump ──
     add("pump_bracket", "Pump Bracket (FR4)", "#1A7326",
-        make_pump_bracket, (), (PLATE_SIZE / 2 - 5, 0, BOTTOM_Z - PUMP_BRACKET_H))
+        make_pump_bracket, (), (PLATE_SIZE / 2 - 5, 0, BOTTOM_Z - PUMP_BRACKET_H),
+        meta=COMPONENT_CATALOG["pump_bracket"])
 
     add("pump", "Peristaltic Pump", "#4D4D4D",
         make_pump, (), (PLATE_SIZE / 2 - 5, -(PUMP_BRACKET_T + PUMP_W / 2),
-                        BOTTOM_Z - PUMP_BRACKET_H / 2))
+                        BOTTOM_Z - PUMP_BRACKET_H / 2),
+        meta=COMPONENT_CATALOG["pump"])
 
     # ── Nose boom ──
     boom_center_x = PLATE_SIZE / 2 + BOOM_LENGTH / 2
     add("nose_boom", "Nose Boom (FR4 I-beam)", "#1A7326",
-        make_nose_boom, (), (boom_center_x, 0, ARM_CENTER_Z - BOOM_THICK / 2))
+        make_nose_boom, (), (boom_center_x, 0, ARM_CENTER_Z - BOOM_THICK / 2),
+        meta=COMPONENT_CATALOG["nose_boom"])
 
     # ── Camera ──
     cam_x = PLATE_SIZE / 2 + 30
     cam_z = ARM_CENTER_Z - BOOM_THICK / 2 - 2
     add("camera", "OV5640 Camera Module", "#1A1A1A",
-        make_camera, (), (cam_x, 0, cam_z))
+        make_camera, (), (cam_x, 0, cam_z), meta=COMPONENT_CATALOG["camera"])
 
     # ── Drip nozzle ──
     nozzle_x = PLATE_SIZE / 2 + BOOM_LENGTH
     add("drip_nozzle", "Drip Nozzle", "#666666",
-        make_drip_nozzle, (), (nozzle_x, 0, ARM_CENTER_Z - BOOM_THICK / 2 - 5), (180, 0, 0))
+        make_drip_nozzle, (), (nozzle_x, 0, ARM_CENTER_Z - BOOM_THICK / 2 - 5), (180, 0, 0),
+        meta=COMPONENT_CATALOG["drip_nozzle"])
 
-    # ── ToF sensors (6x) ──
+    # ── ToF sensors (6x) + mounting brackets ──
+    # Bracket offset: bracket base is TOF_BRACKET_T thick, tab rises TOF_BRACKET_TAB
+    brk_offset = TOF_BRACKET_T + 1  # gap between plate surface and bracket base
+
     tof_positions = [
-        ("tof_down", "ToF Down", (0, 0, BOTTOM_Z - TOF_H - 2), (180, 0, 0)),
-        ("tof_up", "ToF Up", (0, 0, TOP_Z + TOP_THICK + 2), None),
-        ("tof_front", "ToF Front", (0, PLATE_SIZE / 2, TOP_Z + TOP_THICK / 2 + TOF_L / 2), (90, 0, 0)),
-        ("tof_back", "ToF Back", (0, -PLATE_SIZE / 2 + 5, TOP_Z + TOP_THICK / 2 + TOF_L / 2), (-90, 0, 0)),
-        ("tof_left", "ToF Left", (-PLATE_SIZE / 2, 0, TOP_Z + TOP_THICK / 2 + TOF_L / 2), (0, -90, 0)),
-        ("tof_right", "ToF Right", (PLATE_SIZE / 2, 0, TOP_Z + TOP_THICK / 2 + TOF_L / 2), (0, 90, 0)),
+        # (sensor_name, display, sensor_pos, sensor_rot,
+        #  bracket_name, bracket_display, bracket_pos, bracket_rot)
+        ("tof_down", "ToF Down",
+         (0, 0, BOTTOM_Z - brk_offset - TOF_BRACKET_TAB - TOF_H), (180, 0, 0),
+         "tof_bracket_down", "ToF Bracket Down",
+         (0, 0, BOTTOM_Z - brk_offset), (180, 0, 0)),
+        ("tof_up", "ToF Up",
+         (0, 0, TOP_Z + TOP_THICK + brk_offset + TOF_BRACKET_TAB), None,
+         "tof_bracket_up", "ToF Bracket Up",
+         (0, 0, TOP_Z + TOP_THICK + brk_offset), None),
+        ("tof_front", "ToF Front",
+         (0, PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB,
+          TOP_Z + TOP_THICK / 2), (90, 0, 0),
+         "tof_bracket_front", "ToF Bracket Front",
+         (0, PLATE_SIZE / 2 + brk_offset,
+          TOP_Z + TOP_THICK / 2), (90, 0, 0)),
+        ("tof_back", "ToF Back",
+         (0, -(PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB),
+          TOP_Z + TOP_THICK / 2), (-90, 0, 0),
+         "tof_bracket_back", "ToF Bracket Back",
+         (0, -(PLATE_SIZE / 2 + brk_offset),
+          TOP_Z + TOP_THICK / 2), (-90, 0, 0)),
+        ("tof_left", "ToF Left",
+         (-(PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB), 0,
+          TOP_Z + TOP_THICK / 2), (0, -90, 0),
+         "tof_bracket_left", "ToF Bracket Left",
+         (-(PLATE_SIZE / 2 + brk_offset), 0,
+          TOP_Z + TOP_THICK / 2), (0, -90, 0)),
+        ("tof_right", "ToF Right",
+         (PLATE_SIZE / 2 + brk_offset + TOF_BRACKET_TAB, 0,
+          TOP_Z + TOP_THICK / 2), (0, 90, 0),
+         "tof_bracket_right", "ToF Bracket Right",
+         (PLATE_SIZE / 2 + brk_offset, 0,
+          TOP_Z + TOP_THICK / 2), (0, 90, 0)),
     ]
-    for name, display, pos, rot in tof_positions:
-        add(name, display, "#991A99", make_tof_board, (), pos, rot)
+    for (s_name, s_display, s_pos, s_rot,
+         b_name, b_display, b_pos, b_rot) in tof_positions:
+        add(s_name, s_display, "#991A99",
+            make_tof_board, (), s_pos, s_rot,
+            meta=COMPONENT_CATALOG["tof_sensor"])
+        add(b_name, b_display, "#1A7326",
+            make_tof_bracket, (), b_pos, b_rot,
+            meta=COMPONENT_CATALOG["tof_bracket"])
 
     return parts
 
 
-def generate_viewer_html(parts_data, output_path):
+def generate_viewer_html(parts_data, output_path, kicad_files=None):
     """Generate self-contained viewer.html with embedded STL data.
 
-    parts_data: list of {name, display, color, stl_b64, file_size}
+    parts_data: list of {name, display, color, stl_b64, file_size, meta}
+    kicad_files: optional dict of {filename: base64_content} for download
     """
-    # Build the embedded parts JSON
+    kicad_json = json.dumps(kicad_files or {}, indent=None)
+    # Build the embedded parts JSON (meta included for info panel)
     parts_json = json.dumps([{
         "name": p["name"],
         "display": p["display"],
         "color": p["color"],
         "size": p["file_size"],
         "stl": p["stl_b64"],
+        "meta": p.get("meta", {}),
     } for p in parts_data], indent=None)
 
     html = f'''<!DOCTYPE html>
@@ -302,11 +541,11 @@ def generate_viewer_html(parts_data, output_path):
     .part-item .size {{ font-size: 10px; color: #555; font-family: monospace; }}
 
     #selection-panel {{
-        position: fixed; top: 54px; right: 0; z-index: 100; width: 320px;
+        position: fixed; top: 54px; right: 0; bottom: 0; z-index: 100; width: 340px;
         background: rgba(16, 16, 32, 0.95); backdrop-filter: blur(12px);
-        border-left: 1px solid rgba(142,202,230,0.3); border-bottom: 1px solid rgba(142,202,230,0.3);
-        border-radius: 0 0 0 8px;
+        border-left: 1px solid rgba(142,202,230,0.3);
         padding: 16px 20px; font-size: 12px; line-height: 1.7; display: none;
+        overflow-y: auto;
     }}
     #selection-panel h3 {{ color: #8ecae6; font-size: 14px; margin-bottom: 8px; font-weight: 600; }}
     .sel-row {{ display: flex; justify-content: space-between; font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; }}
@@ -357,6 +596,7 @@ def generate_viewer_html(parts_data, output_path):
     <button class="btn" id="btn-reset">Reset View</button>
     <button class="btn" id="btn-center">Fit All</button>
     <button class="btn" id="btn-axes">Axes</button>
+    <button class="btn" id="btn-kicad">KiCad Export</button>
     <div class="ctrl">
         <span>BG:</span>
         <button class="btn" id="btn-bg-dark">Dark</button>
@@ -391,13 +631,29 @@ def generate_viewer_html(parts_data, output_path):
 
 <div id="selection-panel">
     <h3 id="sel-title">Component</h3>
-    <div class="sel-row"><span class="sel-label">Triangles:</span> <span class="sel-value" id="sel-tris">-</span></div>
-    <div class="sel-row"><span class="sel-label">File size:</span> <span class="sel-value" id="sel-fsize">-</span></div>
     <div class="sel-section">
-        <div class="sel-section-title">Bounding Box</div>
-        <div class="sel-row"><span class="sel-label">Size:</span> <span class="sel-value" id="sel-bbox">-</span></div>
-        <div class="sel-row"><span class="sel-label">Min:</span> <span class="sel-value" id="sel-min">-</span></div>
-        <div class="sel-row"><span class="sel-label">Max:</span> <span class="sel-value" id="sel-max">-</span></div>
+        <div class="sel-section-title">Specifications</div>
+        <div class="sel-row"><span class="sel-label">Material:</span> <span class="sel-value" id="sel-material">-</span></div>
+        <div class="sel-row"><span class="sel-label">Dimensions:</span> <span class="sel-value" id="sel-dims">-</span></div>
+        <div class="sel-row"><span class="sel-label">Mass:</span> <span class="sel-value sel-highlight" id="sel-mass">-</span></div>
+        <div class="sel-row"><span class="sel-label">Qty/drone:</span> <span class="sel-value" id="sel-qty">-</span></div>
+        <div class="sel-row"><span class="sel-label">Supplier:</span> <span class="sel-value" id="sel-supplier">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Notes</div>
+        <div class="sel-row" style="flex-direction:column"><span class="sel-value" id="sel-notes" style="word-wrap:break-word;white-space:normal;line-height:1.5">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Interface</div>
+        <div class="sel-row" style="flex-direction:column"><span class="sel-value" id="sel-iface" style="word-wrap:break-word;white-space:normal;line-height:1.5">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Geometry</div>
+        <div class="sel-row"><span class="sel-label">Triangles:</span> <span class="sel-value" id="sel-tris">-</span></div>
+        <div class="sel-row"><span class="sel-label">File size:</span> <span class="sel-value" id="sel-fsize">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox size:</span> <span class="sel-value" id="sel-bbox">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox min:</span> <span class="sel-value" id="sel-min">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox max:</span> <span class="sel-value" id="sel-max">-</span></div>
         <div class="sel-row"><span class="sel-label">Center:</span> <span class="sel-value" id="sel-center">-</span></div>
     </div>
     <div class="sel-section">
@@ -424,6 +680,7 @@ import {{ STLLoader }} from 'three/addons/loaders/STLLoader.js';
 
 // ---- Embedded part data (base64 STL) ----
 var EMBEDDED_PARTS = {parts_json};
+var KICAD_FILES = {kicad_json};
 
 (function() {{
     var container = document.getElementById('canvas-container');
@@ -506,7 +763,7 @@ var EMBEDDED_PARTS = {parts_json};
     var mouse = new THREE.Vector2();
     var loader = new STLLoader();
 
-    function addPart(name, display, colorHex, geometry, fileSize) {{
+    function addPart(name, display, colorHex, geometry, fileSize, meta) {{
         var color = new THREE.Color(colorHex);
         var mat = new THREE.MeshPhysicalMaterial({{
             color: color, metalness: 0.2, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.2,
@@ -516,7 +773,7 @@ var EMBEDDED_PARTS = {parts_json};
         mesh.castShadow = true; mesh.receiveShadow = true;
         mesh.userData.partName = name;
         scene.add(mesh);
-        parts[name] = {{ mesh: mesh, geometry: geometry, fileSize: fileSize, color: colorHex, display: display, visible: true }};
+        parts[name] = {{ mesh: mesh, geometry: geometry, fileSize: fileSize, color: colorHex, display: display, visible: true, meta: meta || {{}} }};
         if (partOrder.indexOf(name) === -1) partOrder.push(name);
         updatePartsList();
     }}
@@ -601,6 +858,16 @@ var EMBEDDED_PARTS = {parts_json};
 
         document.getElementById('selection-panel').style.display = 'block';
         document.getElementById('sel-title').textContent = p.display;
+        // Metadata fields
+        var m = p.meta || {{}};
+        document.getElementById('sel-material').textContent = m.material || '-';
+        document.getElementById('sel-dims').textContent = m.dims || '-';
+        document.getElementById('sel-mass').textContent = m.mass_g ? m.mass_g + 'g' + (m.qty > 1 ? ' each (' + (m.mass_g * m.qty) + 'g total)' : '') : '-';
+        document.getElementById('sel-qty').textContent = m.qty ? m.qty + 'x' : '-';
+        document.getElementById('sel-supplier').textContent = m.supplier || '-';
+        document.getElementById('sel-notes').textContent = m.notes || '-';
+        document.getElementById('sel-iface').textContent = m['interface'] || '-';
+        // Geometry fields
         document.getElementById('sel-tris').textContent = tris.toLocaleString();
         document.getElementById('sel-fsize').textContent = p.fileSize ? (p.fileSize / 1024).toFixed(1) + ' KB' : '-';
         document.getElementById('sel-bbox').textContent = size.x.toFixed(1) + ' x ' + size.y.toFixed(1) + ' x ' + size.z.toFixed(1) + ' mm';
@@ -741,6 +1008,25 @@ var EMBEDDED_PARTS = {parts_json};
             scene.background.setHex(bgColors[key]); scene.fog.color.setHex(bgColors[key]);
         }});
     }});
+    // KiCad export — download individual .kicad_pcb files
+    document.getElementById('btn-kicad').addEventListener('click', function() {{
+        var names = Object.keys(KICAD_FILES);
+        if (names.length === 0) {{
+            alert('No KiCad files embedded. Run export_gerber.py to generate them.');
+            return;
+        }}
+        for (var i = 0; i < names.length; i++) {{
+            var fname = names[i];
+            var b64 = KICAD_FILES[fname];
+            var blob = new Blob([atob(b64)], {{ type: 'application/octet-stream' }});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fname;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }}
+    }});
+
     window.addEventListener('resize', function() {{
         cam.aspect = window.innerWidth / window.innerHeight;
         cam.updateProjectionMatrix();
@@ -772,7 +1058,7 @@ var EMBEDDED_PARTS = {parts_json};
             for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             var geo = loader.parse(bytes.buffer);
             geo.computeVertexNormals();
-            addPart(p.name, p.display, p.color, geo, p.size);
+            addPart(p.name, p.display, p.color, geo, p.size, p.meta);
             loaded++;
         }} catch (e) {{
             console.error('[VIEWER] Failed to load embedded part:', p.name, e);
@@ -793,10 +1079,12 @@ var EMBEDDED_PARTS = {parts_json};
 
 
 def main():
-    out_dir = Path(__file__).resolve().parent.parent / "cad" / "exports"
-    assy_dir = out_dir / "assembly"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    assy_dir.mkdir(parents=True, exist_ok=True)
+    exports_dir = Path(__file__).resolve().parent.parent / "cad" / "exports"
+    stl_dir = exports_dir / "stl"
+    stl_parts_dir = stl_dir / "parts"
+    stl_assy_dir = stl_dir / "assembly"
+    for d in (exports_dir, stl_dir, stl_parts_dir, stl_assy_dir):
+        d.mkdir(parents=True, exist_ok=True)
 
     # ── Individual parts at origin (for manufacturing) ──
     print("Exporting individual parts at origin...")
@@ -806,6 +1094,7 @@ def main():
         "arm": (make_arm, ()),
         "landing_leg": (make_landing_leg, ()),
         "tof_board": (make_tof_board, ()),
+        "tof_bracket": (make_tof_bracket, ()),
         "pump_bracket": (make_pump_bracket, ()),
         "motor": (make_motor, ()),
         "propeller": (make_propeller, ()),
@@ -821,7 +1110,7 @@ def main():
         "nose_boom": (make_nose_boom, ()),
     }
     for name, (func, args) in individual_parts.items():
-        path = out_dir / f"{name}.stl"
+        path = stl_parts_dir / f"{name}.stl"
         try:
             export_stl(func(*args), path)
             print(f"  {name}.stl")
@@ -837,7 +1126,7 @@ def main():
     print("\nExporting positioned parts + generating viewer...")
     parts_data = []
     for p in positioned:
-        stl_path = assy_dir / f"{p['name']}.stl"
+        stl_path = stl_assy_dir / f"{p['name']}.stl"
         try:
             export_stl(p["shape_yup"], stl_path)
             stl_bytes = stl_path.read_bytes()
@@ -847,22 +1136,32 @@ def main():
                 "color": p["color"],
                 "file_size": len(stl_bytes),
                 "stl_b64": base64.b64encode(stl_bytes).decode("ascii"),
+                "meta": p.get("meta", {}),
             })
             print(f"  {p['name']}.stl ({len(stl_bytes)/1024:.1f} KB)")
         except Exception as e:
             print(f"  WARNING: {p['name']}: {e}")
 
+    # ── Collect KiCad PCB files for embedding ──
+    kicad_files = {}
+    gerber_dir = exports_dir / "gerber"
+    if gerber_dir.exists():
+        for kf in sorted(gerber_dir.glob("*.kicad_pcb")):
+            kicad_files[kf.name] = base64.b64encode(kf.read_bytes()).decode("ascii")
+        if kicad_files:
+            print(f"\nEmbedding {len(kicad_files)} KiCad files in viewer")
+
     # ── Generate self-contained viewer ──
-    generate_viewer_html(parts_data, out_dir / "viewer.html")
+    generate_viewer_html(parts_data, exports_dir / "viewer.html", kicad_files=kicad_files)
 
     # ── Summary ──
-    all_stls = sorted(out_dir.glob("*.stl")) + sorted(assy_dir.glob("*.stl"))
+    all_stls = sorted(stl_parts_dir.glob("*.stl")) + sorted(stl_assy_dir.glob("*.stl"))
     total_kb = sum(f.stat().st_size for f in all_stls) / 1024
     print(f"\n{'=' * 60}")
     print(f"Exported {len(all_stls)} STL files ({total_kb:.0f} KB total)")
-    print(f"  Individual parts: {out_dir}/")
-    print(f"  Positioned parts: {assy_dir}/")
-    print(f"  Viewer:           {out_dir}/viewer.html")
+    print(f"  Individual parts: {stl_parts_dir}/")
+    print(f"  Positioned parts: {stl_assy_dir}/")
+    print(f"  Viewer:           {exports_dir}/viewer.html")
     print(f"{'=' * 60}")
     print("Open viewer.html in a browser — drone loads automatically.")
 
