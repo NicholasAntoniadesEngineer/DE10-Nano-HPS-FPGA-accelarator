@@ -13,7 +13,8 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
                          title="3D Model Viewer", toolbar_title="3D Viewer",
                          loading_message="Loading model...",
                          build_result=None,
-                         overlay_save_hint=None):
+                         overlay_save_hint=None,
+                         routes_data=None):
     """Generate self-contained viewer.html with embedded STL data.
 
     Reads template.html, style.css, and app.js from the viewer static
@@ -50,6 +51,7 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
     kicad_json = json.dumps(kicad_files or {}, indent=None)
     constraints_json = json.dumps(constraints or [], indent=None)
     build_result_json = json.dumps(build_result or {}, indent=None)
+    routes_json = json.dumps(routes_data, indent=None) if routes_data is not None else 'null'
 
     overlay_hint = overlay_save_hint or (
         "Save the downloaded file as viewer_overlay.json in your project output folder "
@@ -69,6 +71,7 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
     html = html.replace('"__KICAD_JSON__"', kicad_json)
     html = html.replace('"__CONSTRAINTS_JSON__"', constraints_json)
     html = html.replace('"__BUILD_RESULT_JSON__"', build_result_json)
+    html = html.replace('"__ROUTES_JSON__"', routes_json)
 
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")

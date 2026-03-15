@@ -10,6 +10,7 @@ Usage:
     manifest, validation, tubing_allowed = build_drone_manifest()
 """
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -541,146 +542,71 @@ def _emit_tube_pieces(path_name, display_prefix, waypoints, color="#C0C0C0"):
 def _route_tubing(manifest_entries):
     """Create tubing: per-segment cylinders connecting world-space anchors.
 
-    Two fluid paths:
-    1. Reservoir outlet → pump inlet
-    2. Pump outlet → drip nozzle barb
+    Reads tube route definitions from tube_routes.json (sibling of this
+    package's parent directory).  Each route specifies:
+      - start_anchor / end_anchor: resolved live from part positions
+      - intermediate_waypoints: baked into the JSON, editable via viewer
 
     Returns (entries, allowed_pairs).
     Anchors are already in world coordinates after resolve().
     """
     parts = {e["name"]: e for e in manifest_entries}
 
-    res_out = parts["reservoir"]["anchors"]["outlet"].point
-    pump_in = parts["pump"]["anchors"]["outlet_tube"].point   # res→pump terminates here
-    pump_out = parts["pump"]["anchors"]["inlet_tube"].point   # pump→nozzle starts here
-    nozzle = parts["drip_nozzle"]["anchors"]["barb_inlet"].point
-    boom_root = parts["nose_boom"]["anchors"]["root"].point
-    plate_z = parts["bottom_plate"]["pos"][2]
+    # Load route definitions
+    routes_path = _DRONE_MODEL / "tube_routes.json"
+    with open(routes_path) as fh:
+        route_data = json.load(fh)
 
-    # Derive clearance extents from resolved part positions (not hardcoded)
-    res_pos = parts["reservoir"]["pos"]
-    # Reservoir local extents: X[-20,20], Y[-35,35], Z[0,35]
-    res_max_x = res_pos[0] + RES_W / 2   # right edge in world
-    res_min_z = res_pos[2]                 # bottom face in world
-
-    # Clearance margins (mm from part surface)
-    clr = 2.0  # minimum clearance around parts
-    tube_r = 1.25  # tube radius (TUBE_OD / 2)
-
-    plate_half = PLATE_SIZE / 2  # 55
-    # Camera bracket extends to Y=10, so boom_y_off must be > 10 + tube_r
-    boom_y_off = 10 + clr + tube_r  # ~13.25, clears camera bracket Y[-10,10]
-
-    # Route floor: below ALL underslung parts.
-    # Compute lowest Z from all anchor points on underslung parts.
-    # Anchors are in world space after resolve().
-    underslung = ["reservoir", "pump", "pump_bracket", "battery"]
-    anchor_z_vals = []
-    for uname in underslung:
-        if uname in parts:
-            # Part origin Z
-            anchor_z_vals.append(parts[uname]["pos"][2])
-            # All anchor point Z values
-            for a in parts[uname].get("anchors", {}).values():
-                anchor_z_vals.append(a.point[2])
-    lowest_z = min(anchor_z_vals) if anchor_z_vals else res_min_z
-    low_z = lowest_z - clr - tube_r
-
-    # Pump/bracket clearance: tube must not cross through pump_bracket
-    # AABB. Route OUTSIDE bracket in Y, then enter pump stub horizontally.
-    # pump_bracket local: 23.1mm wide (X), 20mm deep (Y), 9.6mm tall (Z)
-    # After constraint resolution, bracket Y range ≈ pb_pos[1] ± 10
-    pb_pos = parts["pump_bracket"]["pos"]
-    pb_min_y = pb_pos[1] - 10  # ≈ -62
-    approach_y = pb_min_y - clr - tube_r  # approach from -Y side, outside bracket
-
-    # Leg clearance: leg_1 AABB is at X~[44,56], Y~[-4,24], Z~[0.8,52.4]
-    # Tube running from reservoir (+Y side) to pump (-Y side) must avoid leg_1.
-    # Route inside leg_1 X extent: stay at X <= pump_in[0] (≈43) throughout.
-    # pump_in X is already inside leg_1 left edge (44.2), so keep X = pump_in[0]
-    # and route -Y at that X, staying clear of leg X range.
-
-    # Reservoir extents (local half-lengths after 180° flip: Y±RES_L/2, X±RES_W/2)
-    res_pos = parts["reservoir"]["pos"]
-    res_min_y = res_pos[1] - RES_L / 2 - clr  # -Y clearance past reservoir edge
-
-    # --- Reservoir outlet → Pump inlet ---
-    # Route (all orthogonal steps):
-    #   1. Exit barb: run -Y at res X and res Z, past reservoir -Y edge
-    #   2. Drop Z: at res X and res_min_y, drop to pump inlet Z
-    #   3. Step +X: at pump inlet Z and res_min_y, across to pump X
-    #   4. Run -Y: at pump X and pump inlet Z, to outside bracket approach
-    #   5. Enter: horizontally into pump inlet stub
-    wp_res_pump = [
-        res_out,
-        (res_out[0], res_min_y, res_out[2]),            # 1. run -Y past reservoir edge
-        (res_out[0], res_min_y, pump_in[2]),            # 2. drop Z to pump inlet level
-        (pump_in[0], res_min_y, pump_in[2]),            # 3. step +X to pump X
-        pump_in,                                         # 4. run -Y directly into pump inlet stub
-    ]
-
-    # --- Pump outlet → Drip nozzle ---
-    edge_x = plate_half + clr + tube_r  # ~58.25, just outside plate
-    wp_feed = [
-        pump_out,
-        (edge_x, pump_out[1], pump_out[2]),           # +X to plate edge at outlet Z
-        (edge_x, boom_y_off, boom_root[2]),            # swing +Y and rise to boom Z
-        (nozzle[0] - 5, boom_y_off, nozzle[2]),       # follow boom, approach nozzle
-        nozzle,
-    ]
+    # Live anchor lookup — endpoints always snap to current part positions
+    anchor_map = {
+        ("reservoir",   "outlet"):      parts["reservoir"]["anchors"]["outlet"].point,
+        ("pump",        "outlet_tube"): parts["pump"]["anchors"]["outlet_tube"].point,
+        ("pump",        "inlet_tube"):  parts["pump"]["anchors"]["inlet_tube"].point,
+        ("drip_nozzle", "barb_inlet"):  parts["drip_nozzle"]["anchors"]["barb_inlet"].point,
+    }
 
     # --- Routing debug ---
     print("\n  TUBING ROUTING DEBUG:")
-    print(f"    Anchor endpoints:")
-    print(f"      res_out:   ({res_out[0]:.1f}, {res_out[1]:.1f}, {res_out[2]:.1f})")
-    print(f"      pump_in:   ({pump_in[0]:.1f}, {pump_in[1]:.1f}, {pump_in[2]:.1f})")
-    print(f"      pump_out:  ({pump_out[0]:.1f}, {pump_out[1]:.1f}, {pump_out[2]:.1f})")
-    print(f"      nozzle:    ({nozzle[0]:.1f}, {nozzle[1]:.1f}, {nozzle[2]:.1f})")
-    print(f"      boom_root: ({boom_root[0]:.1f}, {boom_root[1]:.1f}, {boom_root[2]:.1f})")
-    print(f"    Derived clearances:")
-    print(f"      res_max_x:  {res_max_x:.1f}  (reservoir right edge)")
-    print(f"      res_min_z:  {res_min_z:.1f}  (reservoir bottom)")
-    print(f"      lowest_z:   {lowest_z:.1f}  (lowest underslung anchor)")
-    print(f"      low_z:      {low_z:.1f}  (routing floor = lowest - {clr} - {tube_r})")
-    print(f"      approach_y: {approach_y:.1f}  (pump bracket -Y clearance)")
-    print(f"      boom_y_off: {boom_y_off:.1f}  (camera bracket clearance)")
-    print(f"      plate_z:    {plate_z:.1f}  (bottom plate Z)")
-    print(f"      edge_x:     {edge_x:.1f}  (plate edge clearance)")
-    def _fmt_wp(wp):
-        return " → ".join(f"({p[0]:.1f},{p[1]:.1f},{p[2]:.1f})" for p in wp)
-    print(f"    Res→Pump path ({len(wp_res_pump)} waypoints):")
-    print(f"      {_fmt_wp(wp_res_pump)}")
-    print(f"    Pump→Nozzle path ({len(wp_feed)} waypoints):")
-    print(f"      {_fmt_wp(wp_feed)}")
+    print(f"    Routes loaded from: {routes_path.name}")
 
     all_entries = []
     all_allowed = set()
 
-    e1, a1 = _emit_tube_pieces("tube_rp", "Res→Pump", wp_res_pump)
-    e2, a2 = _emit_tube_pieces("tube_fn", "Pump→Nozzle", wp_feed)
-    all_entries.extend(e1)
-    all_entries.extend(e2)
-    all_allowed.update(a1)
-    all_allowed.update(a2)
+    for route_name, route in route_data["routes"].items():
+        sa = route["start_anchor"]
+        ea = route["end_anchor"]
+        start = anchor_map[(sa["part"], sa["anchor"])]
+        end   = anchor_map[(ea["part"], ea["anchor"])]
+        intermediates = [tuple(p) for p in route["intermediate_waypoints"]]
+        waypoints = [start] + intermediates + [end]
 
-    # Physical connections only: tube pushes onto barb/stub tip.
-    # The tube endpoint physically touches the reservoir barb, pump tube
-    # stubs, and nozzle barb — these are the ONLY allowed overlaps.
-    if e1:
-        all_allowed.add(frozenset({e1[0]["name"], "reservoir"}))    # exits res barb
-        all_allowed.add(frozenset({e1[-1]["name"], "pump"}))        # enters pump inlet stub
-        all_allowed.add(frozenset({e1[-1]["name"], "pump_bracket"}))  # tube passes through bracket channel
-        # Last two pieces before pump inlet: approach segment + its joint touch pump body
-        if len(e1) >= 2:
-            all_allowed.add(frozenset({e1[-2]["name"], "pump"}))
-        if len(e1) >= 3:
-            all_allowed.add(frozenset({e1[-3]["name"], "pump"}))
-    if e2:
-        all_allowed.add(frozenset({e2[0]["name"], "pump"}))         # exits pump outlet stub
-        all_allowed.add(frozenset({e2[0]["name"], "pump_bracket"}))   # tube passes through bracket channel
-        all_allowed.add(frozenset({e2[-1]["name"], "drip_nozzle"}))   # enters nozzle barb
-        if len(e2) >= 2:
-            all_allowed.add(frozenset({e2[-2]["name"], "drip_nozzle"}))
+        print(f"    {route['display']} ({len(waypoints)} waypoints):")
+
+        def _fmt_wp(wp):
+            return " \u2192 ".join(f"({p[0]:.1f},{p[1]:.1f},{p[2]:.1f})" for p in wp)
+        print(f"      {_fmt_wp(waypoints)}")
+
+        entries, adj_allowed = _emit_tube_pieces(
+            route_name, route["display"], waypoints, route["color"]
+        )
+        all_entries.extend(entries)
+        all_allowed.update(adj_allowed)
+
+        # Resolve positional references in allowed_pairs
+        seg_index = {
+            "first":       0,
+            "last":        -1,
+            "second_last": -2,
+            "third_last":  -3,
+        }
+        for pair in route.get("allowed_pairs", []):
+            ts = pair["tube_segment"]
+            idx = seg_index.get(ts)
+            if idx is None:
+                continue
+            if ts in ("second_last", "third_last") and len(entries) < abs(idx):
+                continue
+            all_allowed.add(frozenset({entries[idx]["name"], pair["part"]}))
 
     return all_entries, all_allowed
 

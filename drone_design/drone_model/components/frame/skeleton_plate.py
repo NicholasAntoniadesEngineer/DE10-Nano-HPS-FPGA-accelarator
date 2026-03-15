@@ -232,6 +232,16 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
     # Arm mounting rails (radial rows of M2 bolt holes)
     plate = _add_arm_mounting_rails(plate, thick)
 
+    # Nose boom mounting holes (bottom plate only): two M2 holes at +X edge, aligned for boom root
+    if is_bottom:
+        boom_inset = _D["assembly"]["boom_mount_inset"]
+        boom_spacing = _D["assembly"]["boom_mount_hole_spacing"]
+        boom_hole_r = ARM_MOUNT_HOLE_D / 2
+        boom_cx = PLATE_SIZE / 2 - boom_inset
+        for dy in [-boom_spacing / 2, boom_spacing / 2]:
+            hole = cq.Workplane("XY").center(boom_cx, dy).circle(boom_hole_r).extrude(thick)
+            plate = plate.cut(hole)
+
     # Keepout zones for kagome cutouts: arm rail paths
     keepouts = _arm_rail_keepouts()
 
@@ -259,41 +269,42 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
             plate = plate.cut(hs_cutout)
             keepouts.append((0, 0, max(_hs_w, _hs_l) / 2 + 4.0))
 
-            # GPIO receptacle clearance slots — rectangular cutouts where the
-            # 2x20 pin headers protrude through the board
+            # GPIO receptacle headers (2x20) — mate with DE10-Nano GPIO0/GPIO1 per Intel mechanical layout.
+            # Positions: GPIO0 (20.05, 61.34), GPIO1 (20.05, 0.89) mm; CQ = (DE10_W/2 - intel_y, intel_x - DE10_L/2).
+            _gpio_header_h = _D["de10_nano"]["gpio_header_height"]
             gpio_connectors = _D["de10_nano"]["connectors"]
             for key in ("gpio0", "gpio1"):
                 c = gpio_connectors[key]
                 cq_x = DE10_W / 2 - c["intel_y"]
                 cq_y = c["intel_x"] - DE10_L / 2
-                slot = (
+                receptacle = (
                     cq.Workplane("XY")
                     .center(cq_x, cq_y + c["length"] / 2)
-                    .rect(c["width"] + 1.0, c["length"] + 1.0)
-                    .extrude(thick)
+                    .rect(c["width"] + 2.0, c["length"] + 2.0)
+                    .extrude(-_gpio_header_h)
                     .edges("|Z")
-                    .chamfer(cutout_chamfer)
+                    .chamfer(min(0.6, cutout_chamfer))
                 )
-                plate = plate.cut(slot)
-                keepouts.append((cq_x, cq_y + c["length"] / 2, 30.0))
+                plate = plate.union(receptacle)
+                keepouts.append((cq_x, cq_y + c["length"] / 2, 28.0))
 
-            # Arduino header clearance slots (pass-through for Arduino receptacles)
+            # Arduino header receptacles — connector blocks on board bottom, mate with DE10.
             for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
                 if key not in gpio_connectors:
                     continue
                 c = gpio_connectors[key]
                 cq_x = DE10_W / 2 - c["intel_y"]
                 cq_y = c["intel_x"] - DE10_L / 2
-                ard_slot = (
+                ard_receptacle = (
                     cq.Workplane("XY")
                     .center(cq_x, cq_y)
-                    .rect(c["width"] + 1.0, c["length"] + 1.0)
-                    .extrude(thick)
+                    .rect(c["width"] + 2.0, c["length"] + 2.0)
+                    .extrude(-_gpio_header_h)
                     .edges("|Z")
-                    .chamfer(cutout_chamfer)
+                    .chamfer(min(0.6, cutout_chamfer))
                 )
-                plate = plate.cut(ard_slot)
-                keepouts.append((cq_x, cq_y, 15.0))
+                plate = plate.union(ard_receptacle)
+                keepouts.append((cq_x, cq_y, 12.0))
 
             # M2.5 mounting holes (same pattern as DE10-Nano corners)
             for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
@@ -302,14 +313,22 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                     plate = plate.cut(hole)
                     keepouts.append((dx, dy, 5.0))
 
-            # Relief notches for DE10 connectors that protrude above this plate Z
-            for nx, ny, nw, nl in [
-                (-19.18, -51.19, 14.0, 16.0),  # barrel jack
-                (17.54, 39.10, 20.0, 18.0),    # ethernet
-            ]:
+            # Relief cutouts for DE10 connectors (Intel mechanical layout).
+            # Positions: intel_x along 107mm length, intel_y along 68.6mm width.
+            # CQ: cq_x = DE10_W/2 - intel_y, cq_y = intel_x - DE10_L/2.
+            # Ethernet must allow cable plug-in; barrel jack for power access.
+            _connectors = _D["de10_nano"]["connectors"]
+            for key, margin in [("ethernet", 6.0), ("barrel_jack", 4.0)]:
+                if key not in _connectors:
+                    continue
+                c = _connectors[key]
+                cq_x = DE10_W / 2 - c["intel_y"]
+                cq_y = c["intel_x"] - DE10_L / 2
+                nw = c["width"] + margin * 2
+                nl = c["length"] + margin * 2
                 notch = (
                     cq.Workplane("XY")
-                    .center(nx, ny)
+                    .center(cq_x, cq_y)
                     .rect(nw, nl)
                     .extrude(thick)
                     .edges("|Z")
@@ -376,13 +395,17 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                     plate = plate.cut(hole)
                     keepouts.append((dx, dy, _tab_size / 2 + 2.0))
 
-            for nx, ny, nw, nl in [
-                (-19.18, -51.19, 14.0, 16.0),
-                (17.54, 39.10, 20.0, 18.0),
-            ]:
+            _connectors_legacy = _D["de10_nano"]["connectors"]
+            for key, margin in [("ethernet", 6.0), ("barrel_jack", 4.0)]:
+                if key not in _connectors_legacy:
+                    continue
+                c = _connectors_legacy[key]
+                cq_x = DE10_W / 2 - c["intel_y"]
+                cq_y = c["intel_x"] - DE10_L / 2
+                nw, nl = c["width"] + margin * 2, c["length"] + margin * 2
                 notch = (
                     cq.Workplane("XY")
-                    .center(nx, ny)
+                    .center(cq_x, cq_y)
                     .rect(nw, nl)
                     .extrude(thick)
                     .edges("|Z")
@@ -525,6 +548,26 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 plate = plate.cut(res_hole)
                 keepouts.append((_rhx, _rhy, 4.0))
 
+        # Pump bracket mounting — 4x M2 holes matching bracket pattern; anchor at hole-pattern center
+        if is_bottom:
+            _pb_ox = _D["assembly"]["pump_bracket_offset_x"]
+            _pb_oy = _D["assembly"]["pump_bracket_offset_y"]
+            _pb = _D["pump_bracket"]
+            _pb_pump_w = _D["pump"]["body_width"]
+            _pb_total_w = _pb_pump_w + 2 * _pb["thickness"] + 2 * _pb["base_extension"]
+            _pb_depth = _pb["channel_length"]
+            _pb_inset = _pb["frame_hole_inset"]
+            _pb_hole_r = _pb["frame_hole_diameter"] / 2
+            _pb_hx_off = _pb_total_w / 2 - _pb_inset
+            _pb_hy_off = _pb_depth / 2 - _pb_inset
+            for _sx in [-1, 1]:
+                for _sy in [-1, 1]:
+                    _phx = _pb_ox + _sx * _pb_hx_off
+                    _phy = _pb_oy + _sy * _pb_hy_off
+                    pb_hole = cq.Workplane("XY").center(_phx, _phy).circle(_pb_hole_r).extrude(thick)
+                    plate = plate.cut(pb_hole)
+                    keepouts.append((_phx, _phy, 4.0))
+
         de10_hole_inset = _D["de10_nano"]["mounting_hole_inset"]
         standoff_clearance_r = _D["daughter_board_mounting"]["mounting_hole_diameter"] / 2
         for dx in [-DE10_W/2 + de10_hole_inset, DE10_W/2 - de10_hole_inset]:
@@ -605,11 +648,11 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 normal=(0, 0, -1),
                 label="battery mount (underslung)",
             )
-            # Pump bracket mounting point (underslung)
+            # Pump bracket: anchor at center of 4x M2 mounting hole pattern (underslung)
             anchors["pump_bracket_mount"] = Anchor(
                 point=(_D["assembly"]["pump_bracket_offset_x"], _D["assembly"]["pump_bracket_offset_y"], 0),
                 normal=(0, 0, -1),
-                label="pump bracket mount (underslung)",
+                label="pump bracket mount (hole pattern center, underslung)",
             )
             # Reservoir mounting point (underslung)
             anchors["reservoir_mount"] = Anchor(
@@ -617,12 +660,13 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 normal=(0, 0, -1),
                 label="reservoir mount (underslung)",
             )
-            # Nose boom root attachment (+X edge)
-            boom_z_local = thick + _D["assembly"]["arm_z_above_bottom"] - _D["nose_boom"]["thickness"] / 2
+            # Nose boom root: anchor at mounting hole center so boom holes sit over plate holes; Z on top of plate
+            boom_inset = _D["assembly"]["boom_mount_inset"]
+            boom_z_local = thick + _D["nose_boom"]["thickness"] / 2
             anchors["boom_root"] = Anchor(
-                point=(PLATE_SIZE / 2, 0, boom_z_local),
+                point=(PLATE_SIZE / 2 - boom_inset, 0, boom_z_local),
                 normal=(1, 0, 0),
-                label="boom root (plate edge)",
+                label="boom root (mounting holes)",
             )
             # ToF-down direct board mount — board lies flat on underside, sensor faces down.
             # Board's mount_face (0,0,-1) opposes this anchor's (0,0,-1) → board flips
@@ -827,6 +871,24 @@ def generate_bottom_plate_pcb():
                 content += "\n" + through_hole_pad(hx, hy, 2.2, 4.0)  # M2 clearance
             dist += _MOUNT_PITCH
 
+    # Nose boom mounting holes (2x M2 at +X edge)
+    _boom_inset = _D["assembly"]["boom_mount_inset"]
+    _boom_spacing = _D["assembly"]["boom_mount_hole_spacing"]
+    _boom_cx = PLATE_SIZE / 2 - _boom_inset
+    for _dy in [-_boom_spacing / 2, _boom_spacing / 2]:
+        content += "\n" + through_hole_pad(_boom_cx, _dy, 2.2, 4.0)
+
+    # Pump bracket mounting (4x M2 at hole-pattern center = pump_bracket_offset)
+    _pb_ox = _D["assembly"]["pump_bracket_offset_x"]
+    _pb_oy = _D["assembly"]["pump_bracket_offset_y"]
+    _pb = _D["pump_bracket"]
+    _pb_total_w = _D["pump"]["body_width"] + 2 * _pb["thickness"] + 2 * _pb["base_extension"]
+    _pb_hx_off = _pb_total_w / 2 - _pb["frame_hole_inset"]
+    _pb_hy_off = _pb["channel_length"] / 2 - _pb["frame_hole_inset"]
+    for _sx in [-1, 1]:
+        for _sy in [-1, 1]:
+            content += "\n" + through_hole_pad(_pb_ox + _sx * _pb_hx_off, _pb_oy + _sy * _pb_hy_off, 2.2, 4.0)
+
     # Leg header holes (matching mounting tab overlap area)
     _LEG_ANGLES = [0, 90, 180, 270]
     _LEG_THICK = _D["landing_gear"]["leg_thickness"]
@@ -845,19 +907,40 @@ def generate_bottom_plate_pcb():
 
 
 def generate_top_plate_pcb():
-    """Generate .kicad_pcb for top frame plate."""
+    """Generate .kicad_pcb for top frame plate (combined with daughter board).
+
+    Central area is solid PCB for daughter board: GPIO receptacles, Arduino
+    headers, and level-shifter ICs mount here. Only the heatsink/fan has a
+    pass-through cutout. M2.5 holes at DE10-Nano pattern for mounting.
+    """
     segs = []
 
     # Board outline
     segs.extend(rounded_rect_outline(PLATE_SIZE, PLATE_SIZE, PLATE_CORNER_R))
 
-    # Central rectangular opening — sized to stay inside standoff hole pattern
-    _tp_hole_inset = _D["de10_nano"]["mounting_hole_inset"]
-    _tp_cutout_x = 2 * (DE10_W / 2 - _tp_hole_inset - 6.0)
-    _tp_cutout_y = 2 * (DE10_L / 2 - _tp_hole_inset - 6.0)
-    segs.extend(rounded_rect_outline(_tp_cutout_x, _tp_cutout_y, PLATE_CORNER_R))
+    # Heatsink/fan pass-through cutout only (no large central opening).
+    _hs_w = _D["de10_nano"]["heatsink_width"]
+    _hs_l = _D["de10_nano"]["heatsink_length"]
+    _hs_clear = 4.0
+    _hs_cutout_w = _hs_w + _hs_clear
+    _hs_cutout_l = _hs_l + _hs_clear
+    _hs_r = min(PLATE_CORNER_R, 3.0)
+    segs.extend(rounded_rect_outline(_hs_cutout_w, _hs_cutout_l, _hs_r))
 
-    # Keepouts (along arm rail paths + central opening)
+    # Ethernet and power connector cutouts (Intel mechanical layout).
+    # Allows RJ45 and barrel jack access with top plate mounted.
+    _de10_conn = _D["de10_nano"]["connectors"]
+    for key, margin in [("ethernet", 6.0), ("barrel_jack", 4.0)]:
+        if key not in _de10_conn:
+            continue
+        c = _de10_conn[key]
+        cx = DE10_W / 2 - c["intel_y"]
+        cy = c["intel_x"] - DE10_L / 2
+        w, h = c["width"] + margin * 2, c["length"] + margin * 2
+        r = min(2.0, (min(w, h) / 2) - 0.5)
+        segs.extend(rounded_rect_outline(w, h, r, cx, cy))
+
+    # Keepouts: arm rail paths + central daughter board area (solid region)
     keepouts = []
     half = PLATE_SIZE / 2
     for angle in ARM_ANGLES:
@@ -870,15 +953,23 @@ def generate_top_plate_pcb():
         while dist <= max_r:
             keepouts.append((dist * cos_a, dist * sin_a, 9.0))
             dist += 10.0
-    keepouts.append((0, 0, 58.0))  # central opening keepout
+    keepouts.append((0, 0, 58.0))  # central daughter board area keepout
 
-    # Kagome cutouts — rounded corners
+    # Kagome cutouts — rounded corners (frame only, not in central solid area)
     _hex_r = min(PLATE_CORNER_R, KAGOME_HOLE_R * 0.35)
     hex_centers = _kagome_cutout_centers_pcb(PLATE_SIZE, keepouts)
     for cx, cy in hex_centers:
         segs.extend(rounded_hexagon_outline(cx, cy, KAGOME_HOLE_R, _hex_r))
 
     content = outline_to_sexpr(segs)
+
+    # M2.5 mounting holes (DE10-Nano corner pattern — top plate + daughter board)
+    _tp_hole_inset = _D["de10_nano"]["mounting_hole_inset"]
+    _m25_drill = _D["daughter_board_mounting"]["mounting_hole_diameter"]
+    for dx in [-DE10_W / 2 + _tp_hole_inset, DE10_W / 2 - _tp_hole_inset]:
+        for dy in [-DE10_L / 2 + _tp_hole_inset, DE10_L / 2 - _tp_hole_inset]:
+            content += "\n" + through_hole_pad(dx, dy, _m25_drill, 4.5)
+
     content += "\n" + text_sexpr("TOP PLATE", 0, -PLATE_SIZE / 2 + 8, "F.SilkS", 2.5, 0.25)
     content += "\n" + text_sexpr(f"{PLATE_SIZE:.0f}x{PLATE_SIZE:.0f}mm  FR4 {TOP_THICK:.1f}mm", 0, -PLATE_SIZE / 2 + 13, "F.SilkS", 1.0, 0.12)
 

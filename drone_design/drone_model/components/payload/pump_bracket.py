@@ -110,11 +110,11 @@ def make_pump_bracket():
 
     anchors = {}
     if Anchor is not None:
-        # Base plate bottom face (Z=0), normal down — outermost when underslung
+        # Center of 4x frame mounting holes (and base plate geometric center) — mates to plate hole-pattern center
         anchors["base_mount"] = Anchor(
             point=(0, 0, 0),
             normal=(0, 0, -1),
-            label="Base plate outermost surface when underslung",
+            label="Base mount (hole pattern center, underslung to plate)",
         )
         # Top of walls — nearest face to plate when underslung
         anchors["top_mount"] = Anchor(

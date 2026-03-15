@@ -155,7 +155,7 @@
             "sdcard_slot_length": 15.0,
             "sdcard_slot_height": 2.5
         },
-        "_connector_doc": "Positions from Intel mechanical layout (x along 107mm length, y along 68.6mm width). CadQuery transform: cq_x = intel_y - board_width/2, cq_y = intel_x - board_length/2.",
+        "_connector_doc": "Positions from Intel DE10-Nano mechanical layout (intel_x along 107mm length, intel_y along 68.6mm width). GPIO0: 20.05,61.34; GPIO1: 20.05,0.89; Ethernet: 93.08,16.75. CadQuery: cq_x = board_width/2 - intel_y, cq_y = intel_x - board_length/2.",
         "connectors": {
             "gpio0": {
                 "_doc": "2x20 pin GPIO header (active position is pin 1 corner)",
@@ -413,6 +413,8 @@
         "pump_bracket_offset_y": -52.0,
         "camera_boom_offset": 25.0,
         "battery_rotation_deg": 0.0,
-        "arm_z_above_bottom": 0.8
+        "arm_z_above_bottom": 0.8,
+        "boom_mount_inset": 15.0,
+        "boom_mount_hole_spacing": 10.0
     }
 }

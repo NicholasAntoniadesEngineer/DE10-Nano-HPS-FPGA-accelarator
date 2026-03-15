@@ -57,6 +57,9 @@ ROOT_USABLE  = _D["nose_boom"]["root_usable_length"]
 ROOT_TOTAL   = ROOT_USABLE + OVERLAP_LENGTH
 TIP_TOTAL    = BOOM_LENGTH - ROOT_USABLE
 
+# Distance from root face to mounting hole center (header rows); root tab extends this far onto the plate
+ROOT_TAB_EXTENSION = BOOM_HEADER_INSET + 10.0
+
 _N_HOLES = max(1, int(OVERLAP_LENGTH / HOLE_PITCH))
 
 CATALOG = {
@@ -148,15 +151,22 @@ def make_boom_root() -> cq.Workplane:
 
     Local X = 0 is the frame-side (root) end.
     """
-    # --- Main slab ---
+    # --- Main slab: ROOT_TOTAL length, then root tab extension so mounting holes sit over plate holes ---
     root = (
         cq.Workplane("XY")
         .box(ROOT_TOTAL, BOOM_WIDTH, BOOM_THICK, centered=(True, True, False))
         .edges("|Z")
         .chamfer(min(PCB_EDGE_CHAMFER, BOOM_THICK * 0.45))
-        # Shift so that X=0 is the left (root) face:
         .translate((ROOT_TOTAL / 2, 0.0, 0.0))
     )
+    root_tab = (
+        cq.Workplane("XY")
+        .box(ROOT_TAB_EXTENSION, BOOM_WIDTH, BOOM_THICK, centered=(True, True, False))
+        .edges("|Z")
+        .chamfer(min(PCB_EDGE_CHAMFER, BOOM_THICK * 0.45))
+        .translate((-ROOT_TAB_EXTENSION / 2, 0.0, 0.0))
+    )
+    root = root.union(root_tab)
 
     # --- I-beam pockets along the USABLE section only ---
     # We preserve 30 mm at the root face (header hole area) + leave the overlap
@@ -198,7 +208,6 @@ def make_boom_root() -> cq.Workplane:
     # --- Root-end header holes (two rows, for frame pin-header connection) ---
     hole_r = HEADER_HOLE_D / 2
     span   = (BOOM_HEADER_PINS - 1) * HEADER_PITCH
-    # Place header rows 10 mm in from the root face (x = 0)
     hx_centre = BOOM_HEADER_INSET + 10.0
 
     for row_offset in (-4.0, 4.0):
@@ -211,6 +220,17 @@ def make_boom_root() -> cq.Workplane:
             )
             root = root.cut(hole)
 
+    # --- M2 frame mounting holes (align with bottom plate boom_mount holes, same Y spacing) ---
+    boom_mount_spacing = _D["assembly"].get("boom_mount_hole_spacing", 10.0)
+    m2_r = M2_CLEARANCE / 2
+    for dy in [-boom_mount_spacing / 2, boom_mount_spacing / 2]:
+        mount_hole = (
+            cq.Workplane("XY")
+            .cylinder(BOOM_THICK, m2_r)
+            .translate((hx_centre, dy, BOOM_THICK / 2))
+        )
+        root = root.cut(mount_hole)
+
     # --- M2 adjustment holes through the overlap web tail ---
     # Spaced HOLE_PITCH apart starting at ROOT_USABLE + HOLE_PITCH/2
     # so the first hole is 5 mm inside the tail.
@@ -222,10 +242,11 @@ def make_boom_root() -> cq.Workplane:
 
     anchors = {}
     if Anchor is not None:
+        hole_center_x = BOOM_HEADER_INSET + 10.0
         anchors["root"] = Anchor(
-            point=(0, 0, BOOM_THICK / 2),
+            point=(hole_center_x, 0, BOOM_THICK / 2),
             normal=(-1, 0, 0),
-            label="root (frame attachment)",
+            label="root (mounting hole center)",
         )
         anchors["tip"] = Anchor(
             point=(ROOT_TOTAL, 0, BOOM_THICK / 2),
@@ -340,8 +361,8 @@ def make_nose_boom(overlap_mm: float = OVERLAP_LENGTH) -> cq.Workplane:
     root_shape = root_result[0] if isinstance(root_result, tuple) else root_result
     tip_shape  = tip_result[0] if isinstance(tip_result, tuple) else tip_result
 
-    # Root: translate so its tip face (X = ROOT_TOTAL in root-local) sits at
-    # X = 0 in assembly space.  Root occupies [-ROOT_TOTAL, 0].
+    # Root: translate so tip face (X = ROOT_TOTAL in root-local) at X = 0 in assembly.
+    # Root occupies [-ROOT_TOTAL - ROOT_TAB_EXTENSION, 0]; mounting hole center at -ROOT_TOTAL + ROOT_TAB_EXTENSION.
     root_shape = root_shape.translate((-ROOT_TOTAL, 0.0, 0.0))
 
     # Tip: translate so its collar face (X = 0 in tip-local) sits at
@@ -352,13 +373,13 @@ def make_nose_boom(overlap_mm: float = OVERLAP_LENGTH) -> cq.Workplane:
     # Combine
     shape = root_shape.union(tip_shape)
 
-    # Assembly-space total: root face at -ROOT_TOTAL, tip end at TIP_TOTAL - overlap_mm
+    # Assembly: root face at -(ROOT_TOTAL + ROOT_TAB_EXTENSION); anchor at mounting hole center for plate mate
     anchors = {}
     if Anchor is not None:
         anchors["root"] = Anchor(
-            point=(-ROOT_TOTAL, 0, BOOM_THICK / 2),
+            point=(-ROOT_TOTAL + ROOT_TAB_EXTENSION, 0, BOOM_THICK / 2),
             normal=(-1, 0, 0),
-            label="root (frame attachment)",
+            label="root (mounting hole center)",
         )
         tip_end_x = TIP_TOTAL - overlap_mm
         anchors["tip"] = Anchor(
@@ -387,8 +408,8 @@ def make_nose_boom(overlap_mm: float = OVERLAP_LENGTH) -> cq.Workplane:
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rounded_rect_outline, outline_to_sexpr, header_pad_row,
-        text_sexpr, kicad_pcb_wrapper,
+        rounded_rect_outline, capsule_outline, outline_to_sexpr, header_pad_row,
+        through_hole_pad, text_sexpr, kicad_pcb_wrapper,
     )
 except ImportError:
     pass  # KiCad export not available
@@ -397,27 +418,37 @@ PCB_OUTLINE_R = _D["assembly"].get("pcb_outline_corner_radius", 1.5)
 
 
 def generate_nose_boom_pcb():
-    """Generate .kicad_pcb for the nose boom (I-beam profile). Rounded corners in outline and cutouts."""
+    """Generate .kicad_pcb for the nose boom (I-beam profile). Includes root tab for plate mounting. Curving 2D cutouts."""
     segs = []
+    pcb_length = BOOM_LENGTH + ROOT_TAB_EXTENSION
 
-    # Outer rectangle — rounded corners in cutout design
-    segs.extend(rounded_rect_outline(BOOM_LENGTH, BOOM_WIDTH, min(PCB_OUTLINE_R, BOOM_WIDTH / 2 - 0.5), 0, 0))
+    # Outer outline (includes root tab); maximum rounding for curving sections
+    outer_r = max(PCB_OUTLINE_R, BOOM_WIDTH / 2 - 0.4)
+    segs.extend(rounded_rect_outline(pcb_length, BOOM_WIDTH, min(outer_r, BOOM_WIDTH / 2 - 0.3), 0, 0))
 
-    # I-beam side cutouts — rounded corners
-    cutout_length = BOOM_LENGTH - 40  # leave 20mm solid at each end
+    # I-beam side cutouts — capsule; offset so they sit in main body (not in root tab)
+    cutout_length = BOOM_LENGTH - 40
     cutout_width = (BOOM_WIDTH - BOOM_WEB) / 2 - BOOM_FLANGE
-    cutout_r = min(PCB_OUTLINE_R, cutout_width / 2 - 0.2) if cutout_width > 1 else 0
-    if cutout_width > 1 and cutout_length > 1:
+    # Cutout zone: 20mm in from root of main body to 20mm from tip; main body starts at -ROOT_TAB_EXTENSION in local, so at -pcb_length/2 + ROOT_TAB_EXTENSION
+    cutout_start = -pcb_length / 2 + ROOT_TAB_EXTENSION + 20
+    cutout_cx = cutout_start + cutout_length / 2
+    if cutout_width > 1 and cutout_length > cutout_width:
         for side in [-1, 1]:
             cy = side * (BOOM_WEB / 2 + BOOM_FLANGE + cutout_width / 2)
-            segs.extend(rounded_rect_outline(cutout_length, cutout_width, cutout_r, 0, cy))
+            segs.extend(capsule_outline(cutout_length, cutout_width, cutout_cx, cy))
 
     content = outline_to_sexpr(segs)
 
-    # Root end header holes (two rows for plate connection)
-    root_x = -BOOM_LENGTH / 2 + BOOM_HEADER_INSET + 10
+    # Mounting hole center: ROOT_TAB_EXTENSION in from root face
+    root_x = -pcb_length / 2 + ROOT_TAB_EXTENSION
+    # Header holes (two rows for plate connection)
     for row_offset in [-4.0, 4.0]:
         content += "\n" + header_pad_row(root_x + row_offset, 0, BOOM_HEADER_PINS, HEADER_PITCH, angle_deg=90, drill_d=HEADER_HOLE_D, pad_d=HEADER_PAD_D)
+
+    # M2 frame mounting holes (align with bottom plate boom_mount holes)
+    boom_mount_spacing_pcb = _D["assembly"].get("boom_mount_hole_spacing", 10.0)
+    for pcb_dy in [-boom_mount_spacing_pcb / 2, boom_mount_spacing_pcb / 2]:
+        content += "\n" + through_hole_pad(root_x, pcb_dy, 2.2, 4.0)
 
     content += "\n" + text_sexpr("BOOM", 0, 0, "F.SilkS", 2, 0.2)
     content += "\n" + text_sexpr(f"{BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm  FR4 {BOOM_THICK:.1f}mm", 0, 4, "F.SilkS", 1.0, 0.12)

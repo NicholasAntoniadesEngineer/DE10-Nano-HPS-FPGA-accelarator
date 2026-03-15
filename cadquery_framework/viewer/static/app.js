@@ -446,6 +446,7 @@ var OVERLAY_SAVE_HINT = (typeof window.__OVERLAY_SAVE_HINT === 'string') ? windo
         if (!mouseDownPos) return;
         if (Math.abs(e.clientX - mouseDownPos.x) > 5 || Math.abs(e.clientY - mouseDownPos.y) > 5) return;
         if (tfc.dragging) return;
+        if (addWpMode) return; // route waypoint placement handled separately
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, cam);
@@ -1927,4 +1928,534 @@ var OVERLAY_SAVE_HINT = (typeof window.__OVERLAY_SAVE_HINT === 'string') ? windo
     }
 
     loadEmbeddedPart(0);
+
+    // ---- Route Editor ----
+    // Coordinate helpers: tube_routes.json uses Z-up; THREE.js uses Y-up.
+    // Z-up (x,y,z) -> Y-up (x, z, -y)   (load)
+    // Y-up (x,y,z) -> Z-up (x, -z, y)   (save)
+    function zupToYup(x, y, z) { return new THREE.Vector3(x, z, -y); }
+    function yupToZup(v) { return [v.x, -v.z, v.y]; }
+
+    var EMBEDDED_ROUTES = (typeof window.__VIEWER_ROUTES !== 'undefined') ? window.__VIEWER_ROUTES : null;
+
+    // routeState[routeName] = { color, display, waypoints: [THREE.Vector3,...], isEndpoint:[bool,...] }
+    var routeState = {};
+    var routeLines = {};          // routeName -> THREE.Line
+    var routeWpSpheres = {};      // routeName -> [THREE.Mesh,...]
+    var routeObjects = new THREE.Group();  // separate group, not raycasted for parts
+    routeObjects.visible = false;
+    scene.add(routeObjects);
+
+    var selectedRoute = null;     // routeName string
+    var selectedWpIdx = -1;       // index within routeState[selectedRoute].waypoints
+    var addWpMode = false;        // waiting for next click to place waypoint
+
+    // Drag state for waypoint dragging
+    var wpDragging = false;
+    var wpDragPlane = new THREE.Plane();
+    var wpDragOffset = new THREE.Vector3();
+    var wpDragRaycaster = new THREE.Raycaster();
+    var wpDragMouse = new THREE.Vector2();
+    var wpDragModifier = null; // null | 'x' | 'y' | 'z'
+    var wpDragOrigin = new THREE.Vector3();
+
+    function routeColorHex(colorStr) {
+        // Accept #rrggbb or css color names; fall back to 0x8ecae6
+        if (!colorStr) return 0x8ecae6;
+        return parseInt(colorStr.replace('#', '0x')) || 0x8ecae6;
+    }
+
+    function buildRouteGeometry(routeName) {
+        var state = routeState[routeName];
+        if (!state || state.waypoints.length < 2) return;
+        var pts = state.waypoints;
+        var positions = new Float32Array(pts.length * 3);
+        for (var i = 0; i < pts.length; i++) {
+            positions[i * 3]     = pts[i].x;
+            positions[i * 3 + 1] = pts[i].y;
+            positions[i * 3 + 2] = pts[i].z;
+        }
+        var line = routeLines[routeName];
+        if (line) {
+            line.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            line.geometry.setDrawRange(0, pts.length);
+            line.geometry.attributes.position.needsUpdate = true;
+        }
+    }
+
+    function buildRoutes() {
+        if (!EMBEDDED_ROUTES) return;
+        var routeNames = Object.keys(EMBEDDED_ROUTES);
+        for (var ri = 0; ri < routeNames.length; ri++) {
+            var rname = routeNames[ri];
+            var rdata = EMBEDDED_ROUTES[rname];
+            var wps = rdata.waypoints || [];
+            var color = rdata.color || '#8ecae6';
+            var display = rdata.display || rname;
+            var colorInt = routeColorHex(color);
+
+            // Convert Z-up waypoints to Y-up THREE.Vector3 array
+            var wpVecs = [];
+            var isEndpoint = [];
+            for (var wi = 0; wi < wps.length; wi++) {
+                var wp = wps[wi];
+                wpVecs.push(zupToYup(wp[0], wp[1], wp[2]));
+                isEndpoint.push(wi === 0 || wi === wps.length - 1);
+            }
+            routeState[rname] = { color: color, colorInt: colorInt, display: display, waypoints: wpVecs, isEndpoint: isEndpoint };
+
+            // Build line
+            var pts = wpVecs;
+            var positions = new Float32Array(Math.max(pts.length, 2) * 3);
+            for (var pi = 0; pi < pts.length; pi++) {
+                positions[pi * 3]     = pts[pi].x;
+                positions[pi * 3 + 1] = pts[pi].y;
+                positions[pi * 3 + 2] = pts[pi].z;
+            }
+            var lineGeo = new THREE.BufferGeometry();
+            lineGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            var lineMat = new THREE.LineBasicMaterial({ color: colorInt, linewidth: 2, depthTest: false });
+            var line = new THREE.Line(lineGeo, lineMat);
+            line.renderOrder = 990;
+            line.userData.routeName = rname;
+            routeLines[rname] = line;
+            routeObjects.add(line);
+
+            // Build waypoint spheres
+            routeWpSpheres[rname] = [];
+            for (var si = 0; si < wpVecs.length; si++) {
+                var isEp = isEndpoint[si];
+                var radius = isEp ? 1.5 : 2.5;
+                var mat;
+                if (isEp) {
+                    mat = new THREE.MeshBasicMaterial({ color: 0x888888, depthTest: false, transparent: true, opacity: 0.7 });
+                } else {
+                    mat = new THREE.MeshBasicMaterial({ color: colorInt, depthTest: false, transparent: true, opacity: 0.75 });
+                }
+                var sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 12, 12), mat);
+                sphere.position.copy(wpVecs[si]);
+                sphere.renderOrder = 991;
+                sphere.userData.routeName = rname;
+                sphere.userData.wpIdx = si;
+                sphere.userData.isEndpoint = isEp;
+                routeWpSpheres[rname].push(sphere);
+                routeObjects.add(sphere);
+            }
+        }
+        buildRouteEditorUI();
+    }
+
+    function buildRouteEditorUI() {
+        var editorBody = document.getElementById('route-editor-body');
+        var noData = document.getElementById('route-no-data');
+        if (!EMBEDDED_ROUTES || Object.keys(EMBEDDED_ROUTES).length === 0) {
+            if (editorBody) editorBody.style.display = 'none';
+            if (noData) noData.style.display = 'block';
+            return;
+        }
+        if (editorBody) editorBody.style.display = '';
+        if (noData) noData.style.display = 'none';
+
+        var listSection = document.getElementById('route-list-section');
+        if (!listSection) return;
+        listSection.innerHTML = '';
+        var routeNames = Object.keys(routeState);
+        for (var ri = 0; ri < routeNames.length; ri++) {
+            var rname = routeNames[ri];
+            var state = routeState[rname];
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:4px;';
+            row.setAttribute('data-route', rname);
+            var dot = document.createElement('span');
+            dot.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;background:' + state.color + ';flex-shrink:0;';
+            var label = document.createElement('span');
+            label.style.cssText = 'font-size:11px;color:#e0e0e0;flex:1;';
+            label.textContent = state.display + ' (' + state.waypoints.length + ' WP)';
+            label.setAttribute('id', 'route-label-' + rname);
+            row.appendChild(dot);
+            row.appendChild(label);
+            row.addEventListener('click', (function(name) {
+                return function() { selectRoute(name); };
+            })(rname));
+            listSection.appendChild(row);
+        }
+    }
+
+    function selectRoute(rname) {
+        selectedRoute = rname;
+        selectedWpIdx = -1;
+        updateRouteWpPanel();
+        // Highlight selected route label
+        var routeNames = Object.keys(routeState);
+        for (var ri = 0; ri < routeNames.length; ri++) {
+            var el = document.getElementById('route-label-' + routeNames[ri]);
+            if (el) el.style.color = routeNames[ri] === rname ? '#8ecae6' : '#e0e0e0';
+        }
+    }
+
+    function selectWaypoint(rname, idx) {
+        selectedRoute = rname;
+        selectedWpIdx = idx;
+        updateRouteWpPanel();
+        highlightSelectedWp();
+    }
+
+    function highlightSelectedWp() {
+        // Reset all spheres to base opacity, then brighten selected
+        var routeNames = Object.keys(routeWpSpheres);
+        for (var ri = 0; ri < routeNames.length; ri++) {
+            var rn = routeNames[ri];
+            var spheres = routeWpSpheres[rn];
+            var state = routeState[rn];
+            for (var si = 0; si < spheres.length; si++) {
+                var isEp = state.isEndpoint[si];
+                var isSelected = rn === selectedRoute && si === selectedWpIdx;
+                var mat = spheres[si].material;
+                if (isSelected) {
+                    mat.color.setHex(0xffffff);
+                    mat.opacity = 1.0;
+                } else if (isEp) {
+                    mat.color.setHex(0x888888);
+                    mat.opacity = 0.7;
+                } else {
+                    mat.color.setHex(state.colorInt);
+                    mat.opacity = 0.75;
+                }
+            }
+        }
+    }
+
+    function updateRouteWpPanel() {
+        var section = document.getElementById('route-wp-section');
+        var routeNameEl = document.getElementById('route-wp-route-name');
+        var labelEl = document.getElementById('route-wp-label');
+        var xEl = document.getElementById('route-wp-x');
+        var yEl = document.getElementById('route-wp-y');
+        var zEl = document.getElementById('route-wp-z');
+        var delBtn = document.getElementById('btn-route-del-wp');
+        var hintEl = document.getElementById('route-wp-hint');
+        if (!section) return;
+
+        if (!selectedRoute || !routeState[selectedRoute] || selectedWpIdx < 0) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = 'block';
+        var state = routeState[selectedRoute];
+        var wp = state.waypoints[selectedWpIdx];
+        if (!wp) { section.style.display = 'none'; return; }
+
+        routeNameEl.textContent = 'Route: ' + state.display;
+        labelEl.textContent = 'WP ' + selectedWpIdx + ': X=' + wp.x.toFixed(1) + ' Y=' + wp.y.toFixed(1) + ' Z=' + wp.z.toFixed(1);
+        xEl.value = wp.x.toFixed(2);
+        yEl.value = wp.y.toFixed(2);
+        zEl.value = wp.z.toFixed(2);
+
+        var isEp = state.isEndpoint[selectedWpIdx];
+        delBtn.disabled = isEp;
+        hintEl.textContent = isEp ? 'Endpoint — locked (connect point, not editable).' : 'Drag sphere or edit coords above.';
+    }
+
+    function applyWpInputChanges() {
+        if (!selectedRoute || selectedWpIdx < 0) return;
+        var state = routeState[selectedRoute];
+        if (!state) return;
+        var xEl = document.getElementById('route-wp-x');
+        var yEl = document.getElementById('route-wp-y');
+        var zEl = document.getElementById('route-wp-z');
+        var x = parseFloat(xEl.value) || 0;
+        var y = parseFloat(yEl.value) || 0;
+        var z = parseFloat(zEl.value) || 0;
+        state.waypoints[selectedWpIdx].set(x, y, z);
+        var sphere = routeWpSpheres[selectedRoute][selectedWpIdx];
+        if (sphere) sphere.position.set(x, y, z);
+        buildRouteGeometry(selectedRoute);
+        var labelEl = document.getElementById('route-wp-label');
+        if (labelEl) labelEl.textContent = 'WP ' + selectedWpIdx + ': X=' + x.toFixed(1) + ' Y=' + y.toFixed(1) + ' Z=' + z.toFixed(1);
+    }
+
+    ['route-wp-x', 'route-wp-y', 'route-wp-z'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', applyWpInputChanges);
+    });
+
+    // Waypoint hover raycaster (separate from parts raycaster)
+    var wpRaycaster = new THREE.Raycaster();
+    var wpMouse = new THREE.Vector2();
+
+    function getVisibleWpSpheres() {
+        if (!routeObjects.visible) return [];
+        var out = [];
+        var routeNames = Object.keys(routeWpSpheres);
+        for (var ri = 0; ri < routeNames.length; ri++) {
+            var spheres = routeWpSpheres[routeNames[ri]];
+            for (var si = 0; si < spheres.length; si++) {
+                if (spheres[si].visible) out.push(spheres[si]);
+            }
+        }
+        return out;
+    }
+
+    // Pointer-down: start waypoint drag
+    var wpPointerDownPos = null;
+    renderer.domElement.addEventListener('pointerdown', function(e) {
+        if (!routeObjects.visible) return;
+        if (e.button !== 0) return;
+        wpPointerDownPos = { x: e.clientX, y: e.clientY };
+        wpMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        wpMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        wpRaycaster.setFromCamera(wpMouse, cam);
+        var spheres = getVisibleWpSpheres();
+        var hits = wpRaycaster.intersectObjects(spheres);
+        if (hits.length === 0) return;
+
+        var hitSphere = hits[0].object;
+        var rname = hitSphere.userData.routeName;
+        var idx = hitSphere.userData.wpIdx;
+        var isEp = hitSphere.userData.isEndpoint;
+
+        selectWaypoint(rname, idx);
+
+        if (!isEp) {
+            // Set up drag plane perpendicular to camera at waypoint world pos
+            wpDragging = true;
+            wpDragOrigin.copy(hitSphere.position);
+            var camDir = cam.getWorldDirection(new THREE.Vector3());
+            wpDragPlane.setFromNormalAndCoplanarPoint(camDir, hitSphere.position);
+            var intersectPt = new THREE.Vector3();
+            wpRaycaster.ray.intersectPlane(wpDragPlane, intersectPt);
+            wpDragOffset.subVectors(hitSphere.position, intersectPt);
+            controls.enabled = false;
+            e.stopPropagation();
+        }
+    });
+
+    renderer.domElement.addEventListener('pointermove', function(e) {
+        if (!wpDragging) return;
+        if (!selectedRoute || selectedWpIdx < 0) return;
+        wpDragMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        wpDragMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        wpRaycaster.setFromCamera(wpDragMouse, cam);
+        var intersectPt = new THREE.Vector3();
+        if (!wpRaycaster.ray.intersectPlane(wpDragPlane, intersectPt)) return;
+        var newPos = intersectPt.add(wpDragOffset);
+
+        // Axis constraints via keyboard modifier (read from current key state)
+        if (wpDragModifier === 'x') { newPos.y = wpDragOrigin.y; newPos.z = wpDragOrigin.z; }
+        else if (wpDragModifier === 'y') { newPos.x = wpDragOrigin.x; newPos.z = wpDragOrigin.z; }
+        else if (wpDragModifier === 'z') { newPos.x = wpDragOrigin.x; newPos.y = wpDragOrigin.y; }
+
+        var state = routeState[selectedRoute];
+        state.waypoints[selectedWpIdx].copy(newPos);
+        var sphere = routeWpSpheres[selectedRoute][selectedWpIdx];
+        if (sphere) sphere.position.copy(newPos);
+        buildRouteGeometry(selectedRoute);
+        updateRouteWpPanel();
+    });
+
+    renderer.domElement.addEventListener('pointerup', function(e) {
+        if (wpDragging) {
+            wpDragging = false;
+            controls.enabled = true;
+        }
+    });
+
+    // Track modifier keys for axis-constrained drag
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.shiftKey && !e.ctrlKey && !e.altKey) wpDragModifier = 'x';
+        else if (!e.shiftKey && e.ctrlKey && !e.altKey) wpDragModifier = 'y';
+        else if (!e.shiftKey && !e.ctrlKey && e.altKey) wpDragModifier = 'z';
+    });
+    document.addEventListener('keyup', function(e) {
+        if (!e.shiftKey && !e.ctrlKey && !e.altKey) wpDragModifier = null;
+    });
+
+    // Click-to-place waypoint via Add WP mode
+    var groundPlaneRoute = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    renderer.domElement.addEventListener('mouseup', function(e) {
+        if (!addWpMode) return;
+        if (!selectedRoute) { addWpMode = false; return; }
+        // Only act on quick clicks (not drags)
+        if (wpPointerDownPos && (Math.abs(e.clientX - wpPointerDownPos.x) > 5 || Math.abs(e.clientY - wpPointerDownPos.y) > 5)) return;
+
+        var m = new THREE.Vector2(
+            (e.clientX / window.innerWidth) * 2 - 1,
+            -(e.clientY / window.innerHeight) * 2 + 1
+        );
+        var rc = new THREE.Raycaster();
+        rc.setFromCamera(m, cam);
+
+        // Try to hit a visible part mesh first
+        var meshes = [];
+        var pnames = Object.keys(parts);
+        for (var pi = 0; pi < pnames.length; pi++) if (parts[pnames[pi]].visible) meshes.push(parts[pnames[pi]].mesh);
+        var hits = rc.intersectObjects(meshes);
+        var newPos;
+        if (hits.length > 0) {
+            newPos = hits[0].point.clone();
+        } else {
+            var gpt = new THREE.Vector3();
+            if (rc.ray.intersectPlane(groundPlaneRoute, gpt)) {
+                newPos = gpt.clone();
+            } else {
+                addWpMode = false;
+                document.getElementById('btn-route-add-wp').classList.remove('active');
+                return;
+            }
+        }
+
+        var state = routeState[selectedRoute];
+        var insertAfter = (selectedWpIdx >= 0) ? selectedWpIdx : state.waypoints.length - 2;
+        if (insertAfter < 0) insertAfter = 0;
+        // Clamp to not be after the last endpoint
+        var lastIdx = state.waypoints.length - 1;
+        if (insertAfter >= lastIdx) insertAfter = lastIdx - 1;
+        if (insertAfter < 0) insertAfter = 0;
+
+        var newIdx = insertAfter + 1;
+        state.waypoints.splice(newIdx, 0, newPos.clone());
+        state.isEndpoint.splice(newIdx, 0, false);
+
+        // Rebuild spheres for this route
+        rebuildRouteSpheres(selectedRoute);
+        buildRouteGeometry(selectedRoute);
+        buildRouteEditorUI();
+        selectWaypoint(selectedRoute, newIdx);
+
+        addWpMode = false;
+        var addBtn = document.getElementById('btn-route-add-wp');
+        if (addBtn) addBtn.classList.remove('active');
+    }, false);
+
+    function rebuildRouteSpheres(rname) {
+        var state = routeState[rname];
+        if (!state) return;
+        // Remove old spheres
+        var old = routeWpSpheres[rname] || [];
+        for (var i = 0; i < old.length; i++) {
+            routeObjects.remove(old[i]);
+            old[i].geometry.dispose();
+            old[i].material.dispose();
+        }
+        routeWpSpheres[rname] = [];
+        for (var si = 0; si < state.waypoints.length; si++) {
+            var isEp = state.isEndpoint[si];
+            var radius = isEp ? 1.5 : 2.5;
+            var mat;
+            if (isEp) {
+                mat = new THREE.MeshBasicMaterial({ color: 0x888888, depthTest: false, transparent: true, opacity: 0.7 });
+            } else {
+                mat = new THREE.MeshBasicMaterial({ color: state.colorInt, depthTest: false, transparent: true, opacity: 0.75 });
+            }
+            var sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 12, 12), mat);
+            sphere.position.copy(state.waypoints[si]);
+            sphere.renderOrder = 991;
+            sphere.userData.routeName = rname;
+            sphere.userData.wpIdx = si;
+            sphere.userData.isEndpoint = isEp;
+            routeWpSpheres[rname].push(sphere);
+            routeObjects.add(sphere);
+        }
+    }
+
+    // Route Editor panel buttons
+    var btnRouteEditor = document.getElementById('btn-route-editor');
+    if (btnRouteEditor) {
+        btnRouteEditor.addEventListener('click', function() {
+            var panel = document.getElementById('route-editor-panel');
+            if (panel) {
+                var vis = panel.style.display === 'block';
+                panel.style.display = vis ? 'none' : 'block';
+                this.classList.toggle('active', !vis);
+            }
+        });
+    }
+
+    var btnRoutesToggle = document.getElementById('btn-routes');
+    if (btnRoutesToggle) {
+        btnRoutesToggle.addEventListener('change', function() {
+            routeObjects.visible = this.checked;
+        });
+    }
+
+    var btnRouteAddWp = document.getElementById('btn-route-add-wp');
+    if (btnRouteAddWp) {
+        btnRouteAddWp.addEventListener('click', function() {
+            if (!selectedRoute) { alert('Select a route first.'); return; }
+            addWpMode = !addWpMode;
+            this.classList.toggle('active', addWpMode);
+            var hintEl = document.getElementById('route-wp-hint');
+            if (hintEl) hintEl.textContent = addWpMode ? 'Click in viewport to place new waypoint...' : '';
+        });
+    }
+
+    var btnRouteDelWp = document.getElementById('btn-route-del-wp');
+    if (btnRouteDelWp) {
+        btnRouteDelWp.addEventListener('click', function() {
+            if (!selectedRoute || selectedWpIdx < 0) return;
+            var state = routeState[selectedRoute];
+            if (!state) return;
+            if (state.isEndpoint[selectedWpIdx]) { alert('Cannot delete an endpoint waypoint.'); return; }
+            state.waypoints.splice(selectedWpIdx, 1);
+            state.isEndpoint.splice(selectedWpIdx, 1);
+            rebuildRouteSpheres(selectedRoute);
+            buildRouteGeometry(selectedRoute);
+            buildRouteEditorUI();
+            var newIdx = Math.min(selectedWpIdx, state.waypoints.length - 1);
+            if (newIdx >= 0) {
+                selectWaypoint(selectedRoute, newIdx);
+            } else {
+                selectedWpIdx = -1;
+                updateRouteWpPanel();
+            }
+        });
+    }
+
+    var btnRouteSave = document.getElementById('btn-route-save');
+    if (btnRouteSave) {
+        btnRouteSave.addEventListener('click', function() {
+            if (!EMBEDDED_ROUTES) { alert('No routes loaded.'); return; }
+            var output = {};
+            var routeNames = Object.keys(EMBEDDED_ROUTES);
+            for (var ri = 0; ri < routeNames.length; ri++) {
+                var rname = routeNames[ri];
+                var orig = EMBEDDED_ROUTES[rname];
+                var state = routeState[rname];
+                if (!state) { output[rname] = orig; continue; }
+                // Rebuild waypoints array in Z-up, keeping locked endpoints from original
+                var newWps = [];
+                for (var wi = 0; wi < state.waypoints.length; wi++) {
+                    newWps.push(yupToZup(state.waypoints[wi]));
+                }
+                var routeCopy = {};
+                for (var k in orig) if (orig.hasOwnProperty(k)) routeCopy[k] = orig[k];
+                routeCopy.waypoints = newWps;
+                output[rname] = routeCopy;
+            }
+            var json = JSON.stringify(output, null, 2);
+            var blob = new Blob([json], { type: 'application/json' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'tube_routes.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }
+
+    // Close button for route-editor-panel (data-closes already handled above for existing panels)
+    // Wire the route editor panel's draggability via existing makeDraggable mechanism
+    // (The panel uses the .draggable-panel class + .drag-handle so the existing loop handles it)
+
+    // Initialize routes if data is available
+    if (EMBEDDED_ROUTES && typeof EMBEDDED_ROUTES === 'object') {
+        buildRoutes();
+    } else {
+        // Show "no data" message if panel is opened
+        var noData = document.getElementById('route-no-data');
+        var editorBody = document.getElementById('route-editor-body');
+        if (noData) noData.style.display = 'block';
+        if (editorBody) editorBody.style.display = 'none';
+    }
+
 })();

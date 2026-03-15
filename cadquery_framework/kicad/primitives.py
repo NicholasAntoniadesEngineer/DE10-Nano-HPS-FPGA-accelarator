@@ -116,6 +116,25 @@ def rounded_hexagon_outline(cx, cy, r, corner_r):
     return segs
 
 
+def capsule_outline(length, width, cx=0, cy=0):
+    """Generate Edge.Cuts for a capsule (rectangle with semicircular ends).
+
+    length: total length along the long axis (x).
+    width: diameter of the semicircular ends (and height of the straight sides).
+    No sharp corners — ends are full semicircles.
+    """
+    if width >= length:
+        return rounded_rect_outline(length, width, width / 2 - 0.01, cx, cy)
+    r = width / 2
+    half_rect = (length - width) / 2
+    segs = []
+    segs.append(("arc", cx - half_rect, cy, r, 90, 270))
+    segs.append(("line", cx - half_rect, cy - r, cx + half_rect, cy - r))
+    segs.append(("arc", cx + half_rect, cy, r, 270, 90))
+    segs.append(("line", cx + half_rect, cy + r, cx - half_rect, cy + r))
+    return segs
+
+
 def rotated_rect_outline(w, h, cx, cy, angle_deg):
     """Generate Edge.Cuts lines for a rotated rectangle."""
     hw, hh = w / 2, h / 2

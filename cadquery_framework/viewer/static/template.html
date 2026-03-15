@@ -87,6 +87,8 @@
     <div class="ctrl" title="Color of selected component"><span>Color:</span><input type="color" id="color-picker" value="#8ecae6"></div>
     <button class="btn" id="btn-shortcuts" title="View keyboard and mouse shortcuts">Shortcuts</button>
     <label class="btn toolbar-toggle" style="gap:4px;" title="Show/hide anchor points"><input type="checkbox" id="btn-anchors" style="accent-color:#8ecae6;cursor:pointer;"> Anchors</label>
+    <label class="btn toolbar-toggle" style="gap:4px;" title="Show/hide tube routes"><input type="checkbox" id="btn-routes" style="accent-color:#8ecae6;cursor:pointer;"> Routes</label>
+    <button class="btn" id="btn-route-editor" title="Open Route Editor">Route Editor</button>
 </div>
 
 <div id="parts-list">
@@ -319,8 +321,39 @@ window.__VIEWER_PARTS = "__PARTS_JSON__";
 window.__VIEWER_KICAD = "__KICAD_JSON__";
 window.__VIEWER_CONSTRAINTS = "__CONSTRAINTS_JSON__";
 window.__VIEWER_BUILD_RESULT = "__BUILD_RESULT_JSON__";
+window.__VIEWER_ROUTES = "__ROUTES_JSON__";
 window.__OVERLAY_SAVE_HINT = "__OVERLAY_SAVE_HINT__";
 </script>
+
+<div id="route-editor-panel" class="draggable-panel" style="display:none;min-width:260px;max-width:340px;">
+    <div class="drag-handle"><span class="title">Route Editor</span><button class="close-btn" data-closes="route-editor-panel">&times;</button></div>
+    <div class="panel-body">
+        <div id="route-no-data" style="color:#888;font-size:11px;display:none;">No routes loaded. Inject <code>window.__VIEWER_ROUTES</code> to enable.</div>
+        <div id="route-editor-body">
+            <div id="route-list-section" style="margin-bottom:8px;"></div>
+            <div style="border-top:1px solid rgba(142,202,230,0.15);margin:6px 0;"></div>
+            <div id="route-wp-section" style="display:none;">
+                <div style="font-size:11px;color:#8ecae6;font-weight:600;margin-bottom:4px;" id="route-wp-route-name">Route: —</div>
+                <div style="font-size:11px;color:#aaa;margin-bottom:4px;" id="route-wp-label">WP —: X=— Y=— Z=—</div>
+                <div class="dm-row" style="gap:4px;flex-wrap:wrap;">
+                    <span class="dm-label" style="min-width:14px;">X</span>
+                    <input type="number" id="route-wp-x" step="0.1" style="width:62px;" title="Waypoint X (viewer coords)">
+                    <span class="dm-label" style="min-width:14px;">Y</span>
+                    <input type="number" id="route-wp-y" step="0.1" style="width:62px;" title="Waypoint Y (viewer coords)">
+                    <span class="dm-label" style="min-width:14px;">Z</span>
+                    <input type="number" id="route-wp-z" step="0.1" style="width:62px;" title="Waypoint Z (viewer coords)">
+                </div>
+                <div style="display:flex;gap:4px;margin-top:6px;">
+                    <button class="dm-btn" id="btn-route-add-wp" style="flex:1;" title="Insert new waypoint after selected">Add WP</button>
+                    <button class="dm-btn" id="btn-route-del-wp" style="flex:1;" title="Delete selected waypoint">Del WP</button>
+                </div>
+                <div style="font-size:10px;color:#888;margin-top:4px;" id="route-wp-hint"></div>
+            </div>
+            <div style="border-top:1px solid rgba(142,202,230,0.15);margin:6px 0;"></div>
+            <button class="dm-btn" id="btn-route-save" style="width:100%;" title="Download updated tube_routes.json">Save Routes</button>
+        </div>
+    </div>
+</div>
 
 <!-- __INLINE_JS__ -->
 </body>
