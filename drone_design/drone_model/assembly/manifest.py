@@ -622,8 +622,7 @@ def _route_tubing(manifest_entries):
     wp_feed = [
         pump_out,
         (edge_x, pump_out[1], pump_out[2]),           # +X to plate edge at outlet Z
-        (edge_x, boom_y_off, pump_out[2]),            # swing +Y to boom side
-        (edge_x, boom_y_off, plate_z + clr),          # rise at plate edge
+        (edge_x, boom_y_off, boom_root[2]),            # swing +Y to boom side, rise to boom Z
         (boom_root[0], boom_y_off, boom_root[2]),      # follow boom
         (nozzle[0] - 5, boom_y_off, nozzle[2]),        # approach nozzle
         nozzle,
