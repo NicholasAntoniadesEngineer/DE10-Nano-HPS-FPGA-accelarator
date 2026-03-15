@@ -605,14 +605,19 @@ def _route_tubing(manifest_entries):
     res_min_y = res_pos[1] - RES_L / 2 - clr  # -Y clearance past reservoir edge
 
     # --- Reservoir outlet → Pump inlet ---
-    # Route: exit barb on +Y face at res_out Z, run -Y past reservoir -Y edge,
-    # then step across to pump X at pump inlet Z, continue -Y to approach, enter.
+    # Route (all orthogonal steps):
+    #   1. Exit barb: run -Y at res X and res Z, past reservoir -Y edge
+    #   2. Drop Z: at res X and res_min_y, drop to pump inlet Z
+    #   3. Step +X: at pump inlet Z and res_min_y, across to pump X
+    #   4. Run -Y: at pump X and pump inlet Z, to outside bracket approach
+    #   5. Enter: horizontally into pump inlet stub
     wp_res_pump = [
         res_out,
-        (res_out[0], res_min_y, res_out[2]),            # run -Y past reservoir edge
-        (pump_in[0], res_min_y, pump_in[2]),            # step to pump X, drop to inlet Z
-        (pump_in[0], approach_y, pump_in[2]),            # run -Y outside bracket
-        pump_in,                                         # enter horizontally
+        (res_out[0], res_min_y, res_out[2]),            # 1. run -Y past reservoir edge
+        (res_out[0], res_min_y, pump_in[2]),            # 2. drop Z to pump inlet level
+        (pump_in[0], res_min_y, pump_in[2]),            # 3. step +X to pump X
+        (pump_in[0], approach_y, pump_in[2]),            # 4. run -Y outside bracket
+        pump_in,                                         # 5. enter pump inlet stub
     ]
 
     # --- Pump outlet → Drip nozzle ---
@@ -669,8 +674,11 @@ def _route_tubing(manifest_entries):
         all_allowed.add(frozenset({e1[0]["name"], "reservoir"}))    # exits res barb
         all_allowed.add(frozenset({e1[-1]["name"], "pump"}))        # enters pump inlet stub
         all_allowed.add(frozenset({e1[-1]["name"], "pump_bracket"}))  # tube passes through bracket channel
-        # Approach segment runs along pump body exterior before entering inlet stub
-        all_allowed.add(frozenset({"tube_rp_s2", "pump"}))
+        # Last two pieces before pump inlet: approach segment + its joint touch pump body
+        if len(e1) >= 2:
+            all_allowed.add(frozenset({e1[-2]["name"], "pump"}))
+        if len(e1) >= 3:
+            all_allowed.add(frozenset({e1[-3]["name"], "pump"}))
     if e2:
         all_allowed.add(frozenset({e2[0]["name"], "pump"}))         # exits pump outlet stub
         all_allowed.add(frozenset({e2[0]["name"], "pump_bracket"}))   # tube passes through bracket channel
