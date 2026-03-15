@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__PAGE_TITLE__</title>
+<!-- __INLINE_CSS__ -->
+</head>
+<body>
+
+<div id="toolbar">
+    <h1>__TOOLBAR_TITLE__</h1>
+    <div class="sep"></div>
+
+    <label class="btn" for="file-input">+ Add STL</label>
+    <input type="file" id="file-input" accept=".stl" multiple>
+
+    <div class="dropdown" id="dd-view">
+        <button class="dropdown-btn">View</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item" id="btn-wireframe">Wireframe</div>
+            <div class="dropdown-item" id="btn-axes">Axes</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-reset">Reset View</div>
+            <div class="dropdown-item" id="btn-center">Fit All</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-bg-dark">Background: Dark</div>
+            <div class="dropdown-item" id="btn-bg-mid">Background: Mid</div>
+            <div class="dropdown-item" id="btn-bg-light">Background: Light</div>
+        </div>
+    </div>
+
+    <div class="dropdown" id="dd-edit">
+        <button class="dropdown-btn">Edit</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item" id="btn-move">Move <span class="shortcut">G</span></div>
+            <div class="dropdown-item" id="btn-rotate">Rotate <span class="shortcut">R</span></div>
+            <div class="dropdown-item" id="btn-snap-settings">Snap Settings...</div>
+            <div class="dropdown-item" id="btn-dir-move">Directional Move...</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-reset-part">Reset Part</div>
+            <div class="dropdown-item" id="btn-delete-all" style="color:#ff6666;">Delete All</div>
+        </div>
+    </div>
+
+    <div class="dropdown" id="dd-export">
+        <button class="dropdown-btn">Export</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item" id="btn-export-pos">Export Positions</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-save-config">Save Configuration</div>
+            <div class="dropdown-item" id="btn-load-config">Load Configuration</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-kicad">KiCad PCB Files</div>
+        </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="ctrl"><span>Color:</span><input type="color" id="color-picker" value="#8ecae6"></div>
+    <button class="btn" id="btn-shortcuts">Shortcuts</button>
+    <div class="sep"></div>
+    <label class="btn" style="gap:4px;"><input type="checkbox" id="btn-anchors" style="accent-color:#8ecae6;cursor:pointer;"> Anchors</label>
+</div>
+
+<div id="parts-list">
+    <div class="sidebar-header">
+        <span class="sidebar-header-text">Components</span>
+        <button class="sidebar-toggle" id="sidebar-toggle" title="Collapse sidebar">&laquo;</button>
+    </div>
+    <div id="parts-container"></div>
+    <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
+</div>
+
+<div id="loading"><div class="spinner"></div><div id="loading-msg">__LOADING_MESSAGE__</div></div>
+<div id="drop-zone">Drop STL files here</div>
+<div id="canvas-container"></div>
+
+<div id="keymap-panel" class="draggable-panel">
+    <div class="drag-handle"><span class="title">Shortcuts</span><button class="close-btn" data-closes="keymap-panel">&times;</button></div>
+    <div class="panel-body">
+        <h4>Mouse</h4>
+        <div class="km-row"><span><span class="key">LMB</span> drag</span> <span class="km-desc">Orbit camera</span></div>
+        <div class="km-row"><span><span class="key">RMB</span> drag</span> <span class="km-desc">Pan camera</span></div>
+        <div class="km-row"><span><span class="key">Scroll</span></span> <span class="km-desc">Zoom in/out</span></div>
+        <div class="km-row"><span><span class="key">Click</span></span> <span class="km-desc">Select part</span></div>
+        <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
+        <h4>Keyboard</h4>
+        <div class="km-row"><span><span class="key">G</span></span> <span class="km-desc">Move mode</span></div>
+        <div class="km-row"><span><span class="key">R</span></span> <span class="km-desc">Rotate mode</span></div>
+        <div class="km-row"><span><span class="key">Esc</span></span> <span class="km-desc">Deselect / cancel</span></div>
+        <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
+        <h4>Other</h4>
+        <div class="km-row"><span><span class="key">Drop</span> files</span> <span class="km-desc">Add STL models</span></div>
+    </div>
+</div>
+
+<div id="snap-panel" class="draggable-panel">
+    <div class="drag-handle"><span class="title">Snap Settings</span><button class="close-btn" data-closes="snap-panel">&times;</button></div>
+    <div class="panel-body">
+        <div class="snap-toggle">
+            <input type="checkbox" id="snap-enabled">
+            <label for="snap-enabled">Enable Snap</label>
+        </div>
+        <div class="snap-row">
+            <span class="snap-label">Translation (mm)</span>
+            <select id="snap-translate">
+                <option value="0.5">0.5</option>
+                <option value="1">1.0</option>
+                <option value="2">2.0</option>
+                <option value="5" selected>5.0</option>
+                <option value="10">10.0</option>
+                <option value="25">25.0</option>
+            </select>
+        </div>
+        <div class="snap-row">
+            <span class="snap-label">Rotation (deg)</span>
+            <select id="snap-rotate">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="15" selected>15</option>
+                <option value="30">30</option>
+                <option value="45">45</option>
+                <option value="90">90</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div id="dir-move-panel" class="draggable-panel">
+    <div class="drag-handle"><span class="title">Directional Move</span><button class="close-btn" data-closes="dir-move-panel">&times;</button></div>
+    <div class="panel-body">
+        <div class="dm-row">
+            <span class="dm-label">Azimuth</span>
+            <input type="number" class="dm-input" id="dm-azimuth" value="0" min="0" max="360" step="5">
+            <span class="dm-unit">&deg;</span>
+        </div>
+        <div class="dm-row">
+            <span class="dm-label">Elevation</span>
+            <input type="number" class="dm-input" id="dm-elevation" value="0" min="-90" max="90" step="5">
+            <span class="dm-unit">&deg;</span>
+        </div>
+        <div class="dm-row">
+            <span class="dm-label">Distance</span>
+            <input type="number" class="dm-input" id="dm-distance" value="10" min="0" step="1">
+            <span class="dm-unit">mm</span>
+        </div>
+        <div class="dm-vec" id="dm-vec-display">Direction: (0.00, 0.00, 1.00)</div>
+        <button class="dm-btn" id="dm-apply">Apply Move</button>
+        <div class="dm-divider"></div>
+        <button class="dm-pick-btn" id="dm-pick-dir">Pick Direction from Two Points</button>
+        <div class="dm-vec" id="dm-pick-status" style="color:#888;">Click two points in scene to define direction</div>
+    </div>
+</div>
+
+<div id="cursor-coords" class="draggable-panel">
+    <div class="drag-handle"><span class="title" style="font-size:9px;">Cursor (mm)</span></div>
+    <div class="panel-body">
+        <div class="cline"><span class="caxis">X:</span> <span class="cval" id="coord-x">---</span></div>
+        <div class="cline"><span class="caxis">Y:</span> <span class="cval" id="coord-y">---</span></div>
+        <div class="cline"><span class="caxis">Z:</span> <span class="cval" id="coord-z">---</span></div>
+    </div>
+</div>
+
+<div id="selection-panel">
+    <h3 id="sel-title">Component</h3>
+    <div class="sel-section">
+        <div class="sel-section-title">Specifications</div>
+        <div class="sel-row"><span class="sel-label">Material:</span> <span class="sel-value" id="sel-material">-</span></div>
+        <div class="sel-row"><span class="sel-label">Dimensions:</span> <span class="sel-value" id="sel-dims">-</span></div>
+        <div class="sel-row"><span class="sel-label">Mass:</span> <span class="sel-value sel-highlight" id="sel-mass">-</span></div>
+        <div class="sel-row"><span class="sel-label">Qty/drone:</span> <span class="sel-value" id="sel-qty">-</span></div>
+        <div class="sel-row"><span class="sel-label">Supplier:</span> <span class="sel-value" id="sel-supplier">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Notes</div>
+        <div class="sel-row" style="flex-direction:column"><span class="sel-value" id="sel-notes" style="word-wrap:break-word;white-space:normal;line-height:1.5">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Interface</div>
+        <div class="sel-row" style="flex-direction:column"><span class="sel-value" id="sel-iface" style="word-wrap:break-word;white-space:normal;line-height:1.5">-</span></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Geometry</div>
+        <div class="sel-row"><span class="sel-label">Triangles:</span> <span class="sel-value" id="sel-tris">-</span></div>
+        <div class="sel-row"><span class="sel-label">File size:</span> <span class="sel-value" id="sel-fsize">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox size:</span> <span class="sel-value" id="sel-bbox">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox min:</span> <span class="sel-value" id="sel-min">-</span></div>
+        <div class="sel-row"><span class="sel-label">Bbox max:</span> <span class="sel-value" id="sel-max">-</span></div>
+        <div class="sel-row"><span class="sel-label">Center:</span> <span class="sel-value" id="sel-center">-</span></div>
+    </div>
+    <div class="sel-section" id="sel-transform-section">
+        <div class="sel-section-title">Transform (viewer coords)</div>
+        <div class="tf-row"><span class="tf-label">X:</span><input type="number" step="0.5" class="sel-input" id="tf-px"> <span class="tf-label">RX:</span><input type="number" step="5" class="sel-input" id="tf-rx"></div>
+        <div class="tf-row"><span class="tf-label">Y:</span><input type="number" step="0.5" class="sel-input" id="tf-py"> <span class="tf-label">RY:</span><input type="number" step="5" class="sel-input" id="tf-ry"></div>
+        <div class="tf-row"><span class="tf-label">Z:</span><input type="number" step="0.5" class="sel-input" id="tf-pz"> <span class="tf-label">RZ:</span><input type="number" step="5" class="sel-input" id="tf-rz"></div>
+    </div>
+    <div class="sel-section">
+        <div class="sel-section-title">Click Point</div>
+        <div class="sel-row"><span class="sel-label">Position:</span> <span class="sel-value" id="sel-pos">-</span></div>
+        <div class="sel-row"><span class="sel-label">Normal:</span> <span class="sel-value" id="sel-normal">-</span></div>
+        <div class="sel-row"><span class="sel-label">From origin:</span> <span class="sel-value sel-highlight" id="sel-dist">-</span></div>
+    </div>
+    <div class="sel-section" id="sel-anchors-section">
+        <div class="sel-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+            Anchors <span class="sel-value" id="sel-anchor-count" style="font-size:10px;color:#888;">0</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;margin:4px 0 6px;cursor:pointer;font-size:11px;color:#999;">
+            <input type="checkbox" id="sel-anchors-toggle" style="accent-color:#ff4444;cursor:pointer;"> Show part anchors
+        </label>
+        <div id="sel-anchor-list"></div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script id="data-injection">
+window.__VIEWER_PARTS = "__PARTS_JSON__";
+window.__VIEWER_KICAD = "__KICAD_JSON__";
+window.__VIEWER_CONSTRAINTS = "__CONSTRAINTS_JSON__";
+</script>
+
+<!-- __INLINE_JS__ -->
+</body>
+</html>

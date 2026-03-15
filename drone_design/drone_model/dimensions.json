@@ -1,0 +1,348 @@
+{
+    "_meta": {
+        "description": "Single source of truth for all drone dimensions. The 3D model (modeling/drone_3d_model.py) reads directly from this file. Edit values here \u2014 the model and exports will reflect changes automatically.",
+        "units": "mm (all dimensions), degrees (all angles)",
+        "version": "2.0.0",
+        "design_class": "170mm quad, 4-inch props, ~703g AUW, ~6.5min flight (loaded), 27.2cm wingspan"
+    },
+    "frame": {
+        "_doc": "Main frame plates \u2014 JLCPCB FR4 PCB. Sized to accommodate DE10-Nano (108mm) mounting holes with 5mm edge margin.",
+        "plate_size": 110.0,
+        "plate_corner_radius": 2.0,
+        "bottom_plate_thickness": 2.0,
+        "top_plate_thickness": 1.6,
+        "plate_spacing": 55.0,
+        "arm_slot_width": 1.7,
+        "arm_slot_length": 20.0
+    },
+    "arms": {
+        "_doc": "Motor arms \u2014 1.6mm FR4, I-beam profile. Motor-to-motor diagonal 170mm (4-inch prop class). Arms are short stubs extending from plate corners to motor mounts.",
+        "motor_to_motor_diagonal": 170.0,
+        "arm_tab": 20.0,
+        "arm_width": 12.0,
+        "arm_thickness": 1.6,
+        "arm_flange_width": 3.0,
+        "arm_web_width": 2.0,
+        "motor_mount_section_length": 18.0,
+        "mount_flange_length": 15.0,
+        "overlap_length": 15.0,
+        "mount_row_offset": 3.5,
+        "arm_angles_deg": [
+            45,
+            135,
+            225,
+            315
+        ]
+    },
+    "landing_gear": {
+        "_doc": "L-shaped landing legs \u2014 2.0mm FR4. 50mm height provides 10mm+ ground clearance for all underslung components.",
+        "leg_width": 12.0,
+        "leg_height": 50.0,
+        "leg_thickness": 2.0,
+        "foot_length": 20.0,
+        "foot_thickness": 2.0,
+        "mounting_tab_depth": 8.0,
+        "mounting_tab_thickness": 2.0,
+        "leg_angles_deg": [
+            0,
+            90,
+            180,
+            270
+        ],
+        "lightening_hole_width": 5.0,
+        "lightening_hole_height": 10.0,
+        "lightening_hole_end_radius": 2.5,
+        "lightening_hole_count": 2
+    },
+    "motor": {
+        "_doc": "2004-class brushless motor (e.g. iFlight XING2 2004 1800KV) \u2014 efficient long-range 4-inch motor, ~16g",
+        "bell_outer_diameter": 24.0,
+        "body_height": 16.0,
+        "shaft_diameter": 2.0,
+        "shaft_protrusion": 2.0,
+        "base_plate_diameter": 20.0,
+        "mount_bolt_pattern": [
+            12.0,
+            16.0
+        ],
+        "stator_diameter": 20.0,
+        "stator_height": 4.0,
+        "bell_wall_thickness": 1.0,
+        "prop_adapter_diameter": 6.0,
+        "prop_adapter_height": 4.0,
+        "detailed": {
+            "stator_tooth_count": 12,
+            "stator_tooth_width": 3.5,
+            "stator_tooth_depth": 5.0,
+            "vent_slot_count": 6,
+            "vent_slot_width": 3.0,
+            "vent_slot_height": 8.0,
+            "bearing_bore_diameter": 8.0,
+            "bearing_bore_depth": 3.0,
+            "wire_terminal_count": 3,
+            "wire_diameter": 1.5,
+            "prop_adapter_diameter": 6.0,
+            "prop_adapter_height": 4.0
+        }
+    },
+    "propeller": {
+        "_doc": "GemFan 4024 \u2014 4x2.4 inch, 2-blade. Low-pitch for hover efficiency.",
+        "diameter": 102.0,
+        "hub_diameter": 10.0,
+        "hub_height": 6.0,
+        "blade_width": 14.0,
+        "blade_thickness": 1.5,
+        "blade_tip_chord": 7.0,
+        "blade_root_chord": 12.0,
+        "blade_max_chord": 14.0,
+        "blade_max_chord_station": 0.35,
+        "detailed": {
+            "blade_count": 2,
+            "airfoil_max_thickness_ratio": 0.08,
+            "twist_root_deg": 25.0,
+            "twist_tip_deg": 10.0,
+            "hub_knurl_count": 12,
+            "hub_knurl_depth": 0.3
+        }
+    },
+    "esc": {
+        "_doc": "15A BLHeli_32 ESC \u2014 micro variant for 4-inch builds",
+        "length": 22.0,
+        "width": 13.0,
+        "height": 3.0,
+        "solder_pad_length": 3.0,
+        "solder_pad_width": 2.5,
+        "solder_pad_height": 1.5,
+        "solder_pad_count": 6
+    },
+    "de10_nano": {
+        "_doc": "Terasic DE10-Nano FPGA board \u2014 from User Manual + Intel mechanical layout (FIXED, cannot change)",
+        "board_width": 68.58,
+        "board_length": 107.95,
+        "pcb_thickness": 1.6,
+        "tallest_component_height": 17.0,
+        "standoff_height": 24.0,
+        "gpio_header_length": 50.8,
+        "gpio_header_width": 5.08,
+        "gpio_header_height": 8.5,
+        "heatsink_width": 40.0,
+        "heatsink_length": 40.0,
+        "heatsink_height": 8.0,
+        "mounting_hole_diameter": 3.2,
+        "mounting_hole_inset": 4.0,
+        "detailed": {
+            "fpga_package_width": 23.0,
+            "fpga_package_length": 23.0,
+            "fpga_package_height": 2.5,
+            "hps_package_width": 15.0,
+            "hps_package_length": 15.0,
+            "hps_package_height": 1.5,
+            "button_count": 2,
+            "button_diameter": 4.0,
+            "button_height": 2.5,
+            "led_count": 8,
+            "led_width": 2.0,
+            "led_length": 1.0,
+            "led_height": 1.0,
+            "sdcard_slot_width": 12.0,
+            "sdcard_slot_length": 15.0,
+            "sdcard_slot_height": 2.5
+        },
+        "_connector_doc": "Positions from Intel mechanical layout (x along 107mm length, y along 68.6mm width). CadQuery transform: cq_x = intel_y - board_width/2, cq_y = intel_x - board_length/2.",
+        "connectors": {
+            "gpio0": {
+                "_doc": "2x20 pin GPIO header (active position is pin 1 corner)",
+                "intel_x": 20.05,
+                "intel_y": 61.34,
+                "width": 5.08,
+                "length": 50.8,
+                "height": 8.5
+            },
+            "gpio1": {
+                "_doc": "2x20 pin GPIO header",
+                "intel_x": 20.05,
+                "intel_y": 0.89,
+                "width": 5.08,
+                "length": 50.8,
+                "height": 8.5
+            },
+            "hdmi": {
+                "_doc": "HDMI Type-A connector",
+                "intel_x": 0.42,
+                "intel_y": 36.46,
+                "width": 15.0,
+                "length": 11.5,
+                "height": 6.5
+            },
+            "usb_otg": {
+                "_doc": "Micro-USB OTG connector",
+                "intel_x": 101.96,
+                "intel_y": 53.98,
+                "width": 8.0,
+                "length": 5.5,
+                "height": 3.0
+            },
+            "ethernet": {
+                "_doc": "RJ45 Ethernet jack",
+                "intel_x": 93.08,
+                "intel_y": 16.75,
+                "width": 16.0,
+                "length": 14.0,
+                "height": 13.5
+            },
+            "barrel_jack": {
+                "_doc": "5V DC barrel jack power connector",
+                "intel_x": 2.79,
+                "intel_y": 53.47,
+                "width": 9.0,
+                "length": 11.0,
+                "height": 11.0
+            }
+        }
+    },
+    "daughter_board": {
+        "_doc": "Custom daughter board \u2014 sensor hub, level shifters, power regulation. Sized to cover DE10-Nano GPIO headers.",
+        "width": 72.0,
+        "length": 80.0,
+        "pcb_thickness": 1.6,
+        "gap_above_de10": 24.0
+    },
+    "battery": {
+        "_doc": "4S 1300mAh 75C LiPo \u2014 compact pack for 5-10min flight with docking station recharge. Rotated 90deg in assembly (long axis along Y) to clear reservoir.",
+        "length": 70.0,
+        "width": 34.0,
+        "height": 27.0,
+        "cg_offset_x": -27.0,
+        "xt60_width": 16.0,
+        "xt60_height": 8.0,
+        "xt60_depth": 10.0,
+        "corner_radius": 3.0
+    },
+    "reservoir": {
+        "_doc": "TPU collapsible 200ml water reservoir with outlet barb",
+        "width": 40.0,
+        "length": 70.0,
+        "height": 35.0,
+        "offset_x": 28.0,
+        "fillet_radius": 5.0,
+        "outlet_barb_od": 6.0,
+        "outlet_barb_length": 10.0
+    },
+    "pump": {
+        "_doc": "Takasago RP-Q1 ring-drive peristaltic pump \u2014 3V DC, 0.2-3.0 ml/min, 11g. Rectangular body, no mounting holes (uses clip bracket). Tubes exit top of pump head end, wires exit rear.",
+        "body_length": 31.5,
+        "body_width": 11.9,
+        "body_height": 13.9,
+        "corner_radius": 1.0,
+        "tube_od": 2.5,
+        "tube_id": 1.5,
+        "tube_exit_length": 8.0,
+        "tube_spacing": 4.5,
+        "tube_exit_inset_from_front": 7.5,
+        "wire_diameter": 1.0,
+        "wire_exit_length": 5.0
+    },
+    "pump_bracket": {
+        "_doc": "Friction-fit clip bracket for Takasago RP-Q1 \u2014 1.6mm FR4 U-channel with zip-tie slots, bolts to bottom plate",
+        "channel_length": 20.0,
+        "wall_height": 8.0,
+        "thickness": 1.6,
+        "base_extension": 4.0,
+        "zip_slot_width": 3.0,
+        "zip_slot_height": 1.5,
+        "frame_hole_diameter": 2.2,
+        "frame_hole_inset": 3.0
+    },
+    "drip_nozzle": {
+        "_doc": "Adjustable drip irrigation emitter with boom-tip mounting flange",
+        "body_diameter": 10.0,
+        "body_height": 8.0,
+        "cone_top_diameter": 8.0,
+        "cone_tip_diameter": 3.0,
+        "cone_height": 15.0,
+        "barb_od": 6.0,
+        "barb_id": 3.0,
+        "barb_length": 8.0,
+        "flange_width": 20.0,
+        "flange_depth": 12.0,
+        "flange_thickness": 2.0,
+        "flange_hole_diameter": 2.2,
+        "flange_hole_spacing": 14.0
+    },
+    "tof_sensor": {
+        "_doc": "VL53L1X ToF sensor on Pololu carrier #3415",
+        "board_width": 12.7,
+        "board_length": 17.8,
+        "board_height": 1.2,
+        "sensor_module_height": 2.5,
+        "mounting_hole_diameter": 2.2,
+        "mounting_hole_spacing_x": 7.62,
+        "mounting_hole_spacing_y": 12.7,
+        "pin_header_width": 2.54,
+        "pin_header_length": 12.7,
+        "pin_header_height": 2.5
+    },
+    "camera": {
+        "_doc": "OV5640 DVP camera \u2014 ALINX AN5640 form factor",
+        "adapter_pcb_width": 24.0,
+        "adapter_pcb_length": 35.0,
+        "adapter_pcb_thickness": 1.6,
+        "lens_barrel_diameter": 10.0,
+        "lens_barrel_height": 8.0,
+        "fpc_connector_width": 20.0,
+        "fpc_connector_height": 3.0
+    },
+    "nose_boom": {
+        "_doc": "Forward PCB boom arm for watering nozzle \u2014 FR4 I-beam, two-section modular",
+        "length": 140.0,
+        "width": 12.0,
+        "thickness": 1.6,
+        "flange_width": 3.0,
+        "web_width": 2.0,
+        "overlap_length": 15.0,
+        "root_usable_length": 55.0
+    },
+    "connections": {
+        "_doc": "Male-to-male 2.54mm pin header connections between PCB sections.",
+        "header_pitch": 2.54,
+        "header_hole_diameter": 1.0,
+        "header_pad_diameter": 1.7,
+        "arm_header_pins_per_side": 12,
+        "arm_header_offset_from_slot": 3.5,
+        "leg_header_pins": 4,
+        "leg_header_inset": 3.0,
+        "boom_header_pins": 4,
+        "boom_header_inset": 3.0,
+        "bracket_hole_diameter": 2.2,
+        "bracket_hole_count": 4
+    },
+    "daughter_board_mounting": {
+        "_doc": "Daughter board mounting \u2014 matches DE10-Nano M2.5 hole pattern + GPIO header receptacles",
+        "mounting_hole_diameter": 2.7,
+        "mounting_hole_inset": 4.0,
+        "gpio_receptacle_rows": 2,
+        "gpio_receptacle_cols": 20,
+        "gpio_receptacle_pitch": 2.54
+    },
+    "camera_mounting": {
+        "_doc": "OV5640 adapter PCB mounting holes",
+        "mounting_hole_diameter": 2.2,
+        "mounting_hole_inset_x": 3.0,
+        "mounting_hole_inset_y": 4.0
+    },
+    "assembly": {
+        "_doc": "Assembly-level placement parameters and derived geometry",
+        "esc_radial_fraction": 0.55,
+        "kagome_cell_size": 12.0,
+        "kagome_hole_radius": 4.0,
+        "kagome_min_web": 3.0,
+        "kagome_fillet_radius": 2.0,
+        "underslung_gap": 5.0,
+        "reservoir_offset_y": 0.0,
+        "pump_bracket_offset_x": 35.0,
+        "pump_bracket_offset_y": -46.0,
+        "camera_boom_offset": 25.0,
+        "battery_rotation_deg": 0.0,
+        "arm_z_above_bottom": 7.0
+    }
+}

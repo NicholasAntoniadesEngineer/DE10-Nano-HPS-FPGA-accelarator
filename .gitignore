@@ -22,6 +22,7 @@ incremental_db/
 *.qarlog
 *.html
 !drone_design/**/*.html
+!cadquery_framework/**/*.html
 *.csv
 *.txt.user
 
@@ -258,6 +259,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+venv/
 
 # ============================================================================
 # Build Artifacts Summary
