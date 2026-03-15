@@ -405,7 +405,7 @@
         "kagome_hole_radius": 4.0,
         "kagome_min_web": 3.0,
         "kagome_fillet_radius": 2.0,
-        "underslung_gap": 3.0,
+        "underslung_gap": 1.0,
         "reservoir_extra_drop": 15.0,
         "pump_y_rotation_deg": 90.0,
         "reservoir_offset_y": 0.0,
