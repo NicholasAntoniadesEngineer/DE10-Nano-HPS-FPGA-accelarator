@@ -335,7 +335,7 @@ def _make_detailed():
         .circle(jack_r)
         .extrude(c["length"])
     )
-    jack_body = jack_body.translate((0, cy - c["length"] / 2, 0))
+    jack_body = jack_body.translate((0, cy + c["length"] / 2, 0))
     # Bore hole
     jack_bore = (
         cq.Workplane("XZ")
@@ -343,7 +343,7 @@ def _make_detailed():
         .circle(jack_r * 0.45)
         .extrude(c["length"])
     )
-    jack_bore = jack_bore.translate((0, cy - c["length"] / 2, 0))
+    jack_bore = jack_bore.translate((0, cy + c["length"] / 2, 0))
     board = board.union(jack_body).cut(jack_bore)
 
     return board

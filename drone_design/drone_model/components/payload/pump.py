@@ -74,7 +74,7 @@ def make_pump():
             .center(dx, BODY_H / 2)
             .circle(WIRE_D / 2)
             .extrude(WIRE_LEN)
-            .translate((0, -BODY_L / 2 - WIRE_LEN, 0))
+            .translate((0, -BODY_L / 2, 0))
         )
         body = body.union(wire)
 

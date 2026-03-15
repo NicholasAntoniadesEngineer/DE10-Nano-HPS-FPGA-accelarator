@@ -52,12 +52,14 @@ def make_reservoir():
     )
 
     # Outlet barb on +Y face at mid-height
+    # XZ workplane normal is -Y, so extrude goes -Y. We translate so the barb
+    # protrudes OUTSIDE the body (+Y face at Y=RES_L/2).
     barb = (
         cq.Workplane("XZ")
         .center(0, RES_H / 2)
         .circle(BARB_OD / 2)
         .extrude(BARB_L)
-        .translate((0, RES_L / 2, 0))
+        .translate((0, RES_L / 2 + BARB_L, 0))
     )
 
     # Fill port on top face (8mm diameter cap, 5mm tall, offset to -X side)
