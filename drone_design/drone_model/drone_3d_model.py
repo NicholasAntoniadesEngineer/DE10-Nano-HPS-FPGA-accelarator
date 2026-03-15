@@ -19,6 +19,7 @@ Output:
 """
 
 import sys
+import json
 import base64
 from pathlib import Path
 from datetime import datetime
@@ -129,6 +130,9 @@ def main():
             for kf in sorted(gerber_dir.glob("*.kicad_pcb")):
                 kicad_files[kf.name] = base64.b64encode(kf.read_bytes()).decode("ascii")
 
+        routes_path = _DRONE_MODEL_DIR / "tube_routes.json"
+        routes_data = json.loads(routes_path.read_text()) if routes_path.exists() else None
+
         export_assembly(
             manifest=manifest,
             output_dir=output_dir,
@@ -141,6 +145,7 @@ def main():
             verbose=verbose,
             constraints=constraints,
             validation=validation,
+            routes_data=routes_data,
             overlay_save_hint=(
                 "Parametric modifications (fillet/chamfer/cut) only apply after you:\n\n"
                 "1. Save the downloaded file as viewer_overlay.json in:\n   drone_design/drone_model/output/\n\n"

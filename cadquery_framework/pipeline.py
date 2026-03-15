@@ -106,7 +106,7 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
                     toolbar_title="3D Viewer", loading_message="Loading model...",
                     allowed_pairs=None, kicad_files=None, individual_parts=None,
                     verbose=False, constraints=None, validation=None,
-                    overlay_save_hint=None):
+                    overlay_save_hint=None, routes_data=None):
     """Full export pipeline: build, collision check, STL export, viewer generation.
 
     Collision check is blocking: if any overlaps remain (after filtering)
@@ -236,6 +236,8 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
         viewer_kwargs["constraints"] = constraints
     if overlay_save_hint is not None:
         viewer_kwargs["overlay_save_hint"] = overlay_save_hint
+    if routes_data is not None:
+        viewer_kwargs["routes_data"] = routes_data
     generate_viewer_html(viewer_parts, viewer_path, **viewer_kwargs)
 
     # Summary
