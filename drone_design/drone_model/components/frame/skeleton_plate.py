@@ -303,51 +303,54 @@ def make_skeleton_plate(thick, is_bottom=True):
         # ToF bracket mounting on top plate.
         # Front/back brackets at Y=±45 fall INSIDE the central cutout (±49),
         # so we add material tabs + bridges at those positions.
-        # Left/right brackets at X=±45 are outside cutout (±36.3) — solid material.
+        # Drone orientation: +X = front (boom/camera), -X = back, +Y = right, -Y = left
         _tof_half = PLATE_SIZE / 2
         _tof_inset = 10.0  # bracket center inset from plate edge
         _tof_m2_r = 1.1    # M2 clearance hole radius
         _tof_hole_spacing = 5.0
-        _tof_tab_w = 16.0   # tab width for front/back bracket pads
-        _tof_tab_h = 12.0   # tab depth (along Y)
+        _tof_tab_w = 16.0   # tab pad size (along edge)
+        _tof_tab_h = 12.0   # tab depth (into cutout)
         _tof_bridge_w = 6.0
 
-        # Front/back: add material tabs inside cutout, bridged to plate border
-        for sy in [1, -1]:
-            cy = sy * (_tof_half - _tof_inset)  # ±45
+        # All 4 brackets are inside the cutout — each needs a material tab
+        # + bridge to the nearest plate border.
+        # (cx, cy, bridge_axis): bridge_axis = 'x' bridges along X, 'y' along Y
+        _tof_positions = [
+            (_tof_half - _tof_inset,  0, "x"),   # front (+X)
+            (-(_tof_half - _tof_inset), 0, "x"),  # back (-X)
+            (0, -(_tof_half - _tof_inset), "y"),  # left (-Y)
+            (0,  _tof_half - _tof_inset, "y"),    # right (+Y)
+        ]
+        for cx, cy, bridge_axis in _tof_positions:
             # Material tab at bracket position
-            tab = (
-                cq.Workplane("XY")
-                .center(0, cy)
-                .rect(_tof_tab_w, _tof_tab_h)
-                .extrude(thick)
-            )
+            if bridge_axis == "x":
+                tab = cq.Workplane("XY").center(cx, cy).rect(_tof_tab_h, _tof_tab_w).extrude(thick)
+            else:
+                tab = cq.Workplane("XY").center(cx, cy).rect(_tof_tab_w, _tof_tab_h).extrude(thick)
             plate = plate.union(tab)
-            # Bridge from tab to outer frame border (along Y)
-            border_y = sy * _half_plate
-            bridge_cy = (cy + border_y) / 2
-            bridge_len = abs(border_y - cy) + _tof_tab_h / 2
-            bridge = (
-                cq.Workplane("XY")
-                .center(0, bridge_cy)
-                .rect(_tof_bridge_w, bridge_len)
-                .extrude(thick)
-            )
+            # Bridge from tab to outer frame border
+            if bridge_axis == "x":
+                sign = 1 if cx > 0 else -1
+                border = sign * _half_plate
+                bridge_cx = (cx + border) / 2
+                bridge_len = abs(border - cx) + _tof_tab_h / 2
+                bridge = cq.Workplane("XY").center(bridge_cx, cy).rect(bridge_len, _tof_bridge_w).extrude(thick)
+            else:
+                sign = 1 if cy > 0 else -1
+                border = sign * _half_plate
+                bridge_cy = (cy + border) / 2
+                bridge_len = abs(border - cy) + _tof_tab_h / 2
+                bridge = cq.Workplane("XY").center(cx, bridge_cy).rect(_tof_bridge_w, bridge_len).extrude(thick)
             plate = plate.union(bridge)
 
         # Drill M2 mounting holes for all 4 bracket positions
-        tof_bracket_positions = [
-            (0, _tof_half - _tof_inset, "x"),     # front
-            (0, -(_tof_half - _tof_inset), "x"),   # back
-            (-(_tof_half - _tof_inset), 0, "y"),   # left
-            (_tof_half - _tof_inset, 0, "y"),      # right
-        ]
-        for cx, cy, axis in tof_bracket_positions:
+        # Holes are spaced along the plate edge (perpendicular to bridge axis)
+        for cx, cy, bridge_axis in _tof_positions:
             for offset in [-_tof_hole_spacing, _tof_hole_spacing]:
-                if axis == "x":
-                    hx, hy = cx + offset, cy
+                if bridge_axis == "x":
+                    hx, hy = cx, cy + offset  # holes along Y (parallel to edge)
                 else:
-                    hx, hy = cx, cy + offset
+                    hx, hy = cx + offset, cy  # holes along X (parallel to edge)
                 hole = cq.Workplane("XY").center(hx, hy).circle(_tof_m2_r).extrude(thick)
                 plate = plate.cut(hole)
                 keepouts.append((hx, hy, 4.0))
@@ -509,25 +512,27 @@ def make_skeleton_plate(thick, is_bottom=True):
             # Note: ToF-up is mounted on daughter board, not top plate.
 
             # SIDE bracket mounts — bracket base on top surface near each edge
+            # Drone orientation: +X = front (boom/camera/nozzle), -X = back
+            #                    +Y = right, -Y = left
             anchors["tof_mount_front"] = Anchor(
-                point=(0, _half - _brk_inset, thick),
-                normal=(0, 0, 1),
-                label="ToF bracket (front) — base on top, tab over +Y edge",
-            )
-            anchors["tof_mount_back"] = Anchor(
-                point=(0, -(_half - _brk_inset), thick),
-                normal=(0, 0, 1),
-                label="ToF bracket (back) — base on top, tab over -Y edge",
-            )
-            anchors["tof_mount_left"] = Anchor(
-                point=(-(_half - _brk_inset), 0, thick),
-                normal=(0, 0, 1),
-                label="ToF bracket (left) — base on top, tab over -X edge",
-            )
-            anchors["tof_mount_right"] = Anchor(
                 point=(_half - _brk_inset, 0, thick),
                 normal=(0, 0, 1),
-                label="ToF bracket (right) — base on top, tab over +X edge",
+                label="ToF bracket (front) — base on top, tab over +X edge (boom side)",
+            )
+            anchors["tof_mount_back"] = Anchor(
+                point=(-(_half - _brk_inset), 0, thick),
+                normal=(0, 0, 1),
+                label="ToF bracket (back) — base on top, tab over -X edge",
+            )
+            anchors["tof_mount_left"] = Anchor(
+                point=(0, -(_half - _brk_inset), thick),
+                normal=(0, 0, 1),
+                label="ToF bracket (left) — base on top, tab over -Y edge",
+            )
+            anchors["tof_mount_right"] = Anchor(
+                point=(0, _half - _brk_inset, thick),
+                normal=(0, 0, 1),
+                label="ToF bracket (right) — base on top, tab over +Y edge",
             )
 
     return plate, anchors

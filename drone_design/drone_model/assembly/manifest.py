@@ -7,7 +7,7 @@ Tubing segments use computed routing (absolute) as they are flexible.
 
 Usage:
     from assembly.manifest import build_drone_manifest
-    manifest = build_drone_manifest()
+    manifest, validation = build_drone_manifest()
 """
 
 import math
@@ -19,7 +19,10 @@ _REPO_ROOT = _DRONE_MODEL.parent.parent
 sys.path.insert(0, str(_DRONE_MODEL))
 sys.path.insert(0, str(_REPO_ROOT))
 
+import importlib.util
 from cadquery_framework.assembly.anchors import Anchor, AssemblyBuilder
+from cadquery_framework.viewer.overlay import load_overlay
+from cadquery_framework.viewer.codegen_custom_part import generate_custom_part_module
 
 # Component builders
 from components.frame.skeleton_plate import make_skeleton_plate
@@ -429,19 +432,21 @@ def _build_core_assembly():
     # Spin orients the tab: 0°→+Y, 180°→-Y, 90°→-X, -90°→+X
     _brk_gap = TOF_BRACKET_T + 2
 
+    # Drone orientation: +X = front (boom/camera), -X = back, +Y = right, -Y = left
+    # Spin orients bracket tab: 0→+Y, 90→-X, -90→+X, 180→-Y
     tof_side_configs = [
         ("tof_front", "ToF Front",
          "tof_bracket_front", "ToF Bracket Front",
-         "top_plate", "tof_mount_front", 0),
+         "top_plate", "tof_mount_front", -90),    # tab over +X (boom side)
         ("tof_back", "ToF Back",
          "tof_bracket_back", "ToF Bracket Back",
-         "top_plate", "tof_mount_back", 180),
+         "top_plate", "tof_mount_back", 90),       # tab over -X
         ("tof_left", "ToF Left",
          "tof_bracket_left", "ToF Bracket Left",
-         "top_plate", "tof_mount_left", 90),
+         "top_plate", "tof_mount_left", 180),      # tab over -Y
         ("tof_right", "ToF Right",
          "tof_bracket_right", "ToF Bracket Right",
-         "top_plate", "tof_mount_right", -90),
+         "top_plate", "tof_mount_right", 0),       # tab over +Y
     ]
     for s_name, s_disp, b_name, b_disp, plate, mount_anchor, spin in tof_side_configs:
         asm.add(b_name, make_tof_bracket, color="#2FA84A",
@@ -567,24 +572,124 @@ def _route_tubing(anchors_by_part):
 # Public API
 # ============================================================================
 
-def build_drone_manifest():
+def build_drone_manifest(overlay_path=None):
     """Build the drone assembly manifest.
 
-    Phase 1: Resolve all rigid parts via constraint solver.
-    Phase 2: Route tubing between resolved anchor positions.
+    Phase 1: Resolve all rigid parts via constraint solver (with optional
+    viewer overlay: anchors and constraints applied before resolve,
+    position overrides applied after).
+    Phase 2: Route tubing between resolved world-space anchors.
+
+    Args:
+        overlay_path: Optional Path to output directory containing
+            viewer_overlay.json. If present, viewer anchors and constraints
+            are applied before resolve, and position/rotation overrides
+            are applied to the manifest after resolve.
 
     Returns:
-        list[dict]: Manifest entries compatible with pipeline.export_assembly().
+        tuple: (manifest_entries, validation). manifest_entries is a list of
+        dicts compatible with pipeline.export_assembly(). validation is a dict
+        with key "overlay_constraints_skipped" (list of skipped overlay constraints).
     """
-    # Phase 1 — resolve rigid parts
     asm = _build_core_assembly()
+    overlay = {}
+    overlay_constraints_skipped = []
+    if overlay_path is not None:
+        overlay = load_overlay(Path(overlay_path))
+    project_dir = Path(overlay_path).parent if overlay_path is not None else _DRONE_MODEL_DIR
+    for new_part in overlay.get("new_parts", []):
+        name = (new_part.get("name") or "").strip()
+        display = (new_part.get("display") or name).strip()
+        if not name:
+            continue
+        gen_path = generate_custom_part_module(project_dir, new_part, overwrite=False)
+        if gen_path is None:
+            continue
+        spec = importlib.util.spec_from_file_location(
+            f"components.custom.{gen_path.stem}", gen_path
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        builder = getattr(mod, f"make_{gen_path.stem}", None)
+        if builder is None:
+            continue
+        asm.add(name, builder, color="#888888", display=display or name, meta={})
+        geometry = new_part.get("geometry") or {}
+        pos = geometry.get("pos", [0, 0, 0])
+        rot = geometry.get("rot", [0, 0, 0])
+        if len(pos) != 3:
+            pos = [0, 0, 0]
+        if len(rot) != 3:
+            rot = [0, 0, 0]
+        pos_zup = (float(pos[0]), float(-pos[2]), float(pos[1]))
+        rot_deg = (float(rot[0]), float(rot[1]), float(rot[2]))
+        asm.place(name, at=pos_zup, rot=rot_deg)
+    if overlay:
+        # Apply viewer-added anchors
+        for part_name, anchor_list in overlay.get("anchors", {}).items():
+            if part_name not in asm._parts:
+                continue
+            for a in anchor_list:
+                name = a.get("name")
+                point = a.get("point")
+                normal = a.get("normal", [0, 0, 1])
+                if name and point and len(point) == 3:
+                    asm.add_anchor(
+                        part_name, name,
+                        (float(point[0]), float(point[1]), float(point[2])),
+                        (float(normal[0]), float(normal[1]), float(normal[2])),
+                    )
+        # Apply viewer-added constraints; collect skipped for validation feedback
+        overlay_constraints_skipped = []
+        for c in overlay.get("constraints", []):
+            child_part = c.get("child_part")
+            child_anchor = c.get("child_anchor")
+            parent_part = c.get("parent_part")
+            parent_anchor = c.get("parent_anchor")
+            kind = c.get("kind", "mate")
+            gap = c.get("gap", 0.0)
+            if not all([child_part, child_anchor, parent_part, parent_anchor]):
+                overlay_constraints_skipped.append({
+                    "reason": "missing_fields",
+                    "constraint": dict(c),
+                })
+                continue
+            try:
+                if kind == "offset":
+                    asm.offset(
+                        f"{child_part}.{child_anchor}",
+                        f"{parent_part}.{parent_anchor}",
+                        gap=float(gap),
+                    )
+                else:
+                    asm.mate(
+                        f"{child_part}.{child_anchor}",
+                        f"{parent_part}.{parent_anchor}",
+                    )
+            except ValueError as e:
+                overlay_constraints_skipped.append({
+                    "reason": "value_error",
+                    "constraint": dict(c),
+                    "detail": str(e),
+                })
     core_manifest = asm.resolve()
+    # Apply position/rotation overrides from overlay
+    parts_overrides = overlay.get("parts", {})
+    for entry in core_manifest:
+        name = entry.get("name")
+        if name not in parts_overrides:
+            continue
+        o = parts_overrides[name]
+        if "position" in o and len(o["position"]) == 3:
+            entry["pos"] = tuple(o["position"])
+        if "rotation" in o and len(o["rotation"]) == 3:
+            entry["rot"] = tuple(o["rotation"])
 
     # Phase 2 — route tubing using resolved world-space anchors
     anchors_by_part = {e["name"]: e["anchors"] for e in core_manifest}
     tubing_entries = _route_tubing(anchors_by_part)
-
-    return core_manifest + tubing_entries
+    validation = {"overlay_constraints_skipped": overlay_constraints_skipped}
+    return core_manifest + tubing_entries, validation
 
 
 def get_assembly_constraints():
