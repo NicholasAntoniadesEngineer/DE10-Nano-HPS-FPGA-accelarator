@@ -238,11 +238,33 @@
     <div class="sel-section" id="sel-modifications-section">
         <div class="sel-section-title">Parametric modifications</div>
         <div id="sel-modification-list"></div>
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-            <button type="button" class="btn" id="btn-add-cut-box" style="font-size:11px;">Add cut (box)</button>
-            <button type="button" class="btn" id="btn-add-add-box" style="font-size:11px;">Add add (box)</button>
-            <button type="button" class="btn" id="btn-add-cut-cylinder" style="font-size:11px;">Add cut (cylinder)</button>
-            <button type="button" class="btn" id="btn-add-add-cylinder" style="font-size:11px;">Add add (cylinder)</button>
+        <div id="sel-place-hint" class="sel-value" style="font-size:11px;color:#666;margin:4px 0;display:none;"></div>
+        <div id="sel-place-cut-panel" style="display:none;margin-top:8px;padding:8px;background:rgba(0,0,0,0.04);border-radius:6px;">
+            <div id="sel-place-cut-box-fields">
+                <div class="sel-row"><span class="sel-label">Width (mm)</span><input type="range" id="place-width" min="1" max="50" value="10" step="0.5" style="flex:1;"><span id="place-width-val" class="sel-value">10</span></div>
+                <div class="sel-row"><span class="sel-label">Depth (mm)</span><input type="range" id="place-depth" min="1" max="50" value="10" step="0.5" style="flex:1;"><span id="place-depth-val" class="sel-value">10</span></div>
+                <div class="sel-row"><span class="sel-label">Extent (mm)</span><input type="range" id="place-extent" min="1" max="50" value="10" step="0.5" style="flex:1;"><span id="place-extent-val" class="sel-value">10</span></div>
+            </div>
+            <div id="sel-place-cut-cyl-fields" style="display:none;">
+                <div class="sel-row"><span class="sel-label">Radius (mm)</span><input type="range" id="place-radius" min="0.5" max="25" value="5" step="0.5" style="flex:1;"><span id="place-radius-val" class="sel-value">5</span></div>
+                <div class="sel-row"><span class="sel-label">Depth (mm)</span><input type="range" id="place-cyl-depth" min="1" max="50" value="10" step="0.5" style="flex:1;"><span id="place-cyl-depth-val" class="sel-value">10</span></div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+                <button type="button" class="btn" id="place-apply-btn" style="font-size:11px;">Apply</button>
+                <button type="button" class="btn" id="place-cancel-btn" style="font-size:11px;">Cancel</button>
+            </div>
+        </div>
+        <div style="margin-top:8px;">
+            <div class="sel-row" style="align-items:center;"><span class="sel-label">Round edges</span><input type="range" id="fillet-radius" min="0.5" max="10" value="2" step="0.5" style="flex:1;"><span id="fillet-radius-val" class="sel-value">2</span> mm</div>
+            <button type="button" class="btn" id="btn-apply-fillet" style="font-size:11px;margin-top:4px;">Apply fillet to all edges</button>
+            <div class="sel-row" style="align-items:center;margin-top:8px;"><span class="sel-label">Bevel edges</span><input type="range" id="chamfer-dist" min="0.2" max="5" value="1" step="0.1" style="flex:1;"><span id="chamfer-dist-val" class="sel-value">1</span> mm</div>
+            <button type="button" class="btn" id="btn-apply-chamfer" style="font-size:11px;margin-top:4px;">Apply chamfer to all edges</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+            <button type="button" class="btn" id="btn-add-cut-box" style="font-size:11px;">Cut (box) — click face</button>
+            <button type="button" class="btn" id="btn-add-add-box" style="font-size:11px;">Add (box) — click face</button>
+            <button type="button" class="btn" id="btn-add-cut-cylinder" style="font-size:11px;">Cut (cylinder) — click face</button>
+            <button type="button" class="btn" id="btn-add-add-cylinder" style="font-size:11px;">Add (cylinder) — click face</button>
         </div>
     </div>
     <div class="sel-section" id="sel-save-new-part-section" style="display:none;">

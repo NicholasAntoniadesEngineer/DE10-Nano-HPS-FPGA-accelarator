@@ -116,6 +116,8 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     var addAnchorMode = false;
     var modificationIdCounter = 0;
     var newPartIdCounter = 0;
+    var placeCutMode = null;
+    var placeCutFaceData = null;
 
     tfc.addEventListener('dragging-changed', function(e) {
         controls.enabled = !e.value;
@@ -489,8 +491,33 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
                 document.getElementById('btn-add-anchor').classList.remove('active');
                 return;
             }
+            if (placeCutMode && hits.length > 0 && hits[0].object.userData.partName === selectedPart) {
+                var hit = hits[0];
+                var group = parts[selectedPart].group;
+                var localPoint = hit.point.clone().applyMatrix4(group.matrixWorld.clone().invert());
+                var worldNorm = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+                var localNorm = worldNorm.transformDirection(group.matrixWorld.clone().invert());
+                placeCutFaceData = {
+                    point: [localPoint.x, localPoint.y, localPoint.z],
+                    normal: [localNorm.x, localNorm.y, localNorm.z]
+                };
+                document.getElementById('sel-place-hint').style.display = 'none';
+                var panel = document.getElementById('sel-place-cut-panel');
+                var boxFields = document.getElementById('sel-place-cut-box-fields');
+                var cylFields = document.getElementById('sel-place-cut-cyl-fields');
+                if (placeCutMode === 'cut_box' || placeCutMode === 'add_box') {
+                    boxFields.style.display = 'block';
+                    cylFields.style.display = 'none';
+                } else {
+                    boxFields.style.display = 'none';
+                    cylFields.style.display = 'block';
+                }
+                panel.style.display = 'block';
+                return;
+            }
             selectPart(hits[0].object.userData.partName, hits[0]);
         } else {
+            if (placeCutMode) cancelPlaceCut();
             selectedPart = null; clearHighlight(); selMarker.visible = false;
             detachTransform();
             document.getElementById('selection-panel').style.display = 'none';
@@ -1475,89 +1502,106 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
         });
     }
 
-    document.getElementById('btn-add-cut-box').addEventListener('click', function() {
-        if (!selectedPart) return;
-        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
-        if (posStr === null) return;
-        var sizeStr = prompt('Size wx,wy,wz (mm):', '10,10,10');
-        if (sizeStr === null) return;
-        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
-        var size = sizeStr.split(',').map(function(v) { return parseFloat(v.trim()) || 10; });
-        if (pos.length !== 3) pos = [0, 0, 0];
-        if (size.length !== 3) size = [10, 10, 10];
-        modificationIdCounter++;
-        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
-        overlayModifications[selectedPart].push({
-            id: 'op_' + modificationIdCounter,
-            type: 'cut_box',
-            pos: pos,
-            size: size,
-            rot_deg: [0, 0, 0]
-        });
-        populateModificationList(selectedPart);
-        updatePartsList();
-    });
-
-    document.getElementById('btn-add-add-box').addEventListener('click', function() {
-        if (!selectedPart) return;
-        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
-        if (posStr === null) return;
-        var sizeStr = prompt('Size wx,wy,wz (mm):', '10,10,10');
-        if (sizeStr === null) return;
-        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
-        var size = sizeStr.split(',').map(function(v) { return parseFloat(v.trim()) || 10; });
-        if (pos.length !== 3) pos = [0, 0, 0];
-        if (size.length !== 3) size = [10, 10, 10];
-        modificationIdCounter++;
-        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
-        overlayModifications[selectedPart].push({
-            id: 'op_' + modificationIdCounter,
-            type: 'add_box',
-            pos: pos,
-            size: size,
-            rot_deg: [0, 0, 0]
-        });
-        populateModificationList(selectedPart);
-        updatePartsList();
-    });
-
-    function addCylinderModification(type) {
-        if (!selectedPart) return;
-        var rStr = prompt('Radius (mm):', '5');
-        if (rStr === null) return;
-        var hStr = prompt('Height (mm):', '10');
-        if (hStr === null) return;
-        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
-        if (posStr === null) return;
-        var rotStr = prompt('Rotation deg (x,y,z) or leave empty for 0,0,0:', '');
-        var r = parseFloat(rStr) || 5;
-        var h = parseFloat(hStr) || 10;
-        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
-        if (pos.length !== 3) pos = [0, 0, 0];
-        var rot_deg = [0, 0, 0];
-        if (rotStr && rotStr.trim()) {
-            var rotArr = rotStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
-            if (rotArr.length >= 3) rot_deg = rotArr.slice(0, 3);
-        }
-        modificationIdCounter++;
-        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
-        overlayModifications[selectedPart].push({
-            id: 'op_' + modificationIdCounter,
-            type: type,
-            pos: pos,
-            r: r,
-            h: h,
-            rot_deg: rot_deg
-        });
-        populateModificationList(selectedPart);
-        updatePartsList();
+    function eulerDegFromNormal(nx, ny, nz) {
+        var n = new THREE.Vector3(nx, ny, nz).normalize();
+        var zUp = new THREE.Vector3(0, 0, 1);
+        var quat = new THREE.Quaternion().setFromUnitVectors(zUp, n);
+        var euler = new THREE.Euler().setFromQuaternion(quat);
+        return [euler.x * 180 / Math.PI, euler.y * 180 / Math.PI, euler.z * 180 / Math.PI];
     }
 
-    document.getElementById('btn-add-cut-cylinder').addEventListener('click', function() {
-        addCylinderModification('cut_cylinder');
+    function startPlaceCut(mode) {
+        if (!selectedPart) return;
+        placeCutMode = mode;
+        placeCutFaceData = null;
+        document.getElementById('sel-place-cut-panel').style.display = 'none';
+        var hint = document.getElementById('sel-place-hint');
+        hint.textContent = 'Click on the part face where you want the ' + (mode.indexOf('cut') >= 0 ? 'cut' : 'add') + '.';
+        hint.style.display = 'block';
+    }
+
+    function cancelPlaceCut() {
+        placeCutMode = null;
+        placeCutFaceData = null;
+        document.getElementById('sel-place-hint').style.display = 'none';
+        document.getElementById('sel-place-cut-panel').style.display = 'none';
+    }
+
+    document.getElementById('btn-add-cut-box').addEventListener('click', function() { startPlaceCut('cut_box'); });
+    document.getElementById('btn-add-add-box').addEventListener('click', function() { startPlaceCut('add_box'); });
+    document.getElementById('btn-add-cut-cylinder').addEventListener('click', function() { startPlaceCut('cut_cylinder'); });
+    document.getElementById('btn-add-add-cylinder').addEventListener('click', function() { startPlaceCut('add_cylinder'); });
+
+    document.getElementById('place-width').addEventListener('input', function() { document.getElementById('place-width-val').textContent = this.value; });
+    document.getElementById('place-depth').addEventListener('input', function() { document.getElementById('place-depth-val').textContent = this.value; });
+    document.getElementById('place-extent').addEventListener('input', function() { document.getElementById('place-extent-val').textContent = this.value; });
+    document.getElementById('place-radius').addEventListener('input', function() { document.getElementById('place-radius-val').textContent = this.value; });
+    document.getElementById('place-cyl-depth').addEventListener('input', function() { document.getElementById('place-cyl-depth-val').textContent = this.value; });
+
+    document.getElementById('place-apply-btn').addEventListener('click', function() {
+        if (!selectedPart || !placeCutFaceData) return;
+        var pt = placeCutFaceData.point;
+        var norm = placeCutFaceData.normal;
+        var rot_deg = eulerDegFromNormal(norm[0], norm[1], norm[2]);
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        if (placeCutMode === 'cut_box' || placeCutMode === 'add_box') {
+            var w = parseFloat(document.getElementById('place-width').value) || 10;
+            var d = parseFloat(document.getElementById('place-depth').value) || 10;
+            var ext = parseFloat(document.getElementById('place-extent').value) || 10;
+            overlayModifications[selectedPart].push({
+                id: 'op_' + modificationIdCounter,
+                type: placeCutMode,
+                pos: pt,
+                size: [w, d, ext],
+                rot_deg: rot_deg
+            });
+        } else {
+            var r = parseFloat(document.getElementById('place-radius').value) || 5;
+            var h = parseFloat(document.getElementById('place-cyl-depth').value) || 10;
+            overlayModifications[selectedPart].push({
+                id: 'op_' + modificationIdCounter,
+                type: placeCutMode,
+                pos: pt,
+                r: r,
+                h: h,
+                rot_deg: rot_deg
+            });
+        }
+        cancelPlaceCut();
+        populateModificationList(selectedPart);
+        updatePartsList();
     });
-    document.getElementById('btn-add-add-cylinder').addEventListener('click', function() {
-        addCylinderModification('add_cylinder');
+
+    document.getElementById('place-cancel-btn').addEventListener('click', cancelPlaceCut);
+
+    document.getElementById('fillet-radius').addEventListener('input', function() {
+        document.getElementById('fillet-radius-val').textContent = this.value;
+    });
+    document.getElementById('chamfer-dist').addEventListener('input', function() {
+        document.getElementById('chamfer-dist-val').textContent = this.value;
+    });
+
+    document.getElementById('btn-apply-fillet').addEventListener('click', function() {
+        if (!selectedPart) return;
+        var val = parseFloat(document.getElementById('fillet-radius').value) || 2;
+        if (val <= 0) return;
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        overlayModifications[selectedPart].push({ id: 'op_' + modificationIdCounter, type: 'fillet', r: val });
+        populateModificationList(selectedPart);
+        updatePartsList();
+    });
+
+    document.getElementById('btn-apply-chamfer').addEventListener('click', function() {
+        if (!selectedPart) return;
+        var val = parseFloat(document.getElementById('chamfer-dist').value) || 1;
+        if (val <= 0) return;
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        overlayModifications[selectedPart].push({ id: 'op_' + modificationIdCounter, type: 'chamfer', d: val });
+        populateModificationList(selectedPart);
+        updatePartsList();
     });
 
     document.getElementById('btn-new-box').addEventListener('click', function() {

@@ -2,8 +2,9 @@
 
 Supports:
 - make_tubing_segment(length): single straight hollow cylinder (legacy).
-- make_tubing_path(waypoints, bend_radius): one continuous hollow tube along a 3D path
-  with rounded corners of given bend radius (no 90-degree joints).
+- make_tubing_path(waypoints, bend_radius, use_spline): one continuous hollow tube along
+  a 3D path. use_spline=True (default) fits a smooth B-spline through waypoints for a
+  natural pipe look; use_spline=False uses line segments with circular arc fillets.
 Dimensions (OD/ID) from pump config in dimensions.json.
 """
 
@@ -77,7 +78,7 @@ def _corner_fillet(before, corner, after, radius):
         return None
     t1 = _vec_add(corner, _vec_scale(u, dist))
     t2 = _vec_add(corner, _vec_scale(v, dist))
-    bisector = _vec_normalize((u[0] + v[0], u[1] + v[1], u[2] + v[2]))
+    bisector = _vec_normalize((-u[0] - v[0], -u[1] - v[1], -u[2] - v[2]))
     r_sin = radius / sin_half
     center = _vec_add(corner, _vec_scale(bisector, r_sin))
     dx = t1[0] - center[0]
@@ -93,105 +94,95 @@ def _corner_fillet(before, corner, after, radius):
     return (t1, t2, center, normal)
 
 
-def _make_path_wire(waypoints, bend_radius):
-    """Build a 3D Wire through waypoints with rounded corners. Uses OCP for arcs."""
-    from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
-    from OCP.TopoDS import TopoDS_Edge, TopoDS_Wire
+def _make_spline_wire(waypoints):
+    """Build a 3D Wire as a smooth B-spline through all waypoints (natural pipe look)."""
+    from OCP.gp import gp_Pnt
+    from OCP.TColgp import TColgp_Array1OfPnt
+    from OCP.GeomAPI import GeomAPI_Interpolate
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 
     n = len(waypoints)
     if n < 2:
-        return None
+        raise ValueError("spline wire requires at least 2 waypoints")
+    if n == 2:
+        return cq.Wire.assembleEdges([
+            cq.Edge.makeLine(cq.Vector(*waypoints[0]), cq.Vector(*waypoints[1])),
+        ])
+    arr = TColgp_Array1OfPnt(1, n)
+    for i, w in enumerate(waypoints):
+        arr.SetValue(i + 1, gp_Pnt(float(w[0]), float(w[1]), float(w[2])))
+    interp = GeomAPI_Interpolate(arr, False, 1e-6)
+    interp.Perform()
+    if not interp.IsDone():
+        raise RuntimeError("GeomAPI_Interpolate failed to build spline through waypoints")
+    curve = interp.Curve()
+    edge = BRepBuilderAPI_MakeEdge(curve).Edge()
+    return cq.Wire.assembleEdges([cq.Edge(edge)])
+
+
+def _make_path_wire(waypoints, bend_radius):
+    """Build a 3D Wire through waypoints with rounded corners. Uses OCP for arcs."""
+    from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+
+    n = len(waypoints)
+    if n < 2:
+        raise ValueError("path wire requires at least 2 waypoints")
     if bend_radius <= 0 or n == 2:
         edges = []
         for i in range(n - 1):
-            p1 = waypoints[i]
-            p2 = waypoints[i + 1]
-            edges.append(cq.Edge.makeLine(cq.Vector(*p1), cq.Vector(*p2)))
+            edges.append(cq.Edge.makeLine(cq.Vector(*waypoints[i]), cq.Vector(*waypoints[i + 1])))
         return cq.Wire.assembleEdges(edges)
 
     edges = []
-    for i in range(n - 1):
-        a = waypoints[i]
-        b = waypoints[i + 1]
-        if i == 0:
-            if n == 2:
-                edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*b)))
-                break
-            fil = _corner_fillet(a, b, waypoints[i + 2], bend_radius) if n > 2 else None
+    prev = waypoints[0]
+    for k in range(1, n):
+        if k + 1 < n:
+            fil = _corner_fillet(waypoints[k - 1], waypoints[k], waypoints[k + 1], bend_radius)
             if fil is None:
-                edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*b)))
+                edges.append(cq.Edge.makeLine(cq.Vector(*prev), cq.Vector(*waypoints[k])))
+                prev = waypoints[k]
             else:
                 t1, t2, center, normal = fil
-                edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*t1)))
+                edges.append(cq.Edge.makeLine(cq.Vector(*prev), cq.Vector(*t1)))
                 circ = gp_Circ(gp_Ax2(gp_Pnt(*center), gp_Dir(*normal)), bend_radius)
                 edge_arc = BRepBuilderAPI_MakeEdge(circ, gp_Pnt(*t1), gp_Pnt(*t2)).Edge()
                 edges.append(cq.Edge(edge_arc))
+                prev = t2
         else:
-            c = waypoints[i + 1]
-            if i + 2 < n:
-                fil = _corner_fillet(a, b, waypoints[i + 2], bend_radius)
-                if fil is None:
-                    edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*b)))
-                else:
-                    t1, t2, center, normal = fil
-                    edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*t1)))
-                    circ = gp_Circ(gp_Ax2(gp_Pnt(*center), gp_Dir(*normal)), bend_radius)
-                    edge_arc = BRepBuilderAPI_MakeEdge(circ, gp_Pnt(*t1), gp_Pnt(*t2)).Edge()
-                    edges.append(cq.Edge(edge_arc))
-            else:
-                edges.append(cq.Edge.makeLine(cq.Vector(*a), cq.Vector(*c)))
+            edges.append(cq.Edge.makeLine(cq.Vector(*prev), cq.Vector(*waypoints[n - 1])))
     if not edges:
-        return None
+        raise RuntimeError("path wire produced no edges")
     return cq.Wire.assembleEdges(edges)
 
 
-def make_tubing_path(waypoints, bend_radius=None):
-    """One continuous hollow tube along a 3D path with rounded corners.
+def make_tubing_path(waypoints, bend_radius=None, use_spline=True):
+    """One continuous hollow tube along a 3D path for a natural pipe look.
 
     waypoints: list of (x, y, z) in world (Z-up) coordinates.
-    bend_radius: corner fillet radius in mm; default from dimensions (tubing_bend_radius).
+    bend_radius: when use_spline=False, corner fillet radius in mm.
+    use_spline: if True (default), fit a smooth B-spline through waypoints so the
+      tube has no right-angle sections; if False, use line segments with arc fillets.
     Returns (shape, anchors) with shape in local coordinates (path starts at origin).
     """
+    if len(waypoints) < 2:
+        raise ValueError("make_tubing_path requires at least 2 waypoints")
     if bend_radius is None:
         bend_radius = TUBING_BEND_RADIUS
-    if len(waypoints) < 2:
-        return make_tubing_segment(0.1)
-    wire = _make_path_wire(waypoints, bend_radius)
-    if wire is None:
-        return make_tubing_segment(0.1)
+    if use_spline:
+        wire = _make_spline_wire(waypoints)
+    else:
+        wire = _make_path_wire(waypoints, bend_radius)
     first_pt = waypoints[0]
-    wire_translated = wire.transform(cq.Matrix().translate(cq.Vector(-first_pt[0], -first_pt[1], -first_pt[2])))
-    profile = (
-        cq.Workplane("XY")
-        .circle(TUBE_OD / 2)
-        .circle(TUBE_ID / 2)
-    )
-    face = profile.val().wrapped if hasattr(profile.val(), "wrapped") else profile.faces().val().wrapped
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
-    from OCP.TopoDS import TopoDS_Shape
-    wire_ocp = wire_translated.wrapped if hasattr(wire_translated, "wrapped") else wire_translated
-    try:
-        sweep = (
-            cq.Workplane("XY")
-            .sweep(wire_translated, multisection=False, transition="right", clean=True)
-        )
-    except Exception:
-        outer = cq.Workplane("XY").circle(TUBE_OD / 2).extrude(1)
-        inner = cq.Workplane("XY").circle(TUBE_ID / 2).extrude(1)
-        sweep = outer.cut(inner)
-    path_edges = wire_translated.Edges()
-    if path_edges:
-        profile_plane = cq.Workplane("XY").circle(TUBE_OD / 2).circle(TUBE_ID / 2)
-        sweep = profile_plane.sweep(path_edges[0].val() if hasattr(path_edges[0], "val") else path_edges[0], multisection=False)
-    sweep = cq.Workplane("XY").add(cq.Workplane("XY").circle(TUBE_OD / 2).circle(TUBE_ID / 2).val()).sweep(wire_translated, multisection=False)
-    shape = sweep
-    length = wire_translated.Length()
+    wire_local = wire.transform(cq.Matrix().translate(cq.Vector(-first_pt[0], -first_pt[1], -first_pt[2])))
+    path_length = wire_local.Length()
+    profile = cq.Workplane("XY").circle(TUBE_OD / 2).circle(TUBE_ID / 2)
+    swept = profile.sweep(wire_local, multisection=False)
     anchors = {}
     if Anchor is not None:
         anchors["start"] = Anchor(point=(0, 0, 0), normal=(0, 0, -1), label="Path start")
-        anchors["end"] = Anchor(point=(0, 0, length), normal=(0, 0, 1), label="Path end")
-    return shape, anchors
+        anchors["end"] = Anchor(point=(0, 0, path_length), normal=(0, 0, 1), label="Path end")
+    return swept, anchors
 
 
 def make_tubing_segment(length):

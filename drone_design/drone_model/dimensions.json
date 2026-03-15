@@ -9,7 +9,7 @@
         "_doc": "Main frame plates \u2014 JLCPCB FR4 PCB. Sized to accommodate DE10-Nano (108mm) mounting holes with 5mm edge margin.",
         "plate_size": 110.0,
         "plate_corner_radius": 2.0,
-        "bottom_plate_thickness": 2.0,
+        "bottom_plate_thickness": 1.6,
         "top_plate_thickness": 1.6,
         "plate_spacing": 19.7,
         "arm_slot_width": 1.7,
@@ -35,15 +35,21 @@
             315
         ]
     },
+    "motor_riser": {
+        "_doc": "Stacked FR4 PCB disc riser — raises motor above arm tip to clear top plate and daughter board. Height = N layers x layer_thickness. Through-bolted on motor bolt circle.",
+        "height": 11.0,
+        "layer_thickness": 1.6,
+        "prop_clearance_margin": 3.0
+    },
     "landing_gear": {
         "_doc": "L-shaped landing legs \u2014 2.0mm FR4. 50mm height provides 10mm+ ground clearance for all underslung components.",
         "leg_width": 12.0,
         "leg_height": 50.0,
-        "leg_thickness": 2.0,
+        "leg_thickness": 1.6,
         "foot_length": 20.0,
-        "foot_thickness": 2.0,
+        "foot_thickness": 1.6,
         "mounting_tab_depth": 8.0,
-        "mounting_tab_thickness": 2.0,
+        "mounting_tab_thickness": 1.6,
         "leg_angles_deg": [
             0,
             90,
@@ -237,6 +243,7 @@
         "corner_radius": 1.0,
         "tube_od": 2.5,
         "tube_id": 1.5,
+        "tubing_bend_radius": 12.0,
         "tube_exit_length": 8.0,
         "tube_spacing": 4.5,
         "tube_exit_inset_from_front": 7.5,
@@ -369,6 +376,6 @@
         "pump_bracket_offset_y": -52.0,
         "camera_boom_offset": 25.0,
         "battery_rotation_deg": 0.0,
-        "arm_z_above_bottom": 6.0
+        "arm_z_above_bottom": 0.8
     }
 }

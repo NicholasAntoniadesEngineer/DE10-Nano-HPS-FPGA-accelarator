@@ -216,7 +216,7 @@ def _add_leg_header_holes(plate, thick):
     return plate
 
 
-def make_skeleton_plate(thick, is_bottom=True):
+def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
     """Create a plate with Kagome-lattice cutouts, arm mounting rails, and leg mount holes."""
     plate = (
         cq.Workplane("XY")
@@ -232,73 +232,97 @@ def make_skeleton_plate(thick, is_bottom=True):
     keepouts = _arm_rail_keepouts()
 
     if not is_bottom:
-        # Large central cutout clears ALL DE10 connectors that protrude above
-        # top plate Z. Then ADD BACK material tabs at the 4 M2.5 mounting holes
-        # so the plate can bolt to the standoff stack through the daughter board.
-        cutout_x = DE10_W + 4.0   # 72.58mm
-        cutout_y = DE10_L + 4.0   # 111.95mm
-        # Clamp to plate size minus minimum frame border (6mm each side)
-        cutout_x = min(cutout_x, PLATE_SIZE - 12.0)
-        cutout_y = min(cutout_y, PLATE_SIZE - 12.0)
-        central = (
-            cq.Workplane("XY")
-            .rect(cutout_x, cutout_y)
-            .extrude(thick)
-        )
-        plate = plate.cut(central)
-        keepouts.append((0, 0, max(cutout_x, cutout_y) / 2 + 2.0))
-
-        # Add material tabs back at each M2.5 mounting hole position.
-        # Each tab is a 14mm square pad connected to the outer frame by a
-        # 6mm wide bridge running radially outward to the plate border.
         de10_hole_inset = _D["de10_nano"]["mounting_hole_inset"]
         _m25_clearance_r = _D["daughter_board_mounting"]["mounting_hole_diameter"] / 2
-        _tab_size = 14.0  # square pad size around hole
-        _bridge_w = 6.0   # bridge width connecting tab to outer frame
         _half_plate = PLATE_SIZE / 2
 
-        for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
-            for dy in [-DE10_L / 2 + de10_hole_inset, DE10_L / 2 - de10_hole_inset]:
-                # Square material tab at mounting hole
-                tab = (
+        if combined_top:
+            # ── Combined top plate + daughter board ──
+            # Keep full plate (no central cutout). Add daughter board features:
+            # heatsink cutout, GPIO receptacle clearance slots, connector relief,
+            # M2.5 mounting holes, and IC keepouts.
+
+            # Heatsink / fan pass-through cutout (center)
+            _hs_w = _D["de10_nano"]["heatsink_width"]
+            _hs_l = _D["de10_nano"]["heatsink_length"]
+            hs_cutout = cq.Workplane("XY").rect(_hs_w + 4, _hs_l + 4).extrude(thick)
+            plate = plate.cut(hs_cutout)
+            keepouts.append((0, 0, max(_hs_w, _hs_l) / 2 + 4.0))
+
+            # GPIO receptacle clearance slots — rectangular cutouts where the
+            # 2x20 pin headers protrude through the board
+            gpio_connectors = _D["de10_nano"]["connectors"]
+            for key in ("gpio0", "gpio1"):
+                c = gpio_connectors[key]
+                cq_x = DE10_W / 2 - c["intel_y"]
+                cq_y = c["intel_x"] - DE10_L / 2
+                slot = (
                     cq.Workplane("XY")
-                    .center(dx, dy)
-                    .rect(_tab_size, _tab_size)
+                    .center(cq_x, cq_y + c["length"] / 2)
+                    .rect(c["width"] + 1.0, c["length"] + 1.0)
                     .extrude(thick)
                 )
-                plate = plate.union(tab)
+                plate = plate.cut(slot)
+                keepouts.append((cq_x, cq_y + c["length"] / 2, 30.0))
 
-                # Bridge from tab to outer frame border (along X direction)
-                sx = 1 if dx > 0 else -1
-                bridge_cx = (dx + sx * _half_plate) / 2
-                bridge_len = abs(sx * _half_plate - dx) + _tab_size / 2
-                bridge = (
+            # M2.5 mounting holes (same pattern as DE10-Nano corners)
+            for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
+                for dy in [-DE10_L / 2 + de10_hole_inset, DE10_L / 2 - de10_hole_inset]:
+                    hole = cq.Workplane("XY").center(dx, dy).circle(_m25_clearance_r).extrude(thick)
+                    plate = plate.cut(hole)
+                    keepouts.append((dx, dy, 5.0))
+
+            # Relief notches for DE10 connectors that protrude above this plate Z
+            for nx, ny, nw, nl in [
+                (-19.18, -51.19, 14.0, 16.0),  # barrel jack
+                (17.54, 39.10, 20.0, 18.0),    # ethernet
+            ]:
+                notch = cq.Workplane("XY").center(nx, ny).rect(nw, nl).extrude(thick)
+                plate = plate.cut(notch)
+
+            # IC component blocks on top surface (level shifters, mux, power regs)
+            _ic_h = 2.0
+            for pos in [(25, 20), (-25, -15), (25, -15), (0, -30)]:
+                ic = (
                     cq.Workplane("XY")
-                    .center(bridge_cx, dy)
-                    .rect(bridge_len, _bridge_w)
-                    .extrude(thick)
+                    .center(pos[0], pos[1])
+                    .rect(8, 8)
+                    .extrude(thick + _ic_h)
                 )
-                plate = plate.union(bridge)
+                plate = plate.union(ic)
+                keepouts.append((pos[0], pos[1], 8.0))
 
-                # Drill M2.5 clearance hole through tab
-                hole = cq.Workplane("XY").center(dx, dy).circle(_m25_clearance_r).extrude(thick)
-                plate = plate.cut(hole)
-                keepouts.append((dx, dy, _tab_size / 2 + 2.0))
+        else:
+            # ── Separate top plate (legacy: large central cutout) ──
+            cutout_x = DE10_W + 4.0
+            cutout_y = DE10_L + 4.0
+            cutout_x = min(cutout_x, PLATE_SIZE - 12.0)
+            cutout_y = min(cutout_y, PLATE_SIZE - 12.0)
+            central = cq.Workplane("XY").rect(cutout_x, cutout_y).extrude(thick)
+            plate = plate.cut(central)
+            keepouts.append((0, 0, max(cutout_x, cutout_y) / 2 + 2.0))
 
-        # Relief notches for DE10 connectors that protrude above top plate Z.
-        # Cut AFTER tab/bridge unions so these clearances aren't filled back in.
-        # After mirror fix: barrel_jack cq_x = -19.18, ethernet cq_x = +17.54
-        for nx, ny, nw, nl in [
-            (-19.18, -51.19, 14.0, 16.0),  # barrel jack + 2mm margin
-            (17.54, 39.10, 20.0, 18.0),    # ethernet + 2mm margin
-        ]:
-            notch = (
-                cq.Workplane("XY")
-                .center(nx, ny)
-                .rect(nw, nl)
-                .extrude(thick)
-            )
-            plate = plate.cut(notch)
+            _tab_size = 14.0
+            _bridge_w = 6.0
+            for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
+                for dy in [-DE10_L / 2 + de10_hole_inset, DE10_L / 2 - de10_hole_inset]:
+                    tab = cq.Workplane("XY").center(dx, dy).rect(_tab_size, _tab_size).extrude(thick)
+                    plate = plate.union(tab)
+                    sx = 1 if dx > 0 else -1
+                    bridge_cx = (dx + sx * _half_plate) / 2
+                    bridge_len = abs(sx * _half_plate - dx) + _tab_size / 2
+                    bridge = cq.Workplane("XY").center(bridge_cx, dy).rect(bridge_len, _bridge_w).extrude(thick)
+                    plate = plate.union(bridge)
+                    hole = cq.Workplane("XY").center(dx, dy).circle(_m25_clearance_r).extrude(thick)
+                    plate = plate.cut(hole)
+                    keepouts.append((dx, dy, _tab_size / 2 + 2.0))
+
+            for nx, ny, nw, nl in [
+                (-19.18, -51.19, 14.0, 16.0),
+                (17.54, 39.10, 20.0, 18.0),
+            ]:
+                notch = cq.Workplane("XY").center(nx, ny).rect(nw, nl).extrude(thick)
+                plate = plate.cut(notch)
 
         # ToF bracket mounting on top plate.
         # Front/back brackets at Y=±45 fall INSIDE the central cutout (±49),
@@ -354,6 +378,21 @@ def make_skeleton_plate(thick, is_bottom=True):
                 hole = cq.Workplane("XY").center(hx, hy).circle(_tof_m2_r).extrude(thick)
                 plate = plate.cut(hole)
                 keepouts.append((hx, hy, 4.0))
+        # Propeller clearance cutouts at each motor position.
+        # Cut circular arcs where prop discs sweep through the top plate corners.
+        _prop_r = _D["propeller"]["diameter"] / 2 + _D.get("motor_riser", {}).get("prop_clearance_margin", 3.0)
+        for _angle in ARM_ANGLES:
+            _rad = math.radians(_angle)
+            _mx = MOTOR_R * math.cos(_rad)
+            _my = MOTOR_R * math.sin(_rad)
+            _prop_disc = (
+                cq.Workplane("XY")
+                .center(_mx, _my)
+                .circle(_prop_r)
+                .extrude(thick)
+            )
+            plate = plate.cut(_prop_disc)
+
     else:
         strap_spacing = min(20.0, PLATE_SIZE / 6.0)
         for dy in [-strap_spacing, strap_spacing]:
@@ -497,19 +536,40 @@ def make_skeleton_plate(thick, is_bottom=True):
                         normal=(0, 0, -1),
                         label=f"upper standoff hole {idx}",
                     )
+                    # Combined top also provides standoff_top for top plate constraint
+                    if combined_top:
+                        anchors[f"standoff_top_{idx}"] = Anchor(
+                            point=(dx, dy, thick),
+                            normal=(0, 0, 1),
+                            label=f"standoff top mount {idx} (combined plate)",
+                        )
                     idx += 1
 
+        # Combined top: daughter board anchors (GPIO receptacles, tof_mount_up)
+        if not is_bottom and combined_top:
+            gpio_connectors = _D["de10_nano"]["connectors"]
+            for key, anchor_name in (("gpio0", "gpio0_receptacle"), ("gpio1", "gpio1_receptacle")):
+                c = gpio_connectors[key]
+                cq_x = DE10_W / 2 - c["intel_y"]
+                cq_y = c["intel_x"] - DE10_L / 2
+                anchors[anchor_name] = Anchor(
+                    point=(cq_x, cq_y + c["length"] / 2, 0),
+                    normal=(0, 0, -1),
+                    label=f"{key.upper()} receptacle (board bottom, mates DE10 header top)",
+                )
+            _ic_top = thick + 2.0  # PCB + IC height
+            _db_w = _D["daughter_board"]["width"]
+            _db_l = _D["daughter_board"]["length"]
+            anchors["tof_mount_up"] = Anchor(
+                point=(-(_db_w / 2 - 8), _db_l / 2 - 8, _ic_top),
+                normal=(0, 0, 1),
+                label="ToF up — direct-mount on top surface, sensor faces +Z",
+            )
+
         # ToF mounts (top plate)
-        # UP/DOWN: ToF board mounted DIRECTLY on plate surface (no bracket).
-        #   Board lies flat; sensor aperture faces away from plate.
-        # SIDE (front/back/left/right): L-bracket base on plate top surface
-        #   near the edge, tab hangs over the edge. Spin orients the tab
-        #   toward the target direction. 2x M2 holes per bracket location.
         if not is_bottom:
             _half = PLATE_SIZE / 2
-            _brk_inset = 10.0  # half bracket depth, tab overhangs edge
-
-            # Note: ToF-up is mounted on daughter board, not top plate.
+            _brk_inset = 10.0
 
             # SIDE bracket mounts — bracket base on top surface near each edge
             # Drone orientation: +X = front (boom/camera/nozzle), -X = back

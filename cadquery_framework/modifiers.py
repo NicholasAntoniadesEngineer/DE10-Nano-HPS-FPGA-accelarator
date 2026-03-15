@@ -1,7 +1,8 @@
 """Parametric modification ops applied to CadQuery shapes.
 
-Used by the pipeline when overlay contains per-part modifications (cut_box,
-cut_cylinder, add_box, add_cylinder). Ops are applied in order in part local space.
+Used by the pipeline when overlay contains per-part modifications: cut/add
+(box, cylinder), fillet (round edges), chamfer (bevel edges). Ops are applied
+in order in part local space. Applies to any part (beam, arm, plate, etc.).
 """
 
 import cadquery as cq
@@ -11,17 +12,24 @@ def apply_op(shape, op):
     """Apply a single modification op to a shape (in part local space).
 
     Op dict keys:
-      type: "cut_box" | "cut_cylinder" | "add_box" | "add_cylinder"
-      pos: [x, y, z]
-      size: [wx, wy, wz] for box
-      r, h: radius and height for cylinder
-      rot_deg: [rx, ry, rz] optional, degrees
+      type: "cut_box" | "cut_cylinder" | "add_box" | "add_cylinder" | "fillet" | "chamfer"
+      For cut/add: pos, size (box) or r,h (cylinder), rot_deg.
+      For fillet: r (radius in mm), applied to all edges.
+      For chamfer: d (distance in mm), applied to all edges.
 
     Returns the modified CadQuery shape.
     """
     op_type = op.get("type")
     if not op_type:
         return shape
+
+    if op_type == "fillet":
+        r = float(op.get("r", 2.0))
+        return shape.fillet(r)
+    if op_type == "chamfer":
+        d = float(op.get("d", 1.0))
+        return shape.chamfer(d)
+
     pos = op.get("pos", [0, 0, 0])
     rot_deg = op.get("rot_deg") or [0, 0, 0]
     rx, ry, rz = rot_deg[0], rot_deg[1], rot_deg[2]

@@ -32,7 +32,8 @@ def load_overlay(output_dir):
       - parts: dict part_name -> { "position": [x,y,z] z-up, "rotation": [rx,ry,rz] deg }
       - anchors: dict part_name -> [ { "name", "point": [x,y,z], "normal": [nx,ny,nz] } ]
       - constraints: [ { "child_part", "child_anchor", "parent_part", "parent_anchor", "kind", "gap"? } ]
-      - modifications: dict part_name -> [ { "id", "type", "pos", "size" or "r"/"h", "rot_deg"? } ]
+      - modifications: dict part_name -> [ { "id", "type", "pos"? , "size"? or "r"/"h"? , "rot_deg"? , "d"? } ]
+        type: cut_box, add_box, cut_cylinder, add_cylinder, fillet (r), chamfer (d)
       - new_parts: [ { "name", "display", "geometry", "anchors"? } ]
 
     Position in overlay is stored in viewer (Y-up); we convert to Z-up for "parts".
