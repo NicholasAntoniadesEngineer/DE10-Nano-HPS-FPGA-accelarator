@@ -1300,6 +1300,12 @@ var OVERLAY_SAVE_HINT = (typeof window.__OVERLAY_SAVE_HINT === 'string') ? windo
             document.getElementById('keymap-panel').style.display = 'none';
             document.getElementById('btn-shortcuts').classList.remove('active');
             document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+            // Cancel route waypoint placement mode
+            if (addWpMode) {
+                addWpMode = false;
+                var _addWpBtn = document.getElementById('btn-route-add-wp');
+                if (_addWpBtn) _addWpBtn.classList.remove('active');
+            }
             e.preventDefault();
         }
     });
