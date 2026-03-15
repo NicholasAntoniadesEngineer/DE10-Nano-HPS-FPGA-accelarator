@@ -376,13 +376,28 @@ def make_arm():
             normal=(0, 0, 1),
             label="motor mount center",
         )
-        # ESC mount: underside of arm, centered along arm length.
-        # ESC sits at the midpoint of the arm stub for balanced weight.
-        esc_local_x = 0.0
+        # ESC mounting positions — multiple points along arm underside for
+        # adjustable ESC placement. Spaced from near the frame end to near
+        # the motor section. esc_mount (default) is the outermost position
+        # (closest to motor) for shortest motor wire runs.
+        _esc_zone_start = _nominal_frame_end + 10  # 10mm inboard from frame edge
+        _esc_zone_end = _mount_cx - 15  # 15mm inboard from motor mount
+        _esc_positions = 4
+        _esc_spacing = (_esc_zone_end - _esc_zone_start) / max(1, _esc_positions - 1)
+        for ei in range(_esc_positions):
+            ex = _esc_zone_start + ei * _esc_spacing
+            suffix = f"_{ei + 1}" if ei < _esc_positions - 1 else ""
+            name_key = f"esc_mount{suffix}" if ei == _esc_positions - 1 else f"esc_mount_{ei + 1}"
+            anchors[name_key] = Anchor(
+                point=(ex, 0, 0),
+                normal=(0, 0, -1),
+                label=f"ESC mount pos {ei + 1}/{_esc_positions} (underside, X={ex:.0f})",
+            )
+        # Default esc_mount = outermost position (closest to motor)
         anchors["esc_mount"] = Anchor(
-            point=(esc_local_x, 0, 0),
+            point=(_esc_zone_end, 0, 0),
             normal=(0, 0, -1),
-            label="ESC mount (underside)",
+            label=f"ESC mount default — outermost (underside, X={_esc_zone_end:.0f})",
         )
         anchors["top_face"] = Anchor(
             point=(0, 0, ARM_THICK), normal=(0, 0, 1), label="top face"
