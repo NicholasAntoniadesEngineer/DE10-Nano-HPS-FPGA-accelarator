@@ -48,8 +48,8 @@
         <div class="dropdown-menu">
             <div class="dropdown-item" id="btn-export-pos">Export Positions</div>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-item" id="btn-save-config" title="Download model_configuration.json. Place in project output dir to apply edits on next rebuild.">Save Configuration</div>
-            <div class="dropdown-item" id="btn-load-config" title="Load a previously saved model_configuration.json">Load Configuration</div>
+            <div class="dropdown-item" id="btn-save-config" title="Download viewer_overlay.json. Place in project output dir to apply edits on next rebuild.">Save Overlay</div>
+            <div class="dropdown-item" id="btn-load-config" title="Load viewer_overlay.json or model_configuration.json">Load Overlay</div>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item" id="btn-kicad">KiCad PCB Files</div>
         </div>
@@ -58,6 +58,16 @@
     <div class="sep"></div>
     <div class="ctrl"><span>Color:</span><input type="color" id="color-picker" value="#8ecae6"></div>
     <button class="btn" id="btn-shortcuts">Shortcuts</button>
+    <div class="dropdown" id="dd-overlay">
+        <button class="dropdown-btn">Overlay</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item" id="btn-add-anchor">Add anchor...</div>
+            <div class="dropdown-item" id="btn-add-constraint">Add constraint...</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="btn-new-box">Create part (box)</div>
+            <div class="dropdown-item" id="btn-new-cylinder">Create part (cylinder)</div>
+        </div>
+    </div>
     <div class="sep"></div>
     <label class="btn" style="gap:4px;"><input type="checkbox" id="btn-anchors" style="accent-color:#8ecae6;cursor:pointer;"> Anchors</label>
 </div>
@@ -78,6 +88,9 @@
 <div id="keymap-panel" class="draggable-panel">
     <div class="drag-handle"><span class="title">Shortcuts</span><button class="close-btn" data-closes="keymap-panel">&times;</button></div>
     <div class="panel-body">
+        <h4>Last build</h4>
+        <div id="build-result-text" class="km-desc">—</div>
+        <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
         <h4>Mouse</h4>
         <div class="km-row"><span><span class="key">LMB</span> drag</span> <span class="km-desc">Orbit camera</span></div>
         <div class="km-row"><span><span class="key">RMB</span> drag</span> <span class="km-desc">Pan camera</span></div>
@@ -123,6 +136,19 @@
                 <option value="90">90</option>
             </select>
         </div>
+    </div>
+</div>
+
+<div id="add-constraint-panel" class="draggable-panel">
+    <div class="drag-handle"><span class="title">Add Constraint</span><button class="close-btn" data-closes="add-constraint-panel">&times;</button></div>
+    <div class="panel-body">
+        <div class="dm-row"><span class="dm-label">Child</span><select id="constraint-child-part"><option value="">Part</option></select></div>
+        <div class="dm-row"><span class="dm-label">Anchor</span><select id="constraint-child-anchor"><option value="">Anchor</option></select></div>
+        <div class="dm-row"><span class="dm-label">Parent</span><select id="constraint-parent-part"><option value="">Part</option></select></div>
+        <div class="dm-row"><span class="dm-label">Anchor</span><select id="constraint-parent-anchor"><option value="">Anchor</option></select></div>
+        <div class="dm-row"><span class="dm-label">Kind</span><select id="constraint-kind"><option value="mate">Mate</option><option value="offset">Offset</option></select></div>
+        <div class="dm-row"><span class="dm-label">Gap (mm)</span><input type="number" id="constraint-gap" value="0" step="0.5" min="0"></div>
+        <button class="dm-btn" id="constraint-add-btn">Add Constraint</button>
     </div>
 </div>
 
@@ -209,6 +235,22 @@
         </label>
         <div id="sel-anchor-list"></div>
     </div>
+    <div class="sel-section" id="sel-modifications-section">
+        <div class="sel-section-title">Parametric modifications</div>
+        <div id="sel-modification-list"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+            <button type="button" class="btn" id="btn-add-cut-box" style="font-size:11px;">Add cut (box)</button>
+            <button type="button" class="btn" id="btn-add-add-box" style="font-size:11px;">Add add (box)</button>
+            <button type="button" class="btn" id="btn-add-cut-cylinder" style="font-size:11px;">Add cut (cylinder)</button>
+            <button type="button" class="btn" id="btn-add-add-cylinder" style="font-size:11px;">Add add (cylinder)</button>
+        </div>
+    </div>
+    <div class="sel-section" id="sel-save-new-part-section" style="display:none;">
+        <div class="sel-section-title">Save as new component</div>
+        <div class="sel-row"><span class="sel-label">Part name</span><input type="text" id="new-part-name" placeholder="e.g. custom_bracket_1" style="flex:1;max-width:160px;"></div>
+        <div class="sel-row"><span class="sel-label">Display name</span><input type="text" id="new-part-display" placeholder="e.g. Custom Bracket 1" style="flex:1;max-width:160px;"></div>
+        <button type="button" class="btn" id="btn-save-new-part" style="margin-top:6px;font-size:11px;">Save as new component</button>
+    </div>
 </div>
 
 <script type="importmap">
@@ -224,6 +266,7 @@
 window.__VIEWER_PARTS = "__PARTS_JSON__";
 window.__VIEWER_KICAD = "__KICAD_JSON__";
 window.__VIEWER_CONSTRAINTS = "__CONSTRAINTS_JSON__";
+window.__VIEWER_BUILD_RESULT = "__BUILD_RESULT_JSON__";
 </script>
 
 <!-- __INLINE_JS__ -->

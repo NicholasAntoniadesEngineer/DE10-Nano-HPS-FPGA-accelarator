@@ -293,6 +293,7 @@ class AssemblyBuilder:
         self._placements = {}    # name -> _Placement
         self._constraints = []   # list of _Constraint
         self._constraint_order = []  # child names in insertion order
+        self._viewer_anchors = {}  # name -> list of (anchor_name, point, normal) for merge in resolve()
 
     def add(self, name, builder, args=(), color="#888888", display=None,
             meta=None, no_collision=False):
@@ -400,6 +401,23 @@ class AssemblyBuilder:
         if child_part not in self._constraint_order:
             self._constraint_order.append(child_part)
 
+    def add_anchor(self, part_name, anchor_name, point, normal=(0.0, 0.0, 1.0)):
+        """Add a viewer-defined anchor to a part (merged at resolve time).
+
+        Args:
+            part_name: Part identifier (must be registered with add()).
+            anchor_name: Name for this anchor (used in constraint refs).
+            point: (x, y, z) in part local space.
+            normal: (nx, ny, nz) outward direction (default +Z).
+        """
+        if part_name not in self._parts:
+            raise ValueError(f"Unknown part '{part_name}' for viewer anchor")
+        pt = (float(point[0]), float(point[1]), float(point[2]))
+        nm = (float(normal[0]), float(normal[1]), float(normal[2]))
+        self._viewer_anchors.setdefault(part_name, []).append(
+            (anchor_name, pt, nm)
+        )
+
     def resolve(self):
         """Build all parts, solve constraints, return pipeline-compatible manifest.
 
@@ -426,6 +444,15 @@ class AssemblyBuilder:
             else:
                 built_shapes[name] = result
                 local_anchors[name] = {}
+
+        # Merge viewer-added anchors into local_anchors
+        for part_name, anchor_list in self._viewer_anchors.items():
+            if part_name not in local_anchors:
+                local_anchors[part_name] = {}
+            for anchor_name, point, normal in anchor_list:
+                local_anchors[part_name][anchor_name] = Anchor(
+                    point=point, normal=normal, label=f"viewer:{anchor_name}"
+                )
 
         # --- Step 2: Build constraint graph ---
         # Map child -> constraint (each child has at most one parent constraint)

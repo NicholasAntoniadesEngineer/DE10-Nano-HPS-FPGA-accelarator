@@ -5,17 +5,19 @@ import json
 from pathlib import Path
 
 _VIEWER_DIR = Path(__file__).resolve().parent
+_STATIC_DIR = _VIEWER_DIR / "static"
 
 
 def generate_viewer_html(parts_data, output_path, kicad_files=None,
                          constraints=None,
                          title="3D Model Viewer", toolbar_title="3D Viewer",
-                         loading_message="Loading model..."):
+                         loading_message="Loading model...",
+                         build_result=None):
     """Generate self-contained viewer.html with embedded STL data.
 
-    Reads template.html, style.css, and app.js from the viewer package
-    directory, inlines them, injects the provided data as JSON, and
-    writes one portable HTML file to *output_path*.
+    Reads template.html, style.css, and app.js from the viewer static
+    directory (viewer/static/), inlines them, injects the provided data
+    as JSON, and writes one portable HTML file to *output_path*.
 
     Args:
         parts_data: list of dicts with keys name, display, color,
@@ -28,9 +30,9 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
         toolbar_title: text shown in the toolbar header.
         loading_message: text shown while parts are loading.
     """
-    template_text = (_VIEWER_DIR / "template.html").read_text(encoding="utf-8")
-    css_text = (_VIEWER_DIR / "style.css").read_text(encoding="utf-8")
-    js_text = (_VIEWER_DIR / "app.js").read_text(encoding="utf-8")
+    template_text = (_STATIC_DIR / "template.html").read_text(encoding="utf-8")
+    css_text = (_STATIC_DIR / "style.css").read_text(encoding="utf-8")
+    js_text = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
     parts_json = json.dumps([{
         "name": part["name"],
@@ -46,6 +48,7 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
 
     kicad_json = json.dumps(kicad_files or {}, indent=None)
     constraints_json = json.dumps(constraints or [], indent=None)
+    build_result_json = json.dumps(build_result or {}, indent=None)
 
     html = template_text
     html = html.replace("<!-- __INLINE_CSS__ -->", "<style>\n" + css_text + "\n</style>")
@@ -56,6 +59,7 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
     html = html.replace('"__PARTS_JSON__"', parts_json)
     html = html.replace('"__KICAD_JSON__"', kicad_json)
     html = html.replace('"__CONSTRAINTS_JSON__"', constraints_json)
+    html = html.replace('"__BUILD_RESULT_JSON__"', build_result_json)
 
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")

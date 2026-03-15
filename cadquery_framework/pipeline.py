@@ -16,6 +16,8 @@ from pathlib import Path
 from .exporters.stl_export import export_stl, stl_to_bytes, apply_transform, to_yup
 from .assembly.collision import check_assembly_overlaps, print_overlap_report, print_bbox_summary
 from .viewer.generator import generate_viewer_html
+from .viewer.overlay import load_overlay
+from .modifiers import apply_op
 
 CONFIG_FILENAME = "model_configuration.json"
 
@@ -28,11 +30,23 @@ def _viewer_pos_to_zup(viewer_pos):
 
 
 def _load_viewer_overrides(output_dir):
-    """Load model_configuration.json from output_dir if present.
+    """Load position/rotation overrides from viewer_overlay.json or model_configuration.json.
+
+    Prefers viewer_overlay.json "parts" when present; otherwise falls back to
+    model_configuration.json for backward compatibility.
 
     Returns a dict part_name -> {"pos": [x,y,z] z-up, "rot": [rx,ry,rz] degrees}
-    or {} if file missing/invalid.
+    or {} if no file or invalid.
     """
+    overlay = load_overlay(Path(output_dir))
+    if overlay.get("parts"):
+        overrides = {}
+        for name, p in overlay["parts"].items():
+            if "position" in p and len(p["position"]) == 3:
+                overrides.setdefault(name, {})["pos"] = p["position"]
+            if "rotation" in p and len(p["rotation"]) == 3:
+                overrides.setdefault(name, {})["rot"] = p["rotation"]
+        return overrides
     path = Path(output_dir) / CONFIG_FILENAME
     if not path.is_file():
         return {}
@@ -59,13 +73,17 @@ def _load_viewer_overrides(output_dir):
     return overrides
 
 
-def build_assembly(manifest):
+def build_assembly(manifest, overlay_modifications=None):
     """Build all parts from manifest, apply transforms, return positioned parts list.
 
     Each returned dict has: name, display, color, shape (z-up transformed),
     shape_yup (y-up for viewer), meta, pos_zup, rot_zup.
+
+    If overlay_modifications is a dict part_name -> list of op dicts, each op
+    is applied in order to the raw shape (in part local space) before transform.
     """
     parts = []
+    mods = overlay_modifications or {}
     for entry in manifest:
         name = entry["name"]
         display = entry["display"]
@@ -83,6 +101,8 @@ def build_assembly(manifest):
                 raw, builder_anchors = raw
             else:
                 builder_anchors = None
+            for op in mods.get(name, []):
+                raw = apply_op(raw, op)
             shape_zup = apply_transform(raw, pos, rot)
             shape_yup = to_yup(shape_zup)
             # Collect anchors: prefer manifest entry, fall back to builder output
@@ -136,7 +156,7 @@ def _derive_exclude_names(manifest):
 def export_assembly(manifest, output_dir, title="3D Model Viewer",
                     toolbar_title="3D Viewer", loading_message="Loading model...",
                     allowed_pairs=None, kicad_files=None, individual_parts=None,
-                    verbose=False, constraints=None):
+                    verbose=False, constraints=None, validation=None):
     """Full export pipeline: build, collision check, STL export, viewer generation.
 
     Collision check is blocking: if any overlaps remain (after filtering)
@@ -160,6 +180,7 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
         constraints: optional list of constraint dicts with keys
             {child_part, child_anchor, parent_part, parent_anchor, kind}
             for rendering mate lines in the viewer.
+        validation: optional dict from manifest build (e.g. overlay_constraints_skipped).
     """
     output_dir = Path(output_dir)
     parts_dir = output_dir / "stl" / "parts"
@@ -167,7 +188,17 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     parts_dir.mkdir(parents=True, exist_ok=True)
     assembly_dir.mkdir(parents=True, exist_ok=True)
 
-    overrides = _load_viewer_overrides(output_dir)
+    overlay = load_overlay(output_dir)
+    overrides = {}
+    if overlay.get("parts"):
+        for name, p in overlay["parts"].items():
+            overrides[name] = {}
+            if "position" in p and len(p["position"]) == 3:
+                overrides[name]["pos"] = p["position"]
+            if "rotation" in p and len(p["rotation"]) == 3:
+                overrides[name]["rot"] = p["rotation"]
+    if not overrides:
+        overrides = _load_viewer_overrides(output_dir)
     if overrides:
         for entry in manifest:
             name = entry.get("name")
@@ -178,7 +209,8 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
                 entry["pos"] = tuple(o["pos"])
             if "rot" in o:
                 entry["rot"] = tuple(o["rot"])
-        print(f"  Applied viewer overrides from {CONFIG_FILENAME} for {len(overrides)} part(s)")
+        print(f"  Applied viewer overrides for {len(overrides)} part(s)")
+    overlay_modifications = overlay.get("modifications")
 
     # Export individual parts at origin (no assembly transforms)
     if individual_parts:
@@ -193,7 +225,7 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
 
     # Build positioned assembly
     print("\nBuilding assembly...")
-    parts = build_assembly(manifest)
+    parts = build_assembly(manifest, overlay_modifications=overlay_modifications)
 
     # Collision check (blocking: pipeline fails if any overlaps remain)
     # Only exclusion: directly constrained mating pairs (surface contact is
@@ -244,11 +276,22 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
 
     # Generate viewer HTML
     viewer_path = output_dir / "viewer.html"
+    skipped = (validation or {}).get("overlay_constraints_skipped", [])
+    build_result = {
+        "success": True,
+        "parts": len(viewer_parts),
+        "collisions": len(overlaps) if overlaps else 0,
+        "overlay_constraints_skipped": len(skipped),
+        "message": "Export complete.",
+    }
+    if skipped:
+        build_result["message"] = "Export complete. {} overlay constraint(s) skipped.".format(len(skipped))
     viewer_kwargs = dict(
         kicad_files=kicad_files,
         title=title,
         toolbar_title=toolbar_title,
         loading_message=loading_message,
+        build_result=build_result,
     )
     if constraints is not None:
         viewer_kwargs["constraints"] = constraints

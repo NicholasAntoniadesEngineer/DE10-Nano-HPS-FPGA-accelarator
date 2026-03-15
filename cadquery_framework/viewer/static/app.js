@@ -6,6 +6,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 var EMBEDDED_PARTS = window.__VIEWER_PARTS;
 var KICAD_FILES = window.__VIEWER_KICAD;
 var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
+var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
 
 (function() {
     var container = document.getElementById('canvas-container');
@@ -108,6 +109,13 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
     var originalTransforms = {};
     var translationDamping = 0.25;
     var translationLastPos = null;
+    var overlayAnchors = {};
+    var overlayConstraints = [];
+    var overlayModifications = {};
+    var overlayNewParts = [];
+    var addAnchorMode = false;
+    var modificationIdCounter = 0;
+    var newPartIdCounter = 0;
 
     tfc.addEventListener('dragging-changed', function(e) {
         controls.enabled = !e.value;
@@ -219,6 +227,46 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         updatePartsList();
     }
 
+    function addPrimitivePart(type, params) {
+        newPartIdCounter++;
+        var name = '_new_part_' + newPartIdCounter;
+        var geometry;
+        var geometryData;
+        if (type === 'box') {
+            var size = params.size || [20, 20, 10];
+            geometry = new THREE.BoxGeometry(size[0], size[1], size[2]);
+            geometryData = { type: 'box', size: size };
+        } else {
+            var r = params.r != null ? params.r : 5;
+            var h = params.h != null ? params.h : 10;
+            geometry = new THREE.CylinderGeometry(r, r, h, 32);
+            geometryData = { type: 'cylinder', r: r, h: h };
+        }
+        geometry.computeBoundingBox();
+        var center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        var color = new THREE.Color(0x8ecae6).convertSRGBToLinear();
+        var mat = new THREE.MeshPhysicalMaterial({
+            color: color, metalness: 0.2, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.2,
+            side: THREE.DoubleSide
+        });
+        var mesh = new THREE.Mesh(geometry, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.partName = name;
+        mesh.position.set(-center.x, -center.y, -center.z);
+        var group = new THREE.Group();
+        group.position.set(0, 0, 0);
+        group.add(mesh);
+        scene.add(group);
+        var display = type === 'box' ? 'New box' : 'New cylinder';
+        parts[name] = { group: group, mesh: mesh, geometry: geometry, fileSize: 0, color: '#8ecae6', display: display, visible: true, meta: {}, isNewPart: true, geometryData: geometryData };
+        originalTransforms[name] = { pos: group.position.clone(), rot: group.rotation.clone() };
+        partOrder.push(name);
+        updatePartsList();
+        selectPart(name, null);
+    }
+
     function togglePart(name) {
         var p = parts[name];
         if (!p) return;
@@ -261,6 +309,19 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         controls.target.copy(center); controls.update();
     }
 
+    function partHasOverlay(name) {
+        var hasPos = false;
+        var orig = originalTransforms[name];
+        if (orig && parts[name]) {
+            var g = parts[name].group;
+            if (Math.abs(g.position.x - orig.pos.x) > 0.01 || Math.abs(g.position.y - orig.pos.y) > 0.01 || Math.abs(g.position.z - orig.pos.z) > 0.01)
+                hasPos = true;
+        }
+        var hasAnchors = overlayAnchors[name] && overlayAnchors[name].length > 0;
+        var hasMods = overlayModifications[name] && overlayModifications[name].length > 0;
+        return hasPos || hasAnchors || hasMods;
+    }
+
     function updatePartsList() {
         var c = document.getElementById('parts-container');
         c.innerHTML = '';
@@ -271,8 +332,9 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             var div = document.createElement('div');
             div.className = 'part-item' + (selectedPart === name ? ' selected' : '');
             var sizeKB = p.fileSize ? (p.fileSize / 1024).toFixed(1) + ' KB' : '';
+            var overlayBadge = partHasOverlay(name) ? '<span class="overlay-badge" title="Has overlay edits">*</span>' : '';
             div.innerHTML = '<span class="eye ' + (p.visible ? 'visible' : '') + '" data-part="' + name + '">&#9679;</span>' +
-                '<span style="flex:1">' + p.display + '</span><span class="size">' + sizeKB + '</span>';
+                '<span style="flex:1">' + p.display + '</span>' + overlayBadge + '<span class="size">' + sizeKB + '</span>';
             div.setAttribute('data-part', name);
             div.addEventListener('click', function(e) {
                 if (e.target.classList.contains('eye')) {
@@ -321,6 +383,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
 
         updateTransformFields(p);
         populatePartAnchors(selectedPart);
+        populateModificationList(selectedPart);
         var partToggle = document.getElementById('sel-anchors-toggle');
         if (!partToggle.checked) {
             selectedPartAnchorsOn = false;
@@ -331,6 +394,14 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             tfc.attach(p.group);
             tfc.visible = true;
             tfc.enabled = true;
+        }
+        var saveNewSection = document.getElementById('sel-save-new-part-section');
+        if (p.isNewPart) {
+            saveNewSection.style.display = 'block';
+            document.getElementById('new-part-name').value = '';
+            document.getElementById('new-part-display').value = p.display || '';
+        } else {
+            saveNewSection.style.display = 'none';
         }
 
         if (hitPoint) {
@@ -367,6 +438,57 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         for (var i = 0; i < names.length; i++) if (parts[names[i]].visible) meshes.push(parts[names[i]].mesh);
         var hits = raycaster.intersectObjects(meshes);
         if (hits.length > 0) {
+            if (addAnchorMode) {
+                var hit = hits[0];
+                var partName = hit.object.userData.partName;
+                var group = parts[partName] && parts[partName].group;
+                if (group) {
+                    var localPoint = hit.point.clone().applyMatrix4(group.matrixWorld.clone().invert());
+                    var worldNorm = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+                    var localNorm = worldNorm.transformDirection(group.matrixWorld.clone().invert());
+                    var name = prompt('Anchor name (e.g. custom_mount):', 'custom_mount');
+                    if (name && name.trim()) {
+                        name = name.trim();
+                        if (!overlayAnchors[partName]) overlayAnchors[partName] = [];
+                        overlayAnchors[partName].push({
+                            name: name,
+                            point: [localPoint.x, localPoint.y, localPoint.z],
+                            normal: [localNorm.x, localNorm.y, localNorm.z]
+                        });
+                        for (var mi = 0; mi < overlayAnchorMeshes.length; mi++) {
+                            if (overlayAnchorMeshes[mi].parent)
+                                overlayAnchorMeshes[mi].parent.remove(overlayAnchorMeshes[mi]);
+                        }
+                        overlayAnchorMeshes = [];
+                        for (var si = anchorSpheres.length - 1; si >= 0; si--) {
+                            if (anchorSpheres[si].kind === 'viewer') anchorSpheres.splice(si, 1);
+                        }
+                        var sphereGeo = new THREE.SphereGeometry(4, 16, 16);
+                        for (var pn in overlayAnchors) {
+                            var p = parts[pn];
+                            if (!p || !p.group) continue;
+                            var list = overlayAnchors[pn];
+                            for (var k = 0; k < list.length; k++) {
+                                var a = list[k];
+                                var pt = a.point || [0, 0, 0];
+                                var mat = new THREE.MeshBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true, opacity: 0.9 });
+                                var sphere = new THREE.Mesh(sphereGeo.clone(), mat);
+                                sphere.renderOrder = 998;
+                                sphere.position.set(pt[0], pt[1], pt[2]);
+                                p.group.add(sphere);
+                                overlayAnchorMeshes.push(sphere);
+                                anchorSpheres.push({ mesh: sphere, partName: pn, anchorName: a.name, kind: 'viewer' });
+                            }
+                        }
+                        updateAnchorVisibility();
+                        if (selectedPart === partName) populatePartAnchors(partName);
+                        updatePartsList();
+                    }
+                }
+                addAnchorMode = false;
+                document.getElementById('btn-add-anchor').classList.remove('active');
+                return;
+            }
             selectPart(hits[0].object.userData.partName, hits[0]);
         } else {
             selectedPart = null; clearHighlight(); selMarker.visible = false;
@@ -766,17 +888,15 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         URL.revokeObjectURL(a.href);
     });
 
-    // Save Configuration (model_configuration.json). Place in project output dir
-    // to apply these positions/rotations on next rebuild.
+    // Save overlay (viewer_overlay.json). Place in project output dir to apply on next rebuild.
     document.getElementById('btn-save-config').addEventListener('click', function() {
-        var config = { parts: [], exported_at: new Date().toISOString() };
+        var partsDict = {};
         for (var i = 0; i < partOrder.length; i++) {
             var name = partOrder[i];
             var p = parts[name];
             if (!p) continue;
             var group = p.group;
-            config.parts.push({
-                name: name,
+            partsDict[name] = {
                 position: [
                     parseFloat(group.position.x.toFixed(4)),
                     parseFloat(group.position.y.toFixed(4)),
@@ -788,13 +908,34 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                     parseFloat(THREE.MathUtils.radToDeg(group.rotation.z).toFixed(4))
                 ],
                 visible: p.visible
-            });
+            };
         }
-        var json = JSON.stringify(config, null, 2);
+        var newPartsExport = [];
+        for (var ni = 0; ni < overlayNewParts.length; ni++) {
+            var np = overlayNewParts[ni];
+            var p = parts[np.name];
+            if (!p || !p.group) continue;
+            var g = p.group;
+            var geo = p.geometryData || {};
+            var geomOut = { type: geo.type || 'box', pos: [g.position.x, g.position.y, g.position.z], rot: [THREE.MathUtils.radToDeg(g.rotation.x), THREE.MathUtils.radToDeg(g.rotation.y), THREE.MathUtils.radToDeg(g.rotation.z)] };
+            if (geo.size) geomOut.size = geo.size;
+            if (geo.r != null) geomOut.r = geo.r;
+            if (geo.h != null) geomOut.h = geo.h;
+            newPartsExport.push({ name: np.name, display: np.display, geometry: geomOut });
+        }
+        var overlay = {
+            parts: partsDict,
+            anchors: overlayAnchors,
+            constraints: overlayConstraints,
+            modifications: overlayModifications,
+            new_parts: newPartsExport,
+            exported_at: new Date().toISOString()
+        };
+        var json = JSON.stringify(overlay, null, 2);
         var blob = new Blob([json], { type: 'application/json' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'model_configuration.json';
+        a.download = 'viewer_overlay.json';
         a.click();
         URL.revokeObjectURL(a.href);
     });
@@ -810,6 +951,97 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         loadConfigInput.click();
     });
 
+    document.getElementById('btn-add-anchor').addEventListener('click', function() {
+        addAnchorMode = true;
+        this.classList.add('active');
+        document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    });
+
+    function getPartAnchors(partName) {
+        var out = [];
+        for (var i = 0; i < EMBEDDED_PARTS.length; i++) {
+            if (EMBEDDED_PARTS[i].name !== partName) continue;
+            var anchors = EMBEDDED_PARTS[i].anchors || [];
+            for (var j = 0; j < anchors.length; j++) out.push(anchors[j].name);
+            break;
+        }
+        var list = overlayAnchors[partName];
+        if (Array.isArray(list)) for (var k = 0; k < list.length; k++) out.push(list[k].name);
+        return out;
+    }
+
+    (function() {
+        var cpSelect = document.getElementById('constraint-child-part');
+        var caSelect = document.getElementById('constraint-child-anchor');
+        var ppSelect = document.getElementById('constraint-parent-part');
+        var paSelect = document.getElementById('constraint-parent-anchor');
+        function fillChildAnchors() {
+            caSelect.innerHTML = '<option value="">Anchor</option>';
+            var part = cpSelect.value;
+            if (!part) return;
+            var anchors = getPartAnchors(part);
+            for (var a = 0; a < anchors.length; a++)
+                caSelect.innerHTML += '<option value="' + anchors[a] + '">' + anchors[a] + '</option>';
+        }
+        function fillParentAnchors() {
+            paSelect.innerHTML = '<option value="">Anchor</option>';
+            var part = ppSelect.value;
+            if (!part) return;
+            var anchors = getPartAnchors(part);
+            for (var a = 0; a < anchors.length; a++)
+                paSelect.innerHTML += '<option value="' + anchors[a] + '">' + anchors[a] + '</option>';
+        }
+        cpSelect.addEventListener('change', fillChildAnchors);
+        ppSelect.addEventListener('change', fillParentAnchors);
+        document.getElementById('btn-add-constraint').addEventListener('click', function() {
+            document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+            var panel = document.getElementById('add-constraint-panel');
+            cpSelect.innerHTML = '<option value="">Part</option>';
+            ppSelect.innerHTML = '<option value="">Part</option>';
+            for (var i = 0; i < partOrder.length; i++) {
+                var n = partOrder[i];
+                cpSelect.innerHTML += '<option value="' + n + '">' + (parts[n].display || n) + '</option>';
+                ppSelect.innerHTML += '<option value="' + n + '">' + (parts[n].display || n) + '</option>';
+            }
+            caSelect.innerHTML = '<option value="">Anchor</option>';
+            paSelect.innerHTML = '<option value="">Anchor</option>';
+            panel.style.display = 'block';
+        });
+    })();
+
+    document.getElementById('constraint-add-btn').addEventListener('click', function() {
+        var childPart = document.getElementById('constraint-child-part').value;
+        var childAnchor = document.getElementById('constraint-child-anchor').value;
+        var parentPart = document.getElementById('constraint-parent-part').value;
+        var parentAnchor = document.getElementById('constraint-parent-anchor').value;
+        var kind = document.getElementById('constraint-kind').value;
+        var gap = parseFloat(document.getElementById('constraint-gap').value) || 0;
+        if (!childPart || !childAnchor || !parentPart || !parentAnchor) {
+            alert('Select child and parent part and anchor.');
+            return;
+        }
+        overlayConstraints.push({
+            child_part: childPart, child_anchor: childAnchor,
+            parent_part: parentPart, parent_anchor: parentAnchor,
+            kind: kind, gap: gap
+        });
+        var p1 = findAnchorPoint(childPart, childAnchor);
+        var p2 = findAnchorPoint(parentPart, parentAnchor);
+        if (p1 && p2) {
+            var lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(p1[0], p1[2], -p1[1]),
+                new THREE.Vector3(p2[0], p2[2], -p2[1])
+            ]);
+            var lineMat = new THREE.LineBasicMaterial({ color: 0xff8800, depthTest: false, linewidth: 1 });
+            var line = new THREE.Line(lineGeo, lineMat);
+            line.renderOrder = 997;
+            anchorGroup.add(line);
+            constraintLines.push({ line: line, childPart: childPart, parentPart: parentPart });
+        }
+        document.getElementById('add-constraint-panel').style.display = 'none';
+        updatePartsList();
+    });
+
     loadConfigInput.addEventListener('change', function(e) {
         var file = e.target.files[0];
         if (!file) return;
@@ -817,42 +1049,92 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         reader.onload = function(ev) {
             try {
                 var config = JSON.parse(ev.target.result);
-                if (!config.parts || !Array.isArray(config.parts)) {
-                    alert('Invalid configuration file: missing "parts" array.');
-                    return;
-                }
-                var applied = 0;
-                for (var i = 0; i < config.parts.length; i++) {
-                    var cp = config.parts[i];
-                    var p = parts[cp.name];
-                    if (!p) continue;
-                    var group = p.group;
-                    if (cp.position && cp.position.length === 3) {
-                        group.position.set(cp.position[0], cp.position[1], cp.position[2]);
-                    }
-                    if (cp.rotation && cp.rotation.length === 3) {
-                        group.rotation.set(
-                            THREE.MathUtils.degToRad(cp.rotation[0]),
-                            THREE.MathUtils.degToRad(cp.rotation[1]),
-                            THREE.MathUtils.degToRad(cp.rotation[2])
-                        );
-                    }
-                    if (typeof cp.visible === 'boolean') {
-                        p.visible = cp.visible;
-                        group.visible = cp.visible;
-                        var eyeEl = document.querySelector('.part-item[data-part="' + cp.name + '"] .eye');
-                        if (eyeEl) {
-                            if (cp.visible) { eyeEl.classList.add('visible'); }
-                            else { eyeEl.classList.remove('visible'); }
+                var partsList = config.parts;
+                if (Array.isArray(partsList)) {
+                    for (var i = 0; i < partsList.length; i++) {
+                        var cp = partsList[i];
+                        var p = parts[cp.name];
+                        if (!p) continue;
+                        var group = p.group;
+                        if (cp.position && cp.position.length === 3) {
+                            group.position.set(cp.position[0], cp.position[1], cp.position[2]);
+                        }
+                        if (cp.rotation && cp.rotation.length === 3) {
+                            group.rotation.set(
+                                THREE.MathUtils.degToRad(cp.rotation[0]),
+                                THREE.MathUtils.degToRad(cp.rotation[1]),
+                                THREE.MathUtils.degToRad(cp.rotation[2])
+                            );
+                        }
+                        if (typeof cp.visible === 'boolean') {
+                            p.visible = cp.visible;
+                            group.visible = cp.visible;
+                            var eyeEl = document.querySelector('.part-item[data-part="' + cp.name + '"] .eye');
+                            if (eyeEl) {
+                                if (cp.visible) { eyeEl.classList.add('visible'); }
+                                else { eyeEl.classList.remove('visible'); }
+                            }
                         }
                     }
-                    applied++;
+                } else if (partsList && typeof partsList === 'object') {
+                    for (var name in partsList) {
+                        var cp = partsList[name];
+                        var p = parts[name];
+                        if (!p) continue;
+                        var group = p.group;
+                        if (cp.position && cp.position.length === 3) {
+                            group.position.set(cp.position[0], cp.position[1], cp.position[2]);
+                        }
+                        if (cp.rotation && cp.rotation.length === 3) {
+                            group.rotation.set(
+                                THREE.MathUtils.degToRad(cp.rotation[0]),
+                                THREE.MathUtils.degToRad(cp.rotation[1]),
+                                THREE.MathUtils.degToRad(cp.rotation[2])
+                            );
+                        }
+                        if (typeof cp.visible === 'boolean') {
+                            p.visible = cp.visible;
+                            group.visible = cp.visible;
+                            var eyeEl = document.querySelector('.part-item[data-part="' + name + '"] .eye');
+                            if (eyeEl) {
+                                if (cp.visible) { eyeEl.classList.add('visible'); }
+                                else { eyeEl.classList.remove('visible'); }
+                            }
+                        }
+                    }
                 }
-                if (selectedPart && parts[selectedPart]) {
+                if (config.anchors && typeof config.anchors === 'object') {
+                    overlayAnchors = config.anchors;
+                }
+                if (config.constraints && Array.isArray(config.constraints)) {
+                    overlayConstraints = config.constraints;
+                }
+                if (config.modifications && typeof config.modifications === 'object') {
+                    overlayModifications = config.modifications;
+                }
+                if (config.new_parts && Array.isArray(config.new_parts)) {
+                    overlayNewParts = config.new_parts;
+                }
+                for (var mi = 0; mi < overlayAnchorMeshes.length; mi++) {
+                    if (overlayAnchorMeshes[mi].parent)
+                        overlayAnchorMeshes[mi].parent.remove(overlayAnchorMeshes[mi]);
+                }
+                overlayAnchorMeshes = [];
+                anchorsBuilt = false;
+                if (anchorGroup) {
+                    while (anchorGroup.children.length) anchorGroup.children.pop();
+                }
+                anchorSpheres = [];
+                constraintLines = [];
+                buildAnchors();
+                updateAnchorVisibility();
+                if (selectedPart) {
+                    populatePartAnchors(selectedPart);
                     updateTransformFields(parts[selectedPart]);
                     selectPart(selectedPart, null);
                 }
-                alert('Configuration loaded: ' + applied + ' part(s) updated.');
+                updatePartsList();
+                alert('Overlay loaded.');
             } catch (err) {
                 alert('Failed to parse configuration file: ' + err.message);
             }
@@ -969,6 +1251,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
     anchorGroup.visible = false;
     scene.add(anchorGroup);
     var anchorSpheres = [];
+    var overlayAnchorMeshes = [];
     var constraintLines = [];
     var anchorsBuilt = false;
     var selectedPartAnchorsOn = false;
@@ -994,6 +1277,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         if (kind === 'mate') return 0xff4444;
         if (kind === 'align') return 0x44ff44;
         if (kind === 'offset') return 0x4488ff;
+        if (kind === 'viewer') return 0xff8800;
         return 0x888888;
     }
 
@@ -1024,6 +1308,23 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                 anchorSpheres.push({ mesh: sphere, partName: ep.name, anchorName: a.name, kind: kind });
             }
         }
+        for (var partName in overlayAnchors) {
+            var p = parts[partName];
+            if (!p || !p.group) continue;
+            var list = overlayAnchors[partName];
+            if (!Array.isArray(list)) continue;
+            for (var k = 0; k < list.length; k++) {
+                var a = list[k];
+                var pt = a.point || [0, 0, 0];
+                var mat = new THREE.MeshBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true, opacity: 0.9 });
+                var sphere = new THREE.Mesh(sphereGeo.clone(), mat);
+                sphere.renderOrder = 998;
+                sphere.position.set(pt[0], pt[1], pt[2]);
+                p.group.add(sphere);
+                overlayAnchorMeshes.push(sphere);
+                anchorSpheres.push({ mesh: sphere, partName: partName, anchorName: a.name, kind: 'viewer' });
+            }
+        }
 
         for (var ci = 0; ci < EMBEDDED_CONSTRAINTS.length; ci++) {
             var con = EMBEDDED_CONSTRAINTS[ci];
@@ -1045,6 +1346,26 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                 constraintLines.push({ line: line, childPart: con.child_part, parentPart: con.parent_part });
             }
         }
+        for (var oi = 0; oi < overlayConstraints.length; oi++) {
+            var con = overlayConstraints[oi];
+            var p1 = findAnchorPoint(con.child_part, con.child_anchor);
+            var p2 = findAnchorPoint(con.parent_part, con.parent_anchor);
+            if (p1 && p2) {
+                var lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(p1[0], p1[2], -p1[1]),
+                    new THREE.Vector3(p2[0], p2[2], -p2[1])
+                ]);
+                var lineMat = new THREE.LineBasicMaterial({
+                    color: 0xff8800,
+                    depthTest: false,
+                    linewidth: 1
+                });
+                var line = new THREE.Line(lineGeo, lineMat);
+                line.renderOrder = 997;
+                anchorGroup.add(line);
+                constraintLines.push({ line: line, childPart: con.child_part, parentPart: con.parent_part });
+            }
+        }
     }
 
     function findAnchorPoint(partName, anchorName) {
@@ -1053,6 +1374,18 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             var anchors = EMBEDDED_PARTS[i].anchors || [];
             for (var j = 0; j < anchors.length; j++) {
                 if (anchors[j].name === anchorName) return anchors[j].point;
+            }
+        }
+        var list = overlayAnchors[partName];
+        if (Array.isArray(list)) {
+            for (var k = 0; k < list.length; k++) {
+                if (list[k].name === anchorName) {
+                    var p = parts[partName];
+                    if (!p || !p.group) return null;
+                    var local = new THREE.Vector3(list[k].point[0], list[k].point[1], list[k].point[2]);
+                    var world = local.clone().applyMatrix4(p.group.matrixWorld);
+                    return [world.x, world.z, -world.y];
+                }
             }
         }
         return null;
@@ -1090,11 +1423,17 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         for (var i = 0; i < EMBEDDED_PARTS.length; i++) {
             if (EMBEDDED_PARTS[i].name === partName) { embPart = EMBEDDED_PARTS[i]; break; }
         }
-        var anchors = embPart ? (embPart.anchors || []) : [];
+        var anchors = embPart ? (embPart.anchors || []).slice() : [];
+        var overlayList = overlayAnchors[partName];
+        if (Array.isArray(overlayList)) {
+            for (var k = 0; k < overlayList.length; k++) {
+                anchors.push({ name: overlayList[k].name, kind: 'viewer' });
+            }
+        }
         countEl.textContent = anchors.length;
         for (var j = 0; j < anchors.length; j++) {
             var a = anchors[j];
-            var kind = getAnchorKind(partName, a.name);
+            var kind = a.kind || getAnchorKind(partName, a.name);
             var row = document.createElement('div');
             row.className = 'anchor-item';
             row.innerHTML = '<span class="anchor-name">' + a.name + '</span>' +
@@ -1102,6 +1441,161 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             listEl.appendChild(row);
         }
     }
+
+    function populateModificationList(partName) {
+        var listEl = document.getElementById('sel-modification-list');
+        listEl.innerHTML = '';
+        var list = overlayModifications[partName];
+        if (!Array.isArray(list) || list.length === 0) {
+            listEl.innerHTML = '<span class="sel-value" style="font-size:11px;color:#888;">None</span>';
+            return;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var op = list[i];
+            var row = document.createElement('div');
+            row.className = 'anchor-item';
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.innerHTML = '<span>' + (op.type || 'op') + ' ' + (op.id || '') + '</span>' +
+                '<button type="button" class="close-btn" style="font-size:10px;padding:2px 6px;" data-remove-mod="' + (op.id || '') + '">Remove</button>';
+            listEl.appendChild(row);
+        }
+        listEl.querySelectorAll('[data-remove-mod]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = this.getAttribute('data-remove-mod');
+                var list = overlayModifications[partName];
+                if (!Array.isArray(list)) return;
+                for (var j = list.length - 1; j >= 0; j--) {
+                    if (list[j].id === id) { list.splice(j, 1); break; }
+                }
+                populateModificationList(partName);
+                updatePartsList();
+            });
+        });
+    }
+
+    document.getElementById('btn-add-cut-box').addEventListener('click', function() {
+        if (!selectedPart) return;
+        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
+        if (posStr === null) return;
+        var sizeStr = prompt('Size wx,wy,wz (mm):', '10,10,10');
+        if (sizeStr === null) return;
+        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
+        var size = sizeStr.split(',').map(function(v) { return parseFloat(v.trim()) || 10; });
+        if (pos.length !== 3) pos = [0, 0, 0];
+        if (size.length !== 3) size = [10, 10, 10];
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        overlayModifications[selectedPart].push({
+            id: 'op_' + modificationIdCounter,
+            type: 'cut_box',
+            pos: pos,
+            size: size,
+            rot_deg: [0, 0, 0]
+        });
+        populateModificationList(selectedPart);
+        updatePartsList();
+    });
+
+    document.getElementById('btn-add-add-box').addEventListener('click', function() {
+        if (!selectedPart) return;
+        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
+        if (posStr === null) return;
+        var sizeStr = prompt('Size wx,wy,wz (mm):', '10,10,10');
+        if (sizeStr === null) return;
+        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
+        var size = sizeStr.split(',').map(function(v) { return parseFloat(v.trim()) || 10; });
+        if (pos.length !== 3) pos = [0, 0, 0];
+        if (size.length !== 3) size = [10, 10, 10];
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        overlayModifications[selectedPart].push({
+            id: 'op_' + modificationIdCounter,
+            type: 'add_box',
+            pos: pos,
+            size: size,
+            rot_deg: [0, 0, 0]
+        });
+        populateModificationList(selectedPart);
+        updatePartsList();
+    });
+
+    function addCylinderModification(type) {
+        if (!selectedPart) return;
+        var rStr = prompt('Radius (mm):', '5');
+        if (rStr === null) return;
+        var hStr = prompt('Height (mm):', '10');
+        if (hStr === null) return;
+        var posStr = prompt('Position x,y,z (mm):', '0,0,0');
+        if (posStr === null) return;
+        var rotStr = prompt('Rotation deg (x,y,z) or leave empty for 0,0,0:', '');
+        var r = parseFloat(rStr) || 5;
+        var h = parseFloat(hStr) || 10;
+        var pos = posStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
+        if (pos.length !== 3) pos = [0, 0, 0];
+        var rot_deg = [0, 0, 0];
+        if (rotStr && rotStr.trim()) {
+            var rotArr = rotStr.split(',').map(function(v) { return parseFloat(v.trim()) || 0; });
+            if (rotArr.length >= 3) rot_deg = rotArr.slice(0, 3);
+        }
+        modificationIdCounter++;
+        if (!overlayModifications[selectedPart]) overlayModifications[selectedPart] = [];
+        overlayModifications[selectedPart].push({
+            id: 'op_' + modificationIdCounter,
+            type: type,
+            pos: pos,
+            r: r,
+            h: h,
+            rot_deg: rot_deg
+        });
+        populateModificationList(selectedPart);
+        updatePartsList();
+    }
+
+    document.getElementById('btn-add-cut-cylinder').addEventListener('click', function() {
+        addCylinderModification('cut_cylinder');
+    });
+    document.getElementById('btn-add-add-cylinder').addEventListener('click', function() {
+        addCylinderModification('add_cylinder');
+    });
+
+    document.getElementById('btn-new-box').addEventListener('click', function() {
+        document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+        addPrimitivePart('box', { size: [20, 20, 10] });
+    });
+    document.getElementById('btn-new-cylinder').addEventListener('click', function() {
+        document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+        addPrimitivePart('cylinder', { r: 5, h: 10 });
+    });
+
+    document.getElementById('btn-save-new-part').addEventListener('click', function() {
+        if (!selectedPart || !parts[selectedPart] || !parts[selectedPart].isNewPart) return;
+        var partName = (document.getElementById('new-part-name').value || '').trim();
+        var displayName = (document.getElementById('new-part-display').value || '').trim();
+        if (!partName) {
+            alert('Part name is required.');
+            return;
+        }
+        if (!displayName) displayName = partName;
+        var oldName = selectedPart;
+        var p = parts[oldName];
+        delete parts[oldName];
+        var idx = partOrder.indexOf(oldName);
+        if (idx >= 0) partOrder.splice(idx, 1);
+        partOrder.push(partName);
+        parts[partName] = p;
+        p.mesh.userData.partName = partName;
+        p.display = displayName;
+        p.isNewPart = false;
+        overlayNewParts.push({ name: partName, display: displayName });
+        originalTransforms[partName] = originalTransforms[oldName] || { pos: p.group.position.clone(), rot: p.group.rotation.clone() };
+        delete originalTransforms[oldName];
+        selectedPart = partName;
+        document.getElementById('sel-save-new-part-section').style.display = 'none';
+        document.getElementById('sel-title').textContent = displayName;
+        updatePartsList();
+    });
 
     document.getElementById('btn-anchors').addEventListener('change', function() {
         updateAnchorVisibility();
@@ -1242,10 +1736,26 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
     var total = EMBEDDED_PARTS.length;
     var loaded = 0;
 
+    function updateBuildResultText() {
+        var el = document.getElementById('build-result-text');
+        if (!el) return;
+        var r = EMBEDDED_BUILD_RESULT;
+        if (r && (r.success !== undefined || r.message)) {
+            var msg = r.message || (r.success ? 'OK' : 'Failed');
+            var parts = r.parts != null ? r.parts + ' parts' : '';
+            var collisions = r.collisions != null && r.collisions > 0 ? ', ' + r.collisions + ' collisions' : '';
+            var skipped = r.overlay_constraints_skipped != null && r.overlay_constraints_skipped > 0 ? ', ' + r.overlay_constraints_skipped + ' constraint(s) skipped' : '';
+            el.textContent = msg + (parts ? ' (' + parts + collisions + skipped + ').' : '.');
+        } else {
+            el.textContent = '—';
+        }
+    }
+
     function loadEmbeddedPart(idx) {
         if (idx >= total) {
             loadingEl.style.display = 'none';
             fitCamera();
+            updateBuildResultText();
             console.log('[VIEWER] All ' + total + ' parts loaded');
             return;
         }

@@ -22,7 +22,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 import importlib.util
 from cadquery_framework.assembly.anchors import Anchor, AssemblyBuilder
 from cadquery_framework.viewer.overlay import load_overlay
-from cadquery_framework.viewer.codegen_custom_part import generate_custom_part_module
+from cadquery_framework.viewer.codegen.custom_part import generate_custom_part_module
 
 # Component builders
 from components.frame.skeleton_plate import make_skeleton_plate
@@ -545,7 +545,7 @@ def _route_tubing(anchors_by_part):
     # bracket (Y±10), approach nozzle from above.
     plate_half = PLATE_SIZE / 2
     boom_z = boom_root[2]
-    _outside_x = plate_half + 5                         # X=60
+    _outside_x = plate_half + 10                        # X=65, clears ESC bboxes
     _boom_above = max(boom_z + 5, nozzle_barb[2] + 3)  # above boom AND nozzle
     _boom_y_offset = 20.0                                # clears camera (Y±17.5) and bracket (Y±10)
     _feed_z = 2.0                                        # separate from res-pump at Z=5

@@ -37,12 +37,17 @@ MOUNT_HOLE_D      = 2.2
 MOUNT_ROW_OFFSET  = _D["arms"]["mount_row_offset"]
 MOUNT_HOLE_PITCH  = 10.0
 
+# Extra arm length at frame end for physical motor-distance adjustment.
+# The arm extends further inboard; slider holes in the extension + flange
+# let you bolt at different positions to change effective arm length.
+ADJUSTMENT_EXT = _D["arms"].get("adjustment_extension", 0.0)
+
 # Arm slot at plate corner — arm extends from plate edge outward to motor.
 _PLATE_SIZE = _D["frame"]["plate_size"]
 _PLATE_DIAG_R = _PLATE_SIZE * math.sqrt(2) / 2
 ARM_SLOT_R    = _PLATE_DIAG_R - MOUNT_FLANGE_LEN
 ARM_CLEARANCE_R = ARM_SLOT_R  # legacy alias
-ARM_LENGTH    = MOTOR_R - ARM_SLOT_R + _D["arms"]["motor_mount_section_length"] / 2
+ARM_LENGTH    = MOTOR_R - ARM_SLOT_R + _D["arms"]["motor_mount_section_length"] / 2 + ADJUSTMENT_EXT
 ARM_WIDTH     = _D["arms"]["arm_width"]
 ARM_THICK     = _D["arms"]["arm_thickness"]
 ARM_FLANGE    = _D["arms"]["arm_flange_width"]
@@ -197,9 +202,12 @@ def make_arm_inner():
     # M2 adjustment holes in the overlap web
     body = _punch_slider_holes(body, OVERLAP_HOLE_XS)
 
+    # Mounting holes span the full flange + extension region.
+    # This gives multiple bolt positions for adjustable motor distance.
+    total_flange = MOUNT_FLANGE_LEN + ADJUSTMENT_EXT
     hole_r = MOUNT_HOLE_D / 2
     first_hole_inset = 3.0
-    available_span = MOUNT_FLANGE_LEN - 2 * first_hole_inset
+    available_span = total_flange - 2 * first_hole_inset
     flange_hole_pitch = min(MOUNT_HOLE_PITCH, max(5.0, available_span))
     holes_per_row = max(1, int(available_span / flange_hole_pitch) + 1)
     actual_pitch = available_span / max(1, holes_per_row - 1) if holes_per_row > 1 else 0.0
@@ -218,11 +226,13 @@ def make_arm_inner():
 
     anchors = {}
     if Anchor is not None:
-        inner_left = -ARM_LENGTH / 2
+        # frame_end anchor at the nominal mounting position (plate slot edge),
+        # NOT at the physical arm tip. The extension material extends past this.
+        _nominal_frame_end = -ARM_LENGTH / 2 + ADJUSTMENT_EXT
         anchors["frame_end"] = Anchor(
-            point=(inner_left, 0, 0),
+            point=(_nominal_frame_end, 0, 0),
             normal=(0, 0, -1),
-            label="frame end (inner)",
+            label="frame end (inner) — nominal mount point",
         )
         anchors["overlap_end"] = Anchor(
             point=(OVERLAP_RIGHT, 0, ARM_THICK / 2),
@@ -351,12 +361,13 @@ def make_arm():
 
     anchors = {}
     if Anchor is not None:
-        # frame_end: inner tip of arm, sits on plate top surface.
-        # At drone radius ARM_CLEARANCE_R; motor_tip at MOTOR_R.
+        # frame_end: nominal mounting position (plate slot edge).
+        # Extra extension material extends past this for adjustability.
+        _nominal_frame_end = -ARM_LENGTH / 2 + ADJUSTMENT_EXT
         anchors["frame_end"] = Anchor(
-            point=(-ARM_LENGTH / 2, 0, 0),
+            point=(_nominal_frame_end, 0, 0),
             normal=(0, 0, -1),
-            label="frame end (inner tip)",
+            label="frame end (nominal mount point)",
         )
         # Motor mount center — MOTOR_SECTION/2 inward from the arm tip
         _mount_cx = ARM_LENGTH / 2 - MOTOR_SECTION / 2

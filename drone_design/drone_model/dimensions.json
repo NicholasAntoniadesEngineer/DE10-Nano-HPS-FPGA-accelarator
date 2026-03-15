@@ -18,6 +18,7 @@
     "arms": {
         "_doc": "Motor arms \u2014 1.6mm FR4, I-beam profile. Motor-to-motor diagonal 170mm (4-inch prop class). Arms are short stubs extending from plate corners to motor mounts.",
         "motor_to_motor_diagonal": 220.0,
+        "adjustment_extension": 40.0,
         "arm_tab": 20.0,
         "arm_width": 12.0,
         "arm_thickness": 1.6,

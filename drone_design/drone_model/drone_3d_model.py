@@ -115,9 +115,10 @@ def main():
 
     # Build manifest (shared by STL and STEP)
     manifest = None
+    validation = None
     constraints = None
     if target in ("stl", "step", "all"):
-        manifest = build_drone_manifest()
+        manifest, validation = build_drone_manifest(overlay_path=output_dir)
 
     # STL + viewer
     if target in ("stl", "all"):
@@ -138,6 +139,7 @@ def main():
             individual_parts=INDIVIDUAL_PARTS,
             verbose=verbose,
             constraints=constraints,
+            validation=validation,
         )
 
     # STEP
