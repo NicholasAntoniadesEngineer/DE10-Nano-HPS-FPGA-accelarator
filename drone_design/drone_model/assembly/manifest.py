@@ -616,15 +616,13 @@ def _route_tubing(manifest_entries):
     ]
 
     # --- Pump outlet → Drip nozzle ---
-    # Route: exit pump stub horizontally to outside bracket, drop to
-    # low_z, +X to plate edge, swing to boom Y-side, rise, follow boom.
+    # Route: exit pump outlet directly +X to plate edge at outlet Z,
+    # swing +Y to boom side, rise to plate Z, follow boom to nozzle.
     edge_x = plate_half + clr + tube_r  # ~58.25, just outside plate
     wp_feed = [
         pump_out,
-        (pump_out[0], approach_y, pump_out[2]),       # exit horizontally
-        (pump_out[0], approach_y, low_z),             # drop to floor
-        (edge_x, approach_y, low_z),                  # +X to plate edge
-        (edge_x, boom_y_off, low_z),                  # swing to boom Y-side
+        (edge_x, pump_out[1], pump_out[2]),           # +X to plate edge at outlet Z
+        (edge_x, boom_y_off, pump_out[2]),            # swing +Y to boom side
         (edge_x, boom_y_off, plate_z + clr),          # rise at plate edge
         (boom_root[0], boom_y_off, boom_root[2]),      # follow boom
         (nozzle[0] - 5, boom_y_off, nozzle[2]),        # approach nozzle
