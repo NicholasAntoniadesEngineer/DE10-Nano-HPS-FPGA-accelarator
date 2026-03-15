@@ -518,15 +518,19 @@ def _route_tubing(anchors_by_part):
     #   Boom:           ~X[55,195] Y[-1,1] Z[58,60]
     #   Camera bracket: ~X[144] Y=0 Z=60-82
 
-    # --- Reservoir -> Pump: drop below reservoir, run underneath ---
-    # Reservoir outlet at +Y face (Y≈45, outside reservoir). Drop to Z=5
-    # (below reservoir bottom Z=12), run to pump inlet X/Y, then up.
+    # --- Reservoir -> Pump: extend from barb, drop, run underneath ---
+    # Reservoir outlet barb points +Y. Extend tubing 8mm in +Y from barb tip
+    # to form a natural bend, then drop to Z=5 (below reservoir bottom Z≈12),
+    # run horizontally to pump inlet X/Y, then rise up to pump.
     _clear_z = 5.0  # below all underslung parts
-    wp1 = (res_outlet[0], res_outlet[1], _clear_z)
+    _barb_extend = 8.0  # extend from barb in its direction before bending
+    wp_barb = (res_outlet[0], res_outlet[1] + _barb_extend, res_outlet[2])
+    wp1 = (wp_barb[0], wp_barb[1], _clear_z)
     wp2 = (pump_inlet[0], pump_inlet[1], _clear_z)
-    _make_tube("tubing_res_pump_1", "Tubing: Res Outlet Down", res_outlet, wp1)
-    _make_tube("tubing_res_pump_2", "Tubing: Under to Pump", wp1, wp2)
-    _make_tube("tubing_res_pump_3", "Tubing: Up to Pump Inlet", wp2, pump_inlet)
+    _make_tube("tubing_res_pump_1", "Tubing: Barb Extension", res_outlet, wp_barb)
+    _make_tube("tubing_res_pump_2", "Tubing: Res Outlet Down", wp_barb, wp1)
+    _make_tube("tubing_res_pump_3", "Tubing: Under to Pump", wp1, wp2)
+    _make_tube("tubing_res_pump_4", "Tubing: Up to Pump Inlet", wp2, pump_inlet)
 
     # --- Pump -> Nozzle: drop below everything, route outside, rise to boom ---
     # Pump is inverted (tubes exit downward at Z≈23.5). Drop to Z=2 (below
