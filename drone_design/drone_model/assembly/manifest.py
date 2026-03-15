@@ -616,23 +616,16 @@ def _route_tubing(manifest_entries):
         (res_out[0], res_min_y, res_out[2]),            # 1. run -Y past reservoir edge
         (res_out[0], res_min_y, pump_in[2]),            # 2. drop Z to pump inlet level
         (pump_in[0], res_min_y, pump_in[2]),            # 3. step +X to pump X
-        (pump_in[0], approach_y, pump_in[2]),            # 4. run -Y outside bracket
-        pump_in,                                         # 5. enter pump inlet stub
+        pump_in,                                         # 4. run -Y directly into pump inlet stub
     ]
 
     # --- Pump outlet → Drip nozzle ---
-    # Route: exit pump outlet +X to plate edge, swing +Y to boom side, rise above plate, follow boom to nozzle.
-    # Feed Z must clear plate top (tube center above plate_top + tube_r + margin).
     edge_x = plate_half + clr + tube_r  # ~58.25, just outside plate
-    plate_top_z = plate_z + BOTTOM_THICK
-    feed_z = max(boom_root[2], plate_top_z + tube_r + 0.3)
     wp_feed = [
         pump_out,
         (edge_x, pump_out[1], pump_out[2]),           # +X to plate edge at outlet Z
-        (edge_x, boom_y_off, pump_out[2]),            # swing +Y to boom side at outlet Z
-        (edge_x, boom_y_off, feed_z),                 # rise above plate (clear tube radius)
-        (boom_root[0], boom_y_off, feed_z),           # follow boom above plate
-        (nozzle[0] - 5, boom_y_off, nozzle[2]),      # approach nozzle
+        (edge_x, boom_y_off, boom_root[2]),            # swing +Y and rise to boom Z
+        (nozzle[0] - 5, boom_y_off, nozzle[2]),       # follow boom, approach nozzle
         nozzle,
     ]
 
