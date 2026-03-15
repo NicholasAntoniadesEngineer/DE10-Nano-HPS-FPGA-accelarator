@@ -551,8 +551,8 @@ def _route_tubing(manifest_entries):
     parts = {e["name"]: e for e in manifest_entries}
 
     res_out = parts["reservoir"]["anchors"]["outlet"].point
-    pump_in = parts["pump"]["anchors"]["inlet_tube"].point
-    pump_out = parts["pump"]["anchors"]["outlet_tube"].point
+    pump_in = parts["pump"]["anchors"]["outlet_tube"].point   # res→pump terminates here
+    pump_out = parts["pump"]["anchors"]["inlet_tube"].point   # pump→nozzle starts here
     nozzle = parts["drip_nozzle"]["anchors"]["barb_inlet"].point
     boom_root = parts["nose_boom"]["anchors"]["root"].point
     plate_z = parts["bottom_plate"]["pos"][2]
@@ -621,16 +621,18 @@ def _route_tubing(manifest_entries):
     ]
 
     # --- Pump outlet → Drip nozzle ---
-    # Route: exit pump outlet directly +X to plate edge at outlet Z,
-    # swing +Y to boom side, rise to plate Z, follow boom to nozzle.
+    # Route: exit pump outlet +X to plate edge, swing +Y to boom side, rise above plate, follow boom to nozzle.
+    # Feed Z must clear plate top (tube center above plate_top + tube_r + margin).
     edge_x = plate_half + clr + tube_r  # ~58.25, just outside plate
+    plate_top_z = plate_z + BOTTOM_THICK
+    feed_z = max(boom_root[2], plate_top_z + tube_r + 0.3)
     wp_feed = [
         pump_out,
         (edge_x, pump_out[1], pump_out[2]),           # +X to plate edge at outlet Z
         (edge_x, boom_y_off, pump_out[2]),            # swing +Y to boom side at outlet Z
-        (edge_x, boom_y_off, boom_root[2]),            # rise to boom Z
-        (boom_root[0], boom_y_off, boom_root[2]),      # follow boom
-        (nozzle[0] - 5, boom_y_off, nozzle[2]),        # approach nozzle
+        (edge_x, boom_y_off, feed_z),                 # rise above plate (clear tube radius)
+        (boom_root[0], boom_y_off, feed_z),           # follow boom above plate
+        (nozzle[0] - 5, boom_y_off, nozzle[2]),      # approach nozzle
         nozzle,
     ]
 
