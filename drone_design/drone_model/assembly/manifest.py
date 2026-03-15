@@ -616,8 +616,7 @@ def _route_tubing(manifest_entries):
         (res_out[0], res_min_y, res_out[2]),            # 1. run -Y past reservoir edge
         (res_out[0], res_min_y, pump_in[2]),            # 2. drop Z to pump inlet level
         (pump_in[0], res_min_y, pump_in[2]),            # 3. step +X to pump X
-        (pump_in[0], approach_y, pump_in[2]),            # 4. run -Y outside bracket
-        pump_in,                                         # 5. enter pump inlet stub
+        pump_in,                                         # 4. run -Y into pump inlet stub
     ]
 
     # --- Pump outlet → Drip nozzle ---
