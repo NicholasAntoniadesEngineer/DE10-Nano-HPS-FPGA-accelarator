@@ -128,6 +128,8 @@ BRACKET_OFFSET_Y    = _D["assembly"]["pump_bracket_offset_y"]
 CAMERA_BOOM_OFFSET  = _D["assembly"]["camera_boom_offset"]
 BATT_ROTATION_DEG   = _D["assembly"]["battery_rotation_deg"]
 ARM_Z_ABOVE_BOTTOM  = _D["assembly"]["arm_z_above_bottom"]
+RES_EXTRA_DROP      = _D["assembly"].get("reservoir_extra_drop", 0.0)
+PUMP_Y_ROTATION     = _D["assembly"].get("pump_y_rotation_deg", 0.0)
 
 # ─── Z-height references (ground = 0) ────────────────────────────────────────
 GROUND_Z     = 0.0

@@ -3,10 +3,11 @@
 Takes an assembly manifest and runs: build parts, collision check,
 STL export, and viewer HTML generation.
 
-Viewer edits can be persisted: save configuration from the viewer as
-model_configuration.json in the output directory; the next build will
-apply those position/rotation overrides so the exported assembly
-matches the edited layout.
+Part positions are determined exclusively by the constraint solver
+(anchor-based mate/offset/align). Overlay files may add anchors and
+constraints before resolve, and apply parametric modifications
+(cut/add operations) to part geometry, but cannot override resolved
+positions — anchors are the single source of truth.
 """
 
 import base64
@@ -18,60 +19,6 @@ from .assembly.collision import check_assembly_overlaps, print_overlap_report, p
 from .viewer.generator import generate_viewer_html
 from .viewer.overlay import load_overlay
 from .modifiers import apply_op
-
-CONFIG_FILENAME = "model_configuration.json"
-
-
-def _viewer_pos_to_zup(viewer_pos):
-    """Convert viewer (Y-up) position [x, y, z] to pipeline (Z-up) [x, -z, y]."""
-    if not viewer_pos or len(viewer_pos) != 3:
-        return None
-    return [float(viewer_pos[0]), float(-viewer_pos[2]), float(viewer_pos[1])]
-
-
-def _load_viewer_overrides(output_dir):
-    """Load position/rotation overrides from viewer_overlay.json or model_configuration.json.
-
-    Prefers viewer_overlay.json "parts" when present; otherwise falls back to
-    model_configuration.json for backward compatibility.
-
-    Returns a dict part_name -> {"pos": [x,y,z] z-up, "rot": [rx,ry,rz] degrees}
-    or {} if no file or invalid.
-    """
-    overlay = load_overlay(Path(output_dir))
-    if overlay.get("parts"):
-        overrides = {}
-        for name, p in overlay["parts"].items():
-            if "position" in p and len(p["position"]) == 3:
-                overrides.setdefault(name, {})["pos"] = p["position"]
-            if "rotation" in p and len(p["rotation"]) == 3:
-                overrides.setdefault(name, {})["rot"] = p["rotation"]
-        return overrides
-    path = Path(output_dir) / CONFIG_FILENAME
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    parts_list = data.get("parts")
-    if not parts_list or not isinstance(parts_list, list):
-        return {}
-    overrides = {}
-    for cp in parts_list:
-        name = cp.get("name")
-        if not name:
-            continue
-        pos_zup = _viewer_pos_to_zup(cp.get("position"))
-        rot = cp.get("rotation")
-        if pos_zup is not None:
-            overrides.setdefault(name, {})["pos"] = pos_zup
-        if rot and len(rot) == 3:
-            overrides.setdefault(name, {})["rot"] = [
-                float(rot[0]), float(rot[1]), float(rot[2]),
-            ]
-    return overrides
-
 
 def build_assembly(manifest, overlay_modifications=None):
     """Build all parts from manifest, apply transforms, return positioned parts list.
@@ -104,6 +51,8 @@ def build_assembly(manifest, overlay_modifications=None):
             for op in mods.get(name, []):
                 raw = apply_op(raw, op)
             shape_zup = apply_transform(raw, pos, rot)
+            if mods.get(name):
+                print(f"    Applied {len(mods[name])} modification(s) to {name}")
             shape_yup = to_yup(shape_zup)
             # Collect anchors: prefer manifest entry, fall back to builder output
             anchors = entry.get("anchors", {})
@@ -122,7 +71,7 @@ def build_assembly(manifest, overlay_modifications=None):
                 "anchors": anchors,
             })
         except Exception as e:
-            print(f"  WARNING: Failed to build {name}: {e}")
+            raise RuntimeError(f"Failed to build part '{name}': {e}") from e
 
     print(f"  {len(parts)} parts built")
     return parts
@@ -156,7 +105,8 @@ def _derive_exclude_names(manifest):
 def export_assembly(manifest, output_dir, title="3D Model Viewer",
                     toolbar_title="3D Viewer", loading_message="Loading model...",
                     allowed_pairs=None, kicad_files=None, individual_parts=None,
-                    verbose=False, constraints=None, validation=None):
+                    verbose=False, constraints=None, validation=None,
+                    overlay_save_hint=None):
     """Full export pipeline: build, collision check, STL export, viewer generation.
 
     Collision check is blocking: if any overlaps remain (after filtering)
@@ -189,28 +139,15 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     assembly_dir.mkdir(parents=True, exist_ok=True)
 
     overlay = load_overlay(output_dir)
-    overrides = {}
-    if overlay.get("parts"):
-        for name, p in overlay["parts"].items():
-            overrides[name] = {}
-            if "position" in p and len(p["position"]) == 3:
-                overrides[name]["pos"] = p["position"]
-            if "rotation" in p and len(p["rotation"]) == 3:
-                overrides[name]["rot"] = p["rotation"]
-    if not overrides:
-        overrides = _load_viewer_overrides(output_dir)
-    if overrides:
-        for entry in manifest:
-            name = entry.get("name")
-            if name not in overrides:
-                continue
-            o = overrides[name]
-            if "pos" in o:
-                entry["pos"] = tuple(o["pos"])
-            if "rot" in o:
-                entry["rot"] = tuple(o["rot"])
-        print(f"  Applied viewer overrides for {len(overrides)} part(s)")
+    # NOTE: Position/rotation overrides from overlay are NOT applied here.
+    # Anchor-based constraints are the single source of truth for part
+    # placement. Overlays may add anchors/constraints (applied before
+    # resolve in manifest.py), but cannot override resolved positions.
     overlay_modifications = overlay.get("modifications")
+    if overlay_modifications:
+        part_list = [n for n, ops in overlay_modifications.items() if ops]
+        if part_list:
+            print(f"  Applying parametric modifications from overlay for {len(part_list)} part(s): {', '.join(part_list)}")
 
     # Export individual parts at origin (no assembly transforms)
     if individual_parts:
@@ -234,6 +171,8 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     print("\nRunning collision check...")
 
     connected = _derive_connected_pairs(constraints)
+    if allowed_pairs:
+        connected.update(allowed_pairs)
     if connected:
         print(f"  Auto-excluded: {len(connected)} constrained mating pairs")
 
@@ -245,8 +184,8 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
             "Fix assembly or add allowed pairs; export aborted."
         )
 
-    if verbose:
-        print_bbox_summary(parts)
+    # Always print AABB summary for spatial debugging
+    print_bbox_summary(parts)
 
     # Export positioned STLs and collect base64 data for viewer
     print("\nExporting positioned STLs...")
@@ -295,6 +234,8 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     )
     if constraints is not None:
         viewer_kwargs["constraints"] = constraints
+    if overlay_save_hint is not None:
+        viewer_kwargs["overlay_save_hint"] = overlay_save_hint
     generate_viewer_html(viewer_parts, viewer_path, **viewer_kwargs)
 
     # Summary

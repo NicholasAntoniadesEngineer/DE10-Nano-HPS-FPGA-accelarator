@@ -98,6 +98,8 @@ _hole_x0     = OVERLAP_LEFT + _hole_inset      # leftmost hole X
 
 OVERLAP_HOLE_XS = [_hole_x0 + i * OVERLAP_HOLE_PITCH for i in range(OVERLAP_HOLES)]
 
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -114,6 +116,7 @@ def _cut_ibeam_flanges(body, x_left, x_right):
     # Width of one flange pocket (from outer edge of web to outer edge of arm)
     flange_pocket_w = (ARM_WIDTH - ARM_WEB) / 2
 
+    pocket_fillet = min(PCB_EDGE_CHAMFER * 2, flange_pocket_w / 2 - 0.3, cutout_len / 2 - 0.3)
     for side in [-1, 1]:
         cy = side * (ARM_WEB / 2 + flange_pocket_w / 2)
         flange_cut = (
@@ -121,6 +124,8 @@ def _cut_ibeam_flanges(body, x_left, x_right):
             .center(cutout_cx, cy)
             .rect(cutout_len, flange_pocket_w)
             .extrude(ARM_THICK)
+            .edges("|Z")
+            .fillet(pocket_fillet)
         )
         body = body.cut(flange_cut)
     return body
@@ -133,6 +138,7 @@ def _cut_weight_relief(body, x_left, x_right):
     cutout_width = (ARM_WIDTH - ARM_WEB) / 2 - ARM_FLANGE   # = 5 mm
 
     if cutout_width > 1.0 and cutout_len > 1.0:
+        pocket_fillet = min(PCB_EDGE_CHAMFER * 2, cutout_width / 2 - 0.3, cutout_len / 2 - 0.3)
         for side in [-1, 1]:
             cy = side * (ARM_WEB / 2 + ARM_FLANGE + cutout_width / 2)
             pocket = (
@@ -140,6 +146,8 @@ def _cut_weight_relief(body, x_left, x_right):
                 .center(cutout_cx, cy)
                 .rect(cutout_len, cutout_width)
                 .extrude(ARM_THICK)
+                .edges("|Z")
+                .fillet(pocket_fillet)
             )
             body = body.cut(pocket)
     return body
@@ -188,6 +196,7 @@ def make_arm_inner():
         .center(inner_cx, 0)
         .rect(inner_len, ARM_WIDTH)
         .extrude(ARM_THICK)
+        .edges("|Z").chamfer(min(PCB_EDGE_CHAMFER, ARM_THICK * 0.45))
     )
 
     # Weight-relief pockets in the non-overlap body region
@@ -283,6 +292,7 @@ def make_arm_outer():
         .center(outer_cx, 0)
         .rect(outer_len, ARM_WIDTH)
         .extrude(ARM_THICK)
+        .edges("|Z").chamfer(min(PCB_EDGE_CHAMFER, ARM_THICK * 0.45))
     )
 
     # Union the circular motor plate
@@ -415,30 +425,33 @@ def make_arm():
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rect_outline, outline_to_sexpr, through_hole_pad,
+        rounded_rect_outline, outline_to_sexpr, through_hole_pad,
         text_sexpr, kicad_pcb_wrapper,
     )
 except ImportError:
     pass  # KiCad export not available
 
+PCB_OUTLINE_R = _D["assembly"].get("pcb_outline_corner_radius", 1.5)
+
 
 def generate_arm_pcb():
-    """Generate .kicad_pcb for one motor arm (I-beam profile)."""
+    """Generate .kicad_pcb for one motor arm (I-beam profile). Rounded corners in outline and cutouts."""
     segs = []
 
-    # Outer rectangle
-    segs.extend(rect_outline(ARM_LENGTH, ARM_WIDTH))
+    # Outer rectangle — rounded corners in cutout design
+    segs.extend(rounded_rect_outline(ARM_LENGTH, ARM_WIDTH, min(PCB_OUTLINE_R, ARM_WIDTH / 2 - 0.5), 0, 0))
 
-    # I-beam cutouts (two side channels)
+    # I-beam cutouts (two side channels) — rounded corners
     body_inner = -ARM_LENGTH / 2 + MOUNT_FLANGE_LEN
     body_outer = ARM_LENGTH / 2 - MOTOR_SECTION
     cutout_length = (body_outer - body_inner) - 10
     cutout_cx = (body_inner + body_outer) / 2
     cutout_width = (ARM_WIDTH - ARM_WEB) / 2 - ARM_FLANGE
+    cutout_r = min(PCB_OUTLINE_R, cutout_width / 2 - 0.2) if cutout_width > 1 else 0
     if cutout_width > 1 and cutout_length > 1:
         for side in [-1, 1]:
             cy = side * (ARM_WEB / 2 + ARM_FLANGE + cutout_width / 2)
-            segs.extend(rect_outline(cutout_length, cutout_width, cutout_cx, cy))
+            segs.extend(rounded_rect_outline(cutout_length, cutout_width, cutout_r, cutout_cx, cy))
 
     # Motor mount holes (4x M3)
     holes = []

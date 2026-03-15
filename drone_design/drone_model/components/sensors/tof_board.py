@@ -21,6 +21,7 @@ TOF_HOLE_SY  = _D["tof_sensor"]["mounting_hole_spacing_y"]
 TOF_PIN_W    = _D["tof_sensor"]["pin_header_width"]
 TOF_PIN_L    = _D["tof_sensor"]["pin_header_length"]
 TOF_PIN_H    = _D["tof_sensor"]["pin_header_height"]
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 CATALOG = {
     "tof_sensor": {
@@ -36,7 +37,14 @@ CATALOG = {
 
 def make_tof_board():
     """VL53L1X Pololu carrier #3415 — PCB with mounting holes, sensor, and pin header."""
-    board = cq.Workplane("XY").rect(TOF_W, TOF_L).extrude(TOF_H)
+    board_chamfer = min(PCB_EDGE_CHAMFER, TOF_H * 0.45)
+    board = (
+        cq.Workplane("XY")
+        .rect(TOF_W, TOF_L)
+        .extrude(TOF_H)
+        .edges("|Z")
+        .chamfer(board_chamfer)
+    )
 
     # Mounting holes — two at opposite corners (Pololu #3415 layout)
     for sx, sy in [(-1, -1), (1, 1)]:
@@ -48,12 +56,15 @@ def make_tof_board():
         )
         board = board.cut(hole)
 
+    component_chamfer = min(0.6, PCB_EDGE_CHAMFER)
     # VL53L1X sensor module (4.4 x 2.4 mm optical aperture), offset toward +Y end
     sensor = (
         cq.Workplane("XY")
         .center(0, TOF_L / 2 - 4.0)
         .rect(4.4, 2.4)
         .extrude(TOF_H + TOF_SENSOR_H)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
 
     # Pin header strip on bottom (-Z), along -Y edge of board
@@ -62,6 +73,8 @@ def make_tof_board():
         .center(0, -(TOF_L / 2 - TOF_PIN_L / 2))
         .rect(TOF_PIN_W, TOF_PIN_L)
         .extrude(-TOF_PIN_H)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
 
     shape = board.union(sensor).union(pin_header)

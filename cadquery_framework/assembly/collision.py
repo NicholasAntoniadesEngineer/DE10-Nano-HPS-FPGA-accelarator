@@ -100,16 +100,30 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None,
 
     aabb_hits = 0
     mesh_filtered = 0
+    allowed_skipped = 0
+    near_misses = []
     overlaps = []
     n = len(part_bboxes)
     for i in range(n):
         for j in range(i + 1, n):
             pair = frozenset({part_bboxes[i]["name"], part_bboxes[j]["name"]})
             if pair in allowed_pairs:
+                # Still compute overlap for diagnostics
+                dims = aabb_overlap(part_bboxes[i]["aabb"], part_bboxes[j]["aabb"])
+                if dims and aabb_volume(dims) >= volume_threshold:
+                    allowed_skipped += 1
                 continue
 
             dims = aabb_overlap(part_bboxes[i]["aabb"], part_bboxes[j]["aabb"])
             if dims is None:
+                # Check near-miss (gap < 3mm on all axes)
+                gap = _min_gap(part_bboxes[i]["aabb"], part_bboxes[j]["aabb"])
+                if gap is not None and gap < 3.0:
+                    near_misses.append({
+                        "part_a": part_bboxes[i]["name"],
+                        "part_b": part_bboxes[j]["name"],
+                        "gap_mm": gap,
+                    })
                 continue
 
             vol = aabb_volume(dims)
@@ -137,13 +151,35 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None,
                 "aabb_b": part_bboxes[j]["aabb"],
             })
 
-    if verify_mesh and mesh_filtered > 0:
+    if verify_mesh and (mesh_filtered > 0 or aabb_hits > 0):
         print(f"  Mesh verification: {aabb_hits} AABB hits, "
               f"{mesh_filtered} filtered as false positives, "
               f"{len(overlaps)} confirmed real")
+    if allowed_skipped > 0:
+        print(f"  Allowed-pair overlaps skipped: {allowed_skipped}")
+    if near_misses:
+        print(f"  Near-misses (gap < 3mm): {len(near_misses)}")
+        for nm in sorted(near_misses, key=lambda x: x["gap_mm"])[:5]:
+            print(f"    {nm['part_a']} <-> {nm['part_b']}: "
+                  f"{nm['gap_mm']:.1f}mm gap")
 
     overlaps.sort(key=lambda x: x["volume_mm3"], reverse=True)
     return overlaps
+
+
+def _min_gap(a, b):
+    """Minimum axis-aligned gap between two non-overlapping AABBs.
+
+    Returns None if they overlap on all axes, otherwise the smallest
+    positive gap across any axis.
+    """
+    gaps = []
+    for i in range(3):
+        if a["max"][i] < b["min"][i]:
+            gaps.append(b["min"][i] - a["max"][i])
+        elif b["max"][i] < a["min"][i]:
+            gaps.append(a["min"][i] - b["max"][i])
+    return min(gaps) if gaps else None
 
 
 def _axis_label(axis_idx):

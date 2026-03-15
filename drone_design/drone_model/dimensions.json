@@ -204,6 +204,38 @@
                 "width": 9.0,
                 "length": 11.0,
                 "height": 11.0
+            },
+            "arduino_digital_hi": {
+                "_doc": "Arduino digital pins D8-D13 (1x6 female header, top edge)",
+                "intel_x": 91.0,
+                "intel_y": 68.58,
+                "width": 2.54,
+                "length": 15.24,
+                "height": 8.5
+            },
+            "arduino_digital_lo": {
+                "_doc": "Arduino digital pins D0-D7 (1x8 female header, top edge)",
+                "intel_x": 67.0,
+                "intel_y": 68.58,
+                "width": 2.54,
+                "length": 20.32,
+                "height": 8.5
+            },
+            "arduino_analog": {
+                "_doc": "Arduino analog pins A0-A5 (1x6 female header, bottom edge)",
+                "intel_x": 79.0,
+                "intel_y": 0.0,
+                "width": 2.54,
+                "length": 15.24,
+                "height": 8.5
+            },
+            "arduino_power": {
+                "_doc": "Arduino power header (1x8 female header, bottom edge)",
+                "intel_x": 41.0,
+                "intel_y": 0.0,
+                "width": 2.54,
+                "length": 20.32,
+                "height": 8.5
             }
         }
     },
@@ -230,7 +262,7 @@
         "width": 40.0,
         "length": 70.0,
         "height": 35.0,
-        "offset_x": 28.0,
+        "offset_x": 24.0,
         "fillet_radius": 5.0,
         "outlet_barb_od": 6.0,
         "outlet_barb_length": 10.0
@@ -365,12 +397,17 @@
     },
     "assembly": {
         "_doc": "Assembly-level placement parameters and derived geometry",
+        "pcb_edge_fillet": 0.3,
+        "pcb_edge_chamfer": 0.8,
+        "pcb_outline_corner_radius": 1.5,
         "esc_radial_fraction": 0.55,
         "kagome_cell_size": 12.0,
         "kagome_hole_radius": 4.0,
         "kagome_min_web": 3.0,
         "kagome_fillet_radius": 2.0,
-        "underslung_gap": 5.0,
+        "underslung_gap": 3.0,
+        "reservoir_extra_drop": 15.0,
+        "pump_y_rotation_deg": 90.0,
         "reservoir_offset_y": 0.0,
         "pump_bracket_offset_x": 35.0,
         "pump_bracket_offset_y": -52.0,

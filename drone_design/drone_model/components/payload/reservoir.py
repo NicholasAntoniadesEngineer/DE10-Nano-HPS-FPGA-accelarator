@@ -108,7 +108,7 @@ def make_reservoir():
         anchors["bottom_face"] = Anchor(
             point=(0, 0, 0),
             normal=(0, 0, -1),
-            label="Bottom face — rests on frame plate via straps",
+            label="Bottom face — outermost surface when underslung",
         )
         # Top face — fill port access
         anchors["top_face"] = Anchor(

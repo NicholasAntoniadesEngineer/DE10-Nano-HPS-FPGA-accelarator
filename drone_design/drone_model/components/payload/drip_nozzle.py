@@ -51,10 +51,13 @@ def make_drip_nozzle():
     """
 
     # --- Mounting flange (attaches to boom tip) ---
+    flange_chamfer = min(0.5, FLANGE_T * 0.45)
     flange = (
         cq.Workplane("XY")
         .rect(FLANGE_W, FLANGE_DEPTH)
         .extrude(FLANGE_T)
+        .edges("|Z")
+        .chamfer(flange_chamfer)
     )
     # 2x M2 mounting holes
     for sx in [-1, 1]:

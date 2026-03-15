@@ -30,6 +30,7 @@ ZIP_W        = _B["zip_slot_width"]
 ZIP_H        = _B["zip_slot_height"]
 FRAME_HOLE_D = _B["frame_hole_diameter"]
 FRAME_INSET  = _B["frame_hole_inset"]
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 CATALOG = {
     "pump_bracket": {
@@ -45,6 +46,8 @@ CATALOG = {
 
 def make_pump_bracket():
     """U-channel clip bracket with zip-tie slots and frame mounting holes."""
+    base_chamfer = min(PCB_EDGE_CHAMFER, T * 0.45)
+    wall_chamfer = min(PCB_EDGE_CHAMFER, T * 0.45)
 
     total_w = PUMP_W + 2 * T + 2 * BASE_EXT
     base_depth = CHANNEL_L
@@ -54,6 +57,8 @@ def make_pump_bracket():
         cq.Workplane("XY")
         .rect(total_w, base_depth)
         .extrude(T)
+        .edges("|Z")
+        .chamfer(base_chamfer)
     )
 
     # Left wall
@@ -61,6 +66,8 @@ def make_pump_bracket():
         cq.Workplane("XY")
         .rect(T, base_depth)
         .extrude(WALL_H)
+        .edges("|Z")
+        .chamfer(wall_chamfer)
         .translate((-(PUMP_W / 2 + T / 2), 0, T))
     )
 
@@ -69,6 +76,8 @@ def make_pump_bracket():
         cq.Workplane("XY")
         .rect(T, base_depth)
         .extrude(WALL_H)
+        .edges("|Z")
+        .chamfer(wall_chamfer)
         .translate(((PUMP_W / 2 + T / 2), 0, T))
     )
 
@@ -101,11 +110,17 @@ def make_pump_bracket():
 
     anchors = {}
     if Anchor is not None:
-        # Base plate bottom face (Z=0), normal down — bolts to frame plate
+        # Base plate bottom face (Z=0), normal down — outermost when underslung
         anchors["base_mount"] = Anchor(
             point=(0, 0, 0),
             normal=(0, 0, -1),
-            label="Base plate for frame mounting",
+            label="Base plate outermost surface when underslung",
+        )
+        # Top of walls — nearest face to plate when underslung
+        anchors["top_mount"] = Anchor(
+            point=(0, 0, T + WALL_H),
+            normal=(0, 0, 1),
+            label="Wall tops — nearest face to plate when underslung",
         )
         # Channel center at top of base plate — where pump body sits
         anchors["channel_center"] = Anchor(
@@ -123,11 +138,13 @@ def make_pump_bracket():
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rect_outline, outline_to_sexpr, through_hole_pad,
+        rounded_rect_outline, outline_to_sexpr, through_hole_pad,
         text_sexpr, kicad_pcb_wrapper,
     )
 except ImportError:
     pass  # KiCad export not available
+
+PCB_OUTLINE_R = _D["assembly"].get("pcb_outline_corner_radius", 1.5)
 
 
 def generate_pump_bracket_pcb():
@@ -150,7 +167,7 @@ def generate_pump_bracket_pcb():
     total_w = 2 * wall_h + base_w
 
     segs = []
-    segs.extend(rect_outline(total_w, channel_l))
+    segs.extend(rounded_rect_outline(total_w, channel_l, min(PCB_OUTLINE_R, channel_l / 2 - 0.5)))
     content = outline_to_sexpr(segs)
 
     # Fold lines (silkscreen)

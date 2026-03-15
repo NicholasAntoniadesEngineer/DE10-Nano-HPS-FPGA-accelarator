@@ -22,6 +22,7 @@ KAGOME_CELL    = _D["assembly"]["kagome_cell_size"]
 KAGOME_HOLE_R  = _D["assembly"]["kagome_hole_radius"]
 KAGOME_WEB_MIN = _D["assembly"]["kagome_min_web"]
 KAGOME_FILLET_R = _D["assembly"]["kagome_fillet_radius"]
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 # Pin header connection specs (retained for leg headers)
 HEADER_PITCH       = _D["connections"]["header_pitch"]
@@ -104,7 +105,8 @@ def _kagome_cutouts(plate, thick, keepout_circles):
             pass
 
     try:
-        plate = plate.edges("|Z").fillet(KAGOME_FILLET_R)
+        kagome_chamfer = min(KAGOME_FILLET_R, thick * 0.45)
+        plate = plate.edges("|Z").chamfer(kagome_chamfer)
     except Exception:
         pass
 
@@ -218,11 +220,13 @@ def _add_leg_header_holes(plate, thick):
 
 def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
     """Create a plate with Kagome-lattice cutouts, arm mounting rails, and leg mount holes."""
+    plate_chamfer = min(PLATE_CORNER_R, thick * 0.45)
+    cutout_chamfer = min(PCB_EDGE_CHAMFER, thick * 0.45)
     plate = (
         cq.Workplane("XY")
         .rect(PLATE_SIZE, PLATE_SIZE)
         .extrude(thick)
-        .edges("|Z").fillet(PLATE_CORNER_R)
+        .edges("|Z").chamfer(plate_chamfer)
     )
 
     # Arm mounting rails (radial rows of M2 bolt holes)
@@ -245,7 +249,13 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
             # Heatsink / fan pass-through cutout (center)
             _hs_w = _D["de10_nano"]["heatsink_width"]
             _hs_l = _D["de10_nano"]["heatsink_length"]
-            hs_cutout = cq.Workplane("XY").rect(_hs_w + 4, _hs_l + 4).extrude(thick)
+            hs_cutout = (
+                cq.Workplane("XY")
+                .rect(_hs_w + 4, _hs_l + 4)
+                .extrude(thick)
+                .edges("|Z")
+                .chamfer(cutout_chamfer)
+            )
             plate = plate.cut(hs_cutout)
             keepouts.append((0, 0, max(_hs_w, _hs_l) / 2 + 4.0))
 
@@ -261,9 +271,29 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                     .center(cq_x, cq_y + c["length"] / 2)
                     .rect(c["width"] + 1.0, c["length"] + 1.0)
                     .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
                 )
                 plate = plate.cut(slot)
                 keepouts.append((cq_x, cq_y + c["length"] / 2, 30.0))
+
+            # Arduino header clearance slots (pass-through for Arduino receptacles)
+            for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
+                if key not in gpio_connectors:
+                    continue
+                c = gpio_connectors[key]
+                cq_x = DE10_W / 2 - c["intel_y"]
+                cq_y = c["intel_x"] - DE10_L / 2
+                ard_slot = (
+                    cq.Workplane("XY")
+                    .center(cq_x, cq_y)
+                    .rect(c["width"] + 1.0, c["length"] + 1.0)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
+                plate = plate.cut(ard_slot)
+                keepouts.append((cq_x, cq_y, 15.0))
 
             # M2.5 mounting holes (same pattern as DE10-Nano corners)
             for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
@@ -277,7 +307,14 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 (-19.18, -51.19, 14.0, 16.0),  # barrel jack
                 (17.54, 39.10, 20.0, 18.0),    # ethernet
             ]:
-                notch = cq.Workplane("XY").center(nx, ny).rect(nw, nl).extrude(thick)
+                notch = (
+                    cq.Workplane("XY")
+                    .center(nx, ny)
+                    .rect(nw, nl)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
                 plate = plate.cut(notch)
 
             # IC component blocks on top surface (level shifters, mux, power regs)
@@ -288,6 +325,8 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                     .center(pos[0], pos[1])
                     .rect(8, 8)
                     .extrude(thick + _ic_h)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
                 )
                 plate = plate.union(ic)
                 keepouts.append((pos[0], pos[1], 8.0))
@@ -298,7 +337,13 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
             cutout_y = DE10_L + 4.0
             cutout_x = min(cutout_x, PLATE_SIZE - 12.0)
             cutout_y = min(cutout_y, PLATE_SIZE - 12.0)
-            central = cq.Workplane("XY").rect(cutout_x, cutout_y).extrude(thick)
+            central = (
+                cq.Workplane("XY")
+                .rect(cutout_x, cutout_y)
+                .extrude(thick)
+                .edges("|Z")
+                .chamfer(cutout_chamfer)
+            )
             plate = plate.cut(central)
             keepouts.append((0, 0, max(cutout_x, cutout_y) / 2 + 2.0))
 
@@ -306,12 +351,26 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
             _bridge_w = 6.0
             for dx in [-DE10_W / 2 + de10_hole_inset, DE10_W / 2 - de10_hole_inset]:
                 for dy in [-DE10_L / 2 + de10_hole_inset, DE10_L / 2 - de10_hole_inset]:
-                    tab = cq.Workplane("XY").center(dx, dy).rect(_tab_size, _tab_size).extrude(thick)
+                    tab = (
+                        cq.Workplane("XY")
+                        .center(dx, dy)
+                        .rect(_tab_size, _tab_size)
+                        .extrude(thick)
+                        .edges("|Z")
+                        .chamfer(cutout_chamfer)
+                    )
                     plate = plate.union(tab)
                     sx = 1 if dx > 0 else -1
                     bridge_cx = (dx + sx * _half_plate) / 2
                     bridge_len = abs(sx * _half_plate - dx) + _tab_size / 2
-                    bridge = cq.Workplane("XY").center(bridge_cx, dy).rect(bridge_len, _bridge_w).extrude(thick)
+                    bridge = (
+                        cq.Workplane("XY")
+                        .center(bridge_cx, dy)
+                        .rect(bridge_len, _bridge_w)
+                        .extrude(thick)
+                        .edges("|Z")
+                        .chamfer(cutout_chamfer)
+                    )
                     plate = plate.union(bridge)
                     hole = cq.Workplane("XY").center(dx, dy).circle(_m25_clearance_r).extrude(thick)
                     plate = plate.cut(hole)
@@ -321,7 +380,14 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 (-19.18, -51.19, 14.0, 16.0),
                 (17.54, 39.10, 20.0, 18.0),
             ]:
-                notch = cq.Workplane("XY").center(nx, ny).rect(nw, nl).extrude(thick)
+                notch = (
+                    cq.Workplane("XY")
+                    .center(nx, ny)
+                    .rect(nw, nl)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
                 plate = plate.cut(notch)
 
         # ToF bracket mounting on top plate.
@@ -348,9 +414,23 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
         for cx, cy, bridge_axis in _tof_positions:
             # Material tab at bracket position
             if bridge_axis == "x":
-                tab = cq.Workplane("XY").center(cx, cy).rect(_tof_tab_h, _tof_tab_w).extrude(thick)
+                tab = (
+                    cq.Workplane("XY")
+                    .center(cx, cy)
+                    .rect(_tof_tab_h, _tof_tab_w)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
             else:
-                tab = cq.Workplane("XY").center(cx, cy).rect(_tof_tab_w, _tof_tab_h).extrude(thick)
+                tab = (
+                    cq.Workplane("XY")
+                    .center(cx, cy)
+                    .rect(_tof_tab_w, _tof_tab_h)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
             plate = plate.union(tab)
             # Bridge from tab to outer frame border
             if bridge_axis == "x":
@@ -358,13 +438,27 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 border = sign * _half_plate
                 bridge_cx = (cx + border) / 2
                 bridge_len = abs(border - cx) + _tof_tab_h / 2
-                bridge = cq.Workplane("XY").center(bridge_cx, cy).rect(bridge_len, _tof_bridge_w).extrude(thick)
+                bridge = (
+                    cq.Workplane("XY")
+                    .center(bridge_cx, cy)
+                    .rect(bridge_len, _tof_bridge_w)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
             else:
                 sign = 1 if cy > 0 else -1
                 border = sign * _half_plate
                 bridge_cy = (cy + border) / 2
                 bridge_len = abs(border - cy) + _tof_tab_h / 2
-                bridge = cq.Workplane("XY").center(cx, bridge_cy).rect(_tof_bridge_w, bridge_len).extrude(thick)
+                bridge = (
+                    cq.Workplane("XY")
+                    .center(cx, bridge_cy)
+                    .rect(_tof_bridge_w, bridge_len)
+                    .extrude(thick)
+                    .edges("|Z")
+                    .chamfer(cutout_chamfer)
+                )
             plate = plate.union(bridge)
 
         # Drill M2 mounting holes for all 4 bracket positions
@@ -401,9 +495,35 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 .center(0, dy)
                 .rect(20, 3)
                 .extrude(thick)
+                .edges("|Z")
+                .chamfer(cutout_chamfer)
             )
             plate = plate.cut(strap)
             keepouts.append((0, dy, 12.0))
+
+        # Reservoir mounting features — strap slots and M2 mounting holes
+        _res_ox = _D["reservoir"]["offset_x"]
+        _res_oy = _D["assembly"]["reservoir_offset_y"]
+        _res_w = _D["reservoir"]["width"]
+        _res_l = _D["reservoir"]["length"]
+        # Two strap slots across reservoir width
+        for _ry_off in [-_res_l / 4, _res_l / 4]:
+            res_strap = (
+                cq.Workplane("XY")
+                .center(_res_ox, _res_oy + _ry_off)
+                .rect(_res_w - 6, 3)
+                .extrude(thick)
+            )
+            plate = plate.cut(res_strap)
+            keepouts.append((_res_ox, _res_oy + _ry_off, _res_w / 2))
+        # Four M2 mounting holes at reservoir corners
+        for _rdx in [-_res_w / 2 + 4, _res_w / 2 - 4]:
+            for _rdy in [-_res_l / 2 + 6, _res_l / 2 - 6]:
+                _rhx = _res_ox + _rdx
+                _rhy = _res_oy + _rdy
+                res_hole = cq.Workplane("XY").center(_rhx, _rhy).circle(1.1).extrude(thick)
+                plate = plate.cut(res_hole)
+                keepouts.append((_rhx, _rhy, 4.0))
 
         de10_hole_inset = _D["de10_nano"]["mounting_hole_inset"]
         standoff_clearance_r = _D["daughter_board_mounting"]["mounting_hole_diameter"] / 2
@@ -508,21 +628,26 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
             # Board's mount_face (0,0,-1) opposes this anchor's (0,0,-1) → board flips
             # 180°, sensor aperture points downward.
             anchors["tof_mount_down"] = Anchor(
-                point=(0, 0, 0),
+                point=(-3, 0, 0),
                 normal=(0, 0, -1),
                 label="ToF down — board direct-mount on plate underside, sensor faces -Z",
             )
 
-        # Leg slot anchors at LEG_ANGLES on plate edges
-        leg_dist = PLATE_SIZE / 2 + _D["landing_gear"]["leg_thickness"] / 2
+        # Leg slot anchors — tab mounts under plate near edges.
+        # The leg vertical sits at the plate edge; the tab extends inward.
+        # Anchor is at the tab center position (plate underside).
+        _tab_depth = _D["landing_gear"]["mounting_tab_depth"]
+        _leg_thick = _D["landing_gear"]["leg_thickness"]
+        # Tab center radial distance: plate edge - half leg thickness - half tab depth
+        _leg_tab_r = PLATE_SIZE / 2 - _leg_thick / 2 - _tab_depth / 2
         for i, angle in enumerate(LEG_ANGLES, start=1):
             rad = math.radians(angle)
-            lx = leg_dist * math.cos(rad)
-            ly = leg_dist * math.sin(rad)
+            lx = _leg_tab_r * math.cos(rad)
+            ly = _leg_tab_r * math.sin(rad)
             anchors[f"leg_slot_{i}"] = Anchor(
                 point=(lx, ly, 0),
                 normal=(0, 0, -1),
-                label=f"leg slot {i} ({angle} deg)",
+                label=f"leg slot {i} ({angle} deg) — tab under plate",
             )
 
         # Upper standoff holes (top plate — bolts from below through standoff)
@@ -604,7 +729,7 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rounded_rect_outline, rect_outline, hexagon_outline,
+        rounded_rect_outline, rect_outline, hexagon_outline, rounded_hexagon_outline,
         outline_to_sexpr, through_hole_pad, header_pad_row,
         text_sexpr, kicad_pcb_wrapper,
     )
@@ -643,9 +768,10 @@ def generate_bottom_plate_pcb():
     # Board outline: rounded rectangle
     segs.extend(rounded_rect_outline(PLATE_SIZE, PLATE_SIZE, PLATE_CORNER_R))
 
-    # Battery strap slots (2x)
+    # Battery strap slots (2x) — rounded corners in cutout design
+    _slot_r = min(PCB_EDGE_CHAMFER * 2, 1.5)
     for dy in [-20, 20]:
-        segs.extend(rect_outline(25, 3, 0, dy))
+        segs.extend(rounded_rect_outline(25, 3, _slot_r, 0, dy))
 
     # Keepout zones for Kagome computation (along arm rail paths)
     keepouts = []
@@ -674,10 +800,11 @@ def generate_bottom_plate_pcb():
             holes.append((dx, dy))
             keepouts.append((dx, dy, 5.0))
 
-    # Kagome hexagonal cutouts
+    # Kagome hexagonal cutouts — rounded corners
+    _hex_r = min(PLATE_CORNER_R, KAGOME_HOLE_R * 0.35)
     hex_centers = _kagome_cutout_centers_pcb(PLATE_SIZE, keepouts)
     for cx, cy in hex_centers:
-        segs.extend(hexagon_outline(cx, cy, KAGOME_HOLE_R))
+        segs.extend(rounded_hexagon_outline(cx, cy, KAGOME_HOLE_R, _hex_r))
 
     # Build content
     content = outline_to_sexpr(segs)
@@ -745,10 +872,11 @@ def generate_top_plate_pcb():
             dist += 10.0
     keepouts.append((0, 0, 58.0))  # central opening keepout
 
-    # Kagome cutouts
+    # Kagome cutouts — rounded corners
+    _hex_r = min(PLATE_CORNER_R, KAGOME_HOLE_R * 0.35)
     hex_centers = _kagome_cutout_centers_pcb(PLATE_SIZE, keepouts)
     for cx, cy in hex_centers:
-        segs.extend(hexagon_outline(cx, cy, KAGOME_HOLE_R))
+        segs.extend(rounded_hexagon_outline(cx, cy, KAGOME_HOLE_R, _hex_r))
 
     content = outline_to_sexpr(segs)
     content += "\n" + text_sexpr("TOP PLATE", 0, -PLATE_SIZE / 2 + 8, "F.SilkS", 2.5, 0.25)

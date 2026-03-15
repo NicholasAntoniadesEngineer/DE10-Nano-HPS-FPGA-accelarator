@@ -118,7 +118,7 @@ def main():
     validation = None
     constraints = None
     if target in ("stl", "step", "all"):
-        manifest, validation = build_drone_manifest(overlay_path=output_dir)
+        manifest, validation, tubing_allowed = build_drone_manifest(overlay_path=output_dir)
 
     # STL + viewer
     if target in ("stl", "all"):
@@ -135,11 +135,18 @@ def main():
             title="Drone 3D Model Viewer",
             toolbar_title="Drone 3D Viewer",
             loading_message="Loading drone...",
+            allowed_pairs=tubing_allowed,
             kicad_files=kicad_files or None,
             individual_parts=INDIVIDUAL_PARTS,
             verbose=verbose,
             constraints=constraints,
             validation=validation,
+            overlay_save_hint=(
+                "Parametric modifications (fillet/chamfer/cut) only apply after you:\n\n"
+                "1. Save the downloaded file as viewer_overlay.json in:\n   drone_design/drone_model/output/\n\n"
+                "2. Re-run: python drone_design/drone_model/drone_3d_model.py stl\n\n"
+                "Then re-open the new viewer.html to see the updated model."
+            ),
         )
 
     # STEP

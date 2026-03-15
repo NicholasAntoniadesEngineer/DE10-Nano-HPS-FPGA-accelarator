@@ -32,6 +32,7 @@ CAM_HOLE_IX = CAM_MOUNT["mounting_hole_inset_x"]
 CAM_HOLE_IY = CAM_MOUNT["mounting_hole_inset_y"]
 CAM_W = _D["camera"]["adapter_pcb_width"]
 CAM_L = _D["camera"]["adapter_pcb_length"]
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 CATALOG = {
     "camera_bracket": {
@@ -53,10 +54,13 @@ def make_camera_bracket():
     Local coords: base in XY, bottom at Z=0. Base center at origin. Wall at +X;
     its front face (normal +X) carries the camera. Pivot hole at -X, tilt slot at +X.
     """
+    bracket_chamfer = min(PCB_EDGE_CHAMFER, BRACKET_T * 0.45)
     # Base plate — bottom at Z=0, top at Z=BRACKET_T, centered in XY
     base = (
         cq.Workplane("XY")
         .box(BASE_LX, BASE_LY, BRACKET_T, centered=(True, True, False))
+        .edges("|Z")
+        .chamfer(bracket_chamfer)
     )
 
     # Pivot hole (rear, frame side)
@@ -86,6 +90,8 @@ def make_camera_bracket():
     wall = (
         cq.Workplane("XY")
         .box(BRACKET_T, BASE_LY, WALL_H, centered=(False, True, False))
+        .edges("|X")
+        .chamfer(bracket_chamfer)
         .translate((wall_x_back, 0, BRACKET_T))
     )
 

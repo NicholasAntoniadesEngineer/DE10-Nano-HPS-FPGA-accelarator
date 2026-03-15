@@ -7,6 +7,7 @@ var EMBEDDED_PARTS = window.__VIEWER_PARTS;
 var KICAD_FILES = window.__VIEWER_KICAD;
 var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
 var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
+var OVERLAY_SAVE_HINT = (typeof window.__OVERLAY_SAVE_HINT === 'string') ? window.__OVERLAY_SAVE_HINT : '';
 
 (function() {
     var container = document.getElementById('canvas-container');
@@ -118,6 +119,7 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     var newPartIdCounter = 0;
     var placeCutMode = null;
     var placeCutFaceData = null;
+    var placeCutPreviewMesh = null;
 
     tfc.addEventListener('dragging-changed', function(e) {
         controls.enabled = !e.value;
@@ -280,6 +282,18 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
             document.getElementById('sel-anchors-toggle').checked = false;
             selectedPartAnchorsOn = false;
             updateAnchorVisibility();
+        }
+        updatePartsList();
+    }
+
+    function revealAllParts() {
+        for (var i = 0; i < partOrder.length; i++) {
+            var name = partOrder[i];
+            var p = parts[name];
+            if (p && !p.visible) {
+                p.visible = true;
+                p.group.visible = true;
+            }
         }
         updatePartsList();
     }
@@ -491,6 +505,11 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
                 document.getElementById('btn-add-anchor').classList.remove('active');
                 return;
             }
+            if (placeCutMode && hits.length > 0) {
+                if (hits[0].object.userData.partName !== selectedPart) {
+                    cancelPlaceCut();
+                }
+            }
             if (placeCutMode && hits.length > 0 && hits[0].object.userData.partName === selectedPart) {
                 var hit = hits[0];
                 var group = parts[selectedPart].group;
@@ -513,6 +532,7 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
                     cylFields.style.display = 'block';
                 }
                 panel.style.display = 'block';
+                updatePlaceCutPreview();
                 return;
             }
             selectPart(hits[0].object.userData.partName, hits[0]);
@@ -542,6 +562,21 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
         var names = Object.keys(parts);
         for (var i = 0; i < names.length; i++) if (parts[names[i]].visible) meshes.push(parts[names[i]].mesh);
         var hits = raycaster.intersectObjects(meshes);
+        if (placeCutMode && selectedPart && !placeCutFaceData && parts[selectedPart]) {
+            var partMesh = parts[selectedPart].mesh;
+            raycaster.setFromCamera(mouse, cam);
+            var cutHits = raycaster.intersectObject(partMesh);
+            if (cutHits.length > 0) {
+                var hit = cutHits[0];
+                var group = parts[selectedPart].group;
+                var localPoint = hit.point.clone().applyMatrix4(group.matrixWorld.clone().invert());
+                var worldNorm = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+                var localNorm = worldNorm.transformDirection(group.matrixWorld.clone().invert());
+                updatePlaceCutPreview([localPoint.x, localPoint.y, localPoint.z], [localNorm.x, localNorm.y, localNorm.z]);
+            } else {
+                updatePlaceCutPreview(null, null);
+            }
+        }
         if (hits.length > 0) {
             var pt = hits[0].point;
             coordX.textContent = pt.x.toFixed(1);
@@ -643,6 +678,7 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
         cam.position.set(400, 300, 500); controls.target.set(0, 40, 0); controls.update();
     });
     document.getElementById('btn-center').addEventListener('click', fitCamera);
+    document.getElementById('btn-reveal-all').addEventListener('click', revealAllParts);
     var axesVis = true;
     document.getElementById('btn-axes').addEventListener('click', function() {
         axesVis = !axesVis; axH.visible = axesVis; axLabels.visible = axesVis;
@@ -965,6 +1001,9 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
         a.download = 'viewer_overlay.json';
         a.click();
         URL.revokeObjectURL(a.href);
+        if (OVERLAY_SAVE_HINT) {
+            setTimeout(function() { alert(OVERLAY_SAVE_HINT); }, 100);
+        }
     });
 
     // Load Configuration
@@ -1201,6 +1240,7 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     });
     document.querySelectorAll('.dropdown-item').forEach(function(item) {
         item.addEventListener('click', function() {
+            if (this.classList.contains('dropdown-group-label')) return;
             this.closest('.dropdown').classList.remove('open');
         });
     });
@@ -1510,10 +1550,70 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
         return [euler.x * 180 / Math.PI, euler.y * 180 / Math.PI, euler.z * 180 / Math.PI];
     }
 
+    function removePlaceCutPreview() {
+        if (placeCutPreviewMesh && placeCutPreviewMesh.parent) {
+            placeCutPreviewMesh.parent.remove(placeCutPreviewMesh);
+            if (placeCutPreviewMesh.geometry) placeCutPreviewMesh.geometry.dispose();
+            if (placeCutPreviewMesh.material) placeCutPreviewMesh.material.dispose();
+            placeCutPreviewMesh = null;
+        }
+    }
+
+    function updatePlaceCutPreview(hoverPointLocal, hoverNormalLocal) {
+        if (!placeCutMode || !selectedPart || !parts[selectedPart]) {
+            removePlaceCutPreview();
+            return;
+        }
+        var partGroup = parts[selectedPart].group;
+        var pt = hoverPointLocal || (placeCutFaceData ? placeCutFaceData.point : null);
+        var norm = hoverNormalLocal || (placeCutFaceData ? placeCutFaceData.normal : null);
+        if (!pt || !norm) {
+            removePlaceCutPreview();
+            return;
+        }
+        var w = 10, d = 10, ext = 10, r = 5, h = 10;
+        if (placeCutFaceData) {
+            w = parseFloat(document.getElementById('place-width').value) || 10;
+            d = parseFloat(document.getElementById('place-depth').value) || 10;
+            ext = parseFloat(document.getElementById('place-extent').value) || 10;
+            r = parseFloat(document.getElementById('place-radius').value) || 5;
+            h = parseFloat(document.getElementById('place-cyl-depth').value) || 10;
+        }
+        var isBox = placeCutMode === 'cut_box' || placeCutMode === 'add_box';
+        var geometry = isBox
+            ? new THREE.BoxGeometry(w, d, ext)
+            : new THREE.CylinderGeometry(r, r, h, 32);
+        var isCut = placeCutMode.indexOf('cut') >= 0;
+        var previewColor = isCut ? 0xcc4444 : 0x44aa44;
+        var mat = new THREE.MeshPhongMaterial({
+            color: previewColor,
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        if (placeCutPreviewMesh) {
+            partGroup.remove(placeCutPreviewMesh);
+            placeCutPreviewMesh.geometry.dispose();
+            placeCutPreviewMesh.material.dispose();
+        }
+        placeCutPreviewMesh = new THREE.Mesh(geometry, mat);
+        placeCutPreviewMesh.position.set(pt[0], pt[1], pt[2]);
+        var rotDeg = eulerDegFromNormal(norm[0], norm[1], norm[2]);
+        placeCutPreviewMesh.rotation.set(
+            THREE.MathUtils.degToRad(rotDeg[0]),
+            THREE.MathUtils.degToRad(rotDeg[1]),
+            THREE.MathUtils.degToRad(rotDeg[2])
+        );
+        placeCutPreviewMesh.renderOrder = 1;
+        partGroup.add(placeCutPreviewMesh);
+    }
+
     function startPlaceCut(mode) {
         if (!selectedPart) return;
         placeCutMode = mode;
         placeCutFaceData = null;
+        removePlaceCutPreview();
         document.getElementById('sel-place-cut-panel').style.display = 'none';
         var hint = document.getElementById('sel-place-hint');
         hint.textContent = 'Click on the part face where you want the ' + (mode.indexOf('cut') >= 0 ? 'cut' : 'add') + '.';
@@ -1523,6 +1623,7 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     function cancelPlaceCut() {
         placeCutMode = null;
         placeCutFaceData = null;
+        removePlaceCutPreview();
         document.getElementById('sel-place-hint').style.display = 'none';
         document.getElementById('sel-place-cut-panel').style.display = 'none';
     }
@@ -1532,14 +1633,15 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     document.getElementById('btn-add-cut-cylinder').addEventListener('click', function() { startPlaceCut('cut_cylinder'); });
     document.getElementById('btn-add-add-cylinder').addEventListener('click', function() { startPlaceCut('add_cylinder'); });
 
-    document.getElementById('place-width').addEventListener('input', function() { document.getElementById('place-width-val').textContent = this.value; });
-    document.getElementById('place-depth').addEventListener('input', function() { document.getElementById('place-depth-val').textContent = this.value; });
-    document.getElementById('place-extent').addEventListener('input', function() { document.getElementById('place-extent-val').textContent = this.value; });
-    document.getElementById('place-radius').addEventListener('input', function() { document.getElementById('place-radius-val').textContent = this.value; });
-    document.getElementById('place-cyl-depth').addEventListener('input', function() { document.getElementById('place-cyl-depth-val').textContent = this.value; });
+    document.getElementById('place-width').addEventListener('input', function() { document.getElementById('place-width-val').textContent = this.value; updatePlaceCutPreview(); });
+    document.getElementById('place-depth').addEventListener('input', function() { document.getElementById('place-depth-val').textContent = this.value; updatePlaceCutPreview(); });
+    document.getElementById('place-extent').addEventListener('input', function() { document.getElementById('place-extent-val').textContent = this.value; updatePlaceCutPreview(); });
+    document.getElementById('place-radius').addEventListener('input', function() { document.getElementById('place-radius-val').textContent = this.value; updatePlaceCutPreview(); });
+    document.getElementById('place-cyl-depth').addEventListener('input', function() { document.getElementById('place-cyl-depth-val').textContent = this.value; updatePlaceCutPreview(); });
 
     document.getElementById('place-apply-btn').addEventListener('click', function() {
         if (!selectedPart || !placeCutFaceData) return;
+        removePlaceCutPreview();
         var pt = placeCutFaceData.point;
         var norm = placeCutFaceData.normal;
         var rot_deg = eulerDegFromNormal(norm[0], norm[1], norm[2]);
@@ -1648,6 +1750,11 @@ var EMBEDDED_BUILD_RESULT = window.__VIEWER_BUILD_RESULT || {};
     document.getElementById('sel-anchors-toggle').addEventListener('change', function() {
         selectedPartAnchorsOn = this.checked;
         updateAnchorVisibility();
+    });
+    document.getElementById('btn-hide-component').addEventListener('click', function() {
+        if (selectedPart && parts[selectedPart] && parts[selectedPart].visible) {
+            togglePart(selectedPart);
+        }
     });
 
     // Hover detection for anchor spheres

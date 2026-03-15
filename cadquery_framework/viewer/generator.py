@@ -12,7 +12,8 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
                          constraints=None,
                          title="3D Model Viewer", toolbar_title="3D Viewer",
                          loading_message="Loading model...",
-                         build_result=None):
+                         build_result=None,
+                         overlay_save_hint=None):
     """Generate self-contained viewer.html with embedded STL data.
 
     Reads template.html, style.css, and app.js from the viewer static
@@ -50,12 +51,20 @@ def generate_viewer_html(parts_data, output_path, kicad_files=None,
     constraints_json = json.dumps(constraints or [], indent=None)
     build_result_json = json.dumps(build_result or {}, indent=None)
 
+    overlay_hint = overlay_save_hint or (
+        "Save the downloaded file as viewer_overlay.json in your project output folder "
+        "(same folder as this viewer), then re-run the build. "
+        "Parametric modifications and position edits only appear in the model after you do this."
+    )
+    overlay_hint_escaped = overlay_hint.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
     html = template_text
     html = html.replace("<!-- __INLINE_CSS__ -->", "<style>\n" + css_text + "\n</style>")
     html = html.replace("<!-- __INLINE_JS__ -->", "<script type=\"module\">\n" + js_text + "\n</script>")
     html = html.replace("__PAGE_TITLE__", title)
     html = html.replace("__TOOLBAR_TITLE__", toolbar_title)
     html = html.replace("__LOADING_MESSAGE__", loading_message)
+    html = html.replace("__OVERLAY_SAVE_HINT__", overlay_hint_escaped)
     html = html.replace('"__PARTS_JSON__"', parts_json)
     html = html.replace('"__KICAD_JSON__"', kicad_json)
     html = html.replace('"__CONSTRAINTS_JSON__"', constraints_json)

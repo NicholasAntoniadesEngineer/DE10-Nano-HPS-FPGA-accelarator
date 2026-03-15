@@ -37,7 +37,7 @@ def make_esc():
         cq.Workplane("XY")
         .rect(ESC_L, ESC_W)
         .extrude(ESC_H)
-        .edges("|Z").fillet(1)
+        .edges("|Z").chamfer(min(_D["assembly"]["pcb_edge_chamfer"], ESC_H * 0.45))
     )
 
     pads_per_end = ESC_PAD_N // 2

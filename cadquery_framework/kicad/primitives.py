@@ -76,6 +76,46 @@ def hexagon_outline(cx, cy, r):
     return lines
 
 
+def rounded_hexagon_outline(cx, cy, r, corner_r):
+    """Generate Edge.Cuts for a regular hexagon (flat-top) with rounded corners.
+
+    corner_r is the radius at each vertex; clamped so insets do not cross.
+    """
+    corner_r = min(corner_r, r * 0.4)
+    if corner_r < 0.01:
+        return hexagon_outline(cx, cy, r)
+    pts = []
+    for i in range(6):
+        angle = math.radians(60 * i + 30)
+        pts.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+    a_pts = []
+    b_pts = []
+    for i in range(6):
+        vx, vy = pts[i]
+        px, py = pts[(i - 1) % 6]
+        nx, nxy = pts[(i + 1) % 6]
+        dx_prev = vx - px
+        dy_prev = vy - py
+        len_prev = math.hypot(dx_prev, dy_prev) or 1e-9
+        dx_next = nx - vx
+        dy_next = nxy - vy
+        len_next = math.hypot(dx_next, dy_next) or 1e-9
+        a_pts.append((vx - corner_r * (dx_prev / len_prev), vy - corner_r * (dy_prev / len_prev)))
+        b_pts.append((vx - corner_r * (dx_next / len_next), vy - corner_r * (dy_next / len_next)))
+    segs = []
+    for i in range(6):
+        bx_prev, by_prev = b_pts[(i - 1) % 6]
+        ax, ay = a_pts[i]
+        segs.append(("line", bx_prev, by_prev, ax, ay))
+        vx, vy = pts[i]
+        sa = math.degrees(math.atan2(ay - vy, ax - vx))
+        ea = math.degrees(math.atan2(b_pts[i][1] - vy, b_pts[i][0] - vx))
+        if ea <= sa:
+            ea += 360
+        segs.append(("arc", vx, vy, corner_r, sa, ea))
+    return segs
+
+
 def rotated_rect_outline(w, h, cx, cy, angle_deg):
     """Generate Edge.Cuts lines for a rotated rectangle."""
     hw, hh = w / 2, h / 2

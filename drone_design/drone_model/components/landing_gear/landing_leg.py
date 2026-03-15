@@ -36,6 +36,8 @@ HEADER_PITCH    = _D["connections"]["header_pitch"]
 HEADER_HOLE_D   = _D["connections"]["header_hole_diameter"]
 HEADER_PAD_D    = _D["connections"]["header_pad_diameter"]
 LEG_HEADER_PINS = _D["connections"]["leg_header_pins"]
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
+PCB_OUTLINE_R = _D["assembly"].get("pcb_outline_corner_radius", 1.5)
 
 CATALOG = {
     "landing_leg": {
@@ -77,11 +79,14 @@ def make_landing_leg():
     The mounting tab at the top extends in -Y (inward), sitting flush under
     the bottom plate. Pin headers pass vertically through the tab and plate.
     """
+    leg_chamfer = min(PCB_EDGE_CHAMFER, LEG_THICK * 0.45)
     # Vertical section — stands at plate edge
     vertical = (
         cq.Workplane("XZ")
         .rect(LEG_WIDTH, LEG_HEIGHT)
         .extrude(LEG_THICK)
+        .edges("|Y")
+        .chamfer(leg_chamfer)
         .translate((0, 0, FOOT_THICK + LEG_HEIGHT / 2))
     )
 
@@ -90,6 +95,8 @@ def make_landing_leg():
         cq.Workplane("XY")
         .rect(LEG_WIDTH, FOOT_LENGTH)
         .extrude(FOOT_THICK)
+        .edges("|Z")
+        .chamfer(min(PCB_EDGE_CHAMFER, FOOT_THICK * 0.45))
         .translate((0, FOOT_LENGTH / 2 - LEG_THICK / 2, FOOT_THICK / 2))
     )
 
@@ -100,6 +107,8 @@ def make_landing_leg():
         cq.Workplane("XY")
         .rect(LEG_WIDTH, TAB_DEPTH)
         .extrude(TAB_THICK)
+        .edges("|Z")
+        .chamfer(min(PCB_EDGE_CHAMFER, TAB_THICK * 0.45))
         .translate((0, -(LEG_THICK / 2 + TAB_DEPTH / 2), tab_top_z - TAB_THICK / 2))
     )
 
@@ -148,13 +157,14 @@ def make_landing_leg():
             normal=(0, 0, -1),
             label="foot base (ground contact)",
         )
-        # Mount tab: top of mounting tab, pointing inward (-Y toward plate center)
+        # Mount tab: top of mounting tab, at tab center (inward from vertical section)
+        # The tab extends in -Y from the vertical section; its center is at:
         tab_center_y = -(LEG_THICK / 2 + TAB_DEPTH / 2)
         tab_top_z = FOOT_THICK + LEG_HEIGHT
         anchors["mount_tab"] = Anchor(
-            point=(0, 0, tab_top_z),
+            point=(0, tab_center_y, tab_top_z),
             normal=(0, 0, 1),
-            label="mount tab (plate connection)",
+            label="mount tab center (solders to plate underside)",
         )
 
     return leg, anchors
@@ -166,7 +176,7 @@ def make_landing_leg():
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rounded_rect_outline, rect_outline,
+        rounded_rect_outline,
         outline_to_sexpr, through_hole_pad,
         text_sexpr, kicad_pcb_wrapper,
     )
@@ -190,17 +200,17 @@ def generate_landing_leg_pcb():
 
     segs = []
 
-    # Vertical section
-    segs.extend(rect_outline(LEG_WIDTH, LEG_HEIGHT, 0, LEG_HEIGHT / 2))
+    # Vertical section — rounded corners in cutout design
+    segs.extend(rounded_rect_outline(LEG_WIDTH, LEG_HEIGHT, min(PCB_OUTLINE_R, LEG_WIDTH / 2 - 0.5), 0, LEG_HEIGHT / 2))
 
-    # Foot (horizontal extension at bottom, extends to +X)
+    # Foot (horizontal extension at bottom, extends to +X) — rounded corners
     foot_cx = FOOT_LENGTH / 2 - LEG_WIDTH / 2
-    segs.extend(rect_outline(FOOT_LENGTH, FOOT_THICK, foot_cx, 0))
+    segs.extend(rounded_rect_outline(FOOT_LENGTH, FOOT_THICK, min(PCB_OUTLINE_R, FOOT_THICK / 2 - 0.2), foot_cx, 0))
 
-    # Mounting tab at top (extends to -X, representing inward fold under plate)
+    # Mounting tab at top (extends to -X, representing inward fold under plate) — rounded corners
     tab_cx = -(LEG_WIDTH / 2 + tab_depth / 2)
     tab_cy = LEG_HEIGHT - LEG_THICK / 2  # at top edge
-    segs.extend(rect_outline(tab_depth, LEG_WIDTH, tab_cx, tab_cy))
+    segs.extend(rounded_rect_outline(tab_depth, LEG_WIDTH, min(PCB_OUTLINE_R, LEG_WIDTH / 2 - 0.5), tab_cx, tab_cy))
 
     # Lightening holes in vertical section (capsule-shaped, simplified as ovals)
     hole_spacing = (LEG_HEIGHT - 20) / LEG_HOLE_N

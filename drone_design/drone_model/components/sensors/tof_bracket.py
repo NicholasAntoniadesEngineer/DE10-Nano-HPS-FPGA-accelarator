@@ -1,11 +1,16 @@
 """L-shaped ToF sensor mounting bracket — FR4 PCB, 1.6mm thick."""
 
+import json
 import cadquery as cq
+from pathlib import Path
 
 try:
     from cadquery_framework.assembly.anchors import Anchor
 except ImportError:
     Anchor = None
+
+_D = json.loads((Path(__file__).resolve().parents[2] / "dimensions.json").read_text())
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 TOF_BRACKET_BASE   = 15    # mm, base face width (attaches to frame plate)
 TOF_BRACKET_TAB    = 15    # mm, vertical tab width (holds ToF board)
@@ -32,11 +37,14 @@ def make_tof_bracket():
       - Base face (XY plane): 15 x 20 mm, attaches to frame plate via 2x M2 holes
       - Vertical tab (XZ plane): 15 x 20 mm, holds ToF board via 2x M2 holes
     """
+    base_chamfer = min(PCB_EDGE_CHAMFER, TOF_BRACKET_T * 0.45)
     # Base face — lies flat on the frame plate
     base = (
         cq.Workplane("XY")
         .rect(TOF_BRACKET_BASE, TOF_BRACKET_DEPTH)
         .extrude(TOF_BRACKET_T)
+        .edges("|Z")
+        .chamfer(base_chamfer)
     )
     base = (
         base.faces(">Z").workplane()
@@ -50,6 +58,8 @@ def make_tof_bracket():
         .center(0, TOF_BRACKET_T + TOF_BRACKET_TAB / 2)
         .rect(TOF_BRACKET_BASE, TOF_BRACKET_TAB)
         .extrude(TOF_BRACKET_T)
+        .edges("|Y")
+        .chamfer(base_chamfer)
         .translate((0, TOF_BRACKET_DEPTH / 2 - TOF_BRACKET_T, 0))
     )
     tab = (

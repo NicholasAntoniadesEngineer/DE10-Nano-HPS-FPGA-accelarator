@@ -578,6 +578,94 @@ class AssemblyBuilder:
 
         return manifest
 
+    def print_constraint_tree(self):
+        """Print the constraint dependency tree for debugging.
+
+        Shows which parts are roots (placed), which are constrained,
+        and the parent→child chain with constraint type and parameters.
+        """
+        child_to_constraint = {}
+        for c in self._constraints:
+            child_to_constraint[c.child_part] = c
+
+        roots = [n for n in self._parts if n in self._placements]
+        constrained = [n for n in self._parts if n in child_to_constraint]
+        orphans = [n for n in self._parts
+                   if n not in self._placements and n not in child_to_constraint]
+
+        print("\n  CONSTRAINT TREE:")
+        print(f"  Roots ({len(roots)}): {', '.join(roots)}")
+        if orphans:
+            print(f"  ORPHANS ({len(orphans)}): {', '.join(orphans)}")
+
+        # Build adjacency for tree printing
+        children_of = {}
+        for name, c in child_to_constraint.items():
+            children_of.setdefault(c.parent_part, []).append((name, c))
+
+        def _print_tree(name, depth=0):
+            indent = "  " + "  │ " * depth
+            if name in self._placements:
+                pl = self._placements[name]
+                pos_s = f"({pl.pos[0]:.1f}, {pl.pos[1]:.1f}, {pl.pos[2]:.1f})"
+                print(f"{indent}├─ {name} [ROOT place at={pos_s}]")
+            elif name in child_to_constraint:
+                c = child_to_constraint[name]
+                extra = ""
+                if c.kind == "offset" and abs(c.gap) > 1e-6:
+                    extra = f" gap={c.gap:.1f}"
+                if abs(c.spin) > 1e-6:
+                    extra += f" spin={c.spin:.0f}°"
+                print(f"{indent}├─ {name} [{c.kind}: "
+                      f"{name}.{c.child_anchor} → "
+                      f"{c.parent_part}.{c.parent_anchor}{extra}]")
+            for child_name, _ in children_of.get(name, []):
+                _print_tree(child_name, depth + 1)
+
+        for root in roots:
+            _print_tree(root)
+
+    def print_resolved_positions(self, manifest):
+        """Print world-space positions and key anchors for all resolved parts.
+
+        Args:
+            manifest: list of dicts returned by resolve().
+        """
+        print("\n  RESOLVED POSITIONS:")
+        print(f"  {'Part':<28} {'Position (X, Y, Z)':>28} "
+              f"{'Rotation (rx, ry, rz)':>28}")
+        print("  " + "─" * 86)
+        for entry in manifest:
+            pos = entry["pos"]
+            rot = entry["rot"]
+            pos_s = f"({pos[0]:7.1f}, {pos[1]:7.1f}, {pos[2]:7.1f})"
+            rot_s = f"({rot[0]:6.1f}, {rot[1]:6.1f}, {rot[2]:6.1f})"
+            print(f"  {entry['name']:<28} {pos_s:>28} {rot_s:>28}")
+
+    def print_anchor_map(self, manifest, parts_filter=None):
+        """Print world-space anchor coordinates for debugging.
+
+        Args:
+            manifest: list of dicts returned by resolve().
+            parts_filter: optional list of part names to include.
+                If None, prints anchors for all parts that have them.
+        """
+        print("\n  ANCHOR MAP (world coordinates):")
+        for entry in manifest:
+            name = entry["name"]
+            anchors = entry.get("anchors", {})
+            if not anchors:
+                continue
+            if parts_filter and name not in parts_filter:
+                continue
+            print(f"  {name}:")
+            for aname, anchor in anchors.items():
+                pt = anchor.point
+                nm = anchor.normal
+                print(f"    {aname:<24} pos=({pt[0]:7.1f}, {pt[1]:7.1f}, "
+                      f"{pt[2]:7.1f})  normal=({nm[0]:5.2f}, {nm[1]:5.2f}, "
+                      f"{nm[2]:5.2f})")
+
     def to_manifest(self):
         """Alias for resolve() — returns pipeline-compatible manifest list.
 

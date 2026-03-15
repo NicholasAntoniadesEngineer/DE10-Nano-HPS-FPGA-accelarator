@@ -18,64 +18,84 @@
     <div class="dropdown" id="dd-view">
         <button class="dropdown-btn">View</button>
         <div class="dropdown-menu">
+            <div class="dropdown-item dropdown-group-label">Display</div>
             <div class="dropdown-item" id="btn-wireframe">Wireframe</div>
             <div class="dropdown-item" id="btn-axes">Axes</div>
             <div class="dropdown-divider"></div>
+            <div class="dropdown-item dropdown-group-label">Camera</div>
             <div class="dropdown-item" id="btn-reset">Reset View</div>
             <div class="dropdown-item" id="btn-center">Fit All</div>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-item" id="btn-bg-dark">Background: Dark</div>
-            <div class="dropdown-item" id="btn-bg-mid">Background: Mid</div>
-            <div class="dropdown-item" id="btn-bg-light">Background: Light</div>
+            <div class="dropdown-item dropdown-group-label">Background</div>
+            <div class="dropdown-item" id="btn-bg-dark">Dark</div>
+            <div class="dropdown-item" id="btn-bg-mid">Mid</div>
+            <div class="dropdown-item" id="btn-bg-light">Light</div>
         </div>
     </div>
 
     <div class="dropdown" id="dd-edit">
         <button class="dropdown-btn">Edit</button>
         <div class="dropdown-menu">
+            <div class="dropdown-item dropdown-group-label">Transform</div>
             <div class="dropdown-item" id="btn-move">Move <span class="shortcut">G</span></div>
             <div class="dropdown-item" id="btn-rotate">Rotate <span class="shortcut">R</span></div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item dropdown-group-label">Tools</div>
             <div class="dropdown-item" id="btn-snap-settings">Snap Settings...</div>
             <div class="dropdown-item" id="btn-dir-move">Directional Move...</div>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item" id="btn-reset-part">Reset Part</div>
-            <div class="dropdown-item" id="btn-delete-all" style="color:#ff6666;">Delete All</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item dropdown-item-danger" id="btn-delete-all">Delete All</div>
+        </div>
+    </div>
+
+    <div class="dropdown" id="dd-overlay">
+        <button class="dropdown-btn">Overlay</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item dropdown-group-label">Assembly</div>
+            <div class="dropdown-item" id="btn-add-anchor">Add anchor...</div>
+            <div class="dropdown-item" id="btn-add-constraint">Add constraint...</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item dropdown-group-label">Persistence</div>
+            <div class="dropdown-item overlay-hint-text" title="Edits (position, modifications) are temporary until you save. Refreshing the page discards unsaved changes.">Edits temporary until Save; refresh discards unsaved</div>
+            <div class="dropdown-item" id="btn-save-config" title="Download viewer_overlay.json. Place in project output dir to apply edits on next rebuild.">Save Overlay</div>
+            <div class="dropdown-item" id="btn-load-config" title="Load viewer_overlay.json or model_configuration.json">Load Overlay</div>
+        </div>
+    </div>
+
+    <div class="dropdown" id="dd-add">
+        <button class="dropdown-btn">Add</button>
+        <div class="dropdown-menu">
+            <div class="dropdown-item dropdown-group-label">Primitives</div>
+            <div class="dropdown-item" id="btn-new-box">Box</div>
+            <div class="dropdown-item" id="btn-new-cylinder">Cylinder</div>
         </div>
     </div>
 
     <div class="dropdown" id="dd-export">
         <button class="dropdown-btn">Export</button>
         <div class="dropdown-menu">
+            <div class="dropdown-item dropdown-group-label">Output</div>
             <div class="dropdown-item" id="btn-export-pos">Export Positions</div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item" id="btn-save-config" title="Download viewer_overlay.json. Place in project output dir to apply edits on next rebuild.">Save Overlay</div>
-            <div class="dropdown-item" id="btn-load-config" title="Load viewer_overlay.json or model_configuration.json">Load Overlay</div>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item" id="btn-kicad">KiCad PCB Files</div>
         </div>
     </div>
 
     <div class="sep"></div>
-    <div class="ctrl"><span>Color:</span><input type="color" id="color-picker" value="#8ecae6"></div>
-    <button class="btn" id="btn-shortcuts">Shortcuts</button>
-    <div class="dropdown" id="dd-overlay">
-        <button class="dropdown-btn">Overlay</button>
-        <div class="dropdown-menu">
-            <div class="dropdown-item" id="btn-add-anchor">Add anchor...</div>
-            <div class="dropdown-item" id="btn-add-constraint">Add constraint...</div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item" id="btn-new-box">Create part (box)</div>
-            <div class="dropdown-item" id="btn-new-cylinder">Create part (cylinder)</div>
-        </div>
-    </div>
-    <div class="sep"></div>
-    <label class="btn" style="gap:4px;"><input type="checkbox" id="btn-anchors" style="accent-color:#8ecae6;cursor:pointer;"> Anchors</label>
+    <div class="ctrl" title="Color of selected component"><span>Color:</span><input type="color" id="color-picker" value="#8ecae6"></div>
+    <button class="btn" id="btn-shortcuts" title="View keyboard and mouse shortcuts">Shortcuts</button>
+    <label class="btn toolbar-toggle" style="gap:4px;" title="Show/hide anchor points"><input type="checkbox" id="btn-anchors" style="accent-color:#8ecae6;cursor:pointer;"> Anchors</label>
 </div>
 
 <div id="parts-list">
     <div class="sidebar-header">
         <span class="sidebar-header-text">Components</span>
         <button class="sidebar-toggle" id="sidebar-toggle" title="Collapse sidebar">&laquo;</button>
+    </div>
+    <div class="parts-list-toolbar">
+        <button type="button" class="btn btn-reveal-all" id="btn-reveal-all" title="Show all hidden components">Reveal all</button>
     </div>
     <div id="parts-container"></div>
     <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
@@ -91,19 +111,25 @@
         <h4>Last build</h4>
         <div id="build-result-text" class="km-desc">—</div>
         <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
-        <h4>Mouse</h4>
-        <div class="km-row"><span><span class="key">LMB</span> drag</span> <span class="km-desc">Orbit camera</span></div>
-        <div class="km-row"><span><span class="key">RMB</span> drag</span> <span class="km-desc">Pan camera</span></div>
-        <div class="km-row"><span><span class="key">Scroll</span></span> <span class="km-desc">Zoom in/out</span></div>
+        <h4>Mouse — Camera</h4>
+        <div class="km-row"><span><span class="key">LMB</span> drag</span> <span class="km-desc">Orbit</span></div>
+        <div class="km-row"><span><span class="key">RMB</span> drag</span> <span class="km-desc">Pan</span></div>
+        <div class="km-row"><span><span class="key">Scroll</span></span> <span class="km-desc">Zoom</span></div>
+        <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
+        <h4>Mouse — Selection</h4>
         <div class="km-row"><span><span class="key">Click</span></span> <span class="km-desc">Select part</span></div>
+        <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
+        <h4>Components list</h4>
+        <div class="km-row"><span><span class="key">Dot</span></span> <span class="km-desc">Hide/show part</span></div>
+        <div class="km-row"><span><span class="key">Reveal all</span></span> <span class="km-desc">Show all hidden</span></div>
         <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
         <h4>Keyboard</h4>
         <div class="km-row"><span><span class="key">G</span></span> <span class="km-desc">Move mode</span></div>
         <div class="km-row"><span><span class="key">R</span></span> <span class="km-desc">Rotate mode</span></div>
         <div class="km-row"><span><span class="key">Esc</span></span> <span class="km-desc">Deselect / cancel</span></div>
         <div style="border-top:1px solid rgba(0,0,0,0.06); margin:6px 0;"></div>
-        <h4>Other</h4>
-        <div class="km-row"><span><span class="key">Drop</span> files</span> <span class="km-desc">Add STL models</span></div>
+        <h4>Files</h4>
+        <div class="km-row"><span><span class="key">Drop</span> STL</span> <span class="km-desc">Add models</span></div>
     </div>
 </div>
 
@@ -189,6 +215,10 @@
 
 <div id="selection-panel">
     <h3 id="sel-title">Component</h3>
+    <div class="sel-section sel-actions">
+        <div class="sel-section-title">Actions</div>
+        <button type="button" class="btn btn-hide-component" id="btn-hide-component" title="Hide this component">Hide</button>
+    </div>
     <div class="sel-section">
         <div class="sel-section-title">Specifications</div>
         <div class="sel-row"><span class="sel-label">Material:</span> <span class="sel-value" id="sel-material">-</span></div>
@@ -289,6 +319,7 @@ window.__VIEWER_PARTS = "__PARTS_JSON__";
 window.__VIEWER_KICAD = "__KICAD_JSON__";
 window.__VIEWER_CONSTRAINTS = "__CONSTRAINTS_JSON__";
 window.__VIEWER_BUILD_RESULT = "__BUILD_RESULT_JSON__";
+window.__OVERLAY_SAVE_HINT = "__OVERLAY_SAVE_HINT__";
 </script>
 
 <!-- __INLINE_JS__ -->

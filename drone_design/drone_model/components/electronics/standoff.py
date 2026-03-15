@@ -27,7 +27,13 @@ CATALOG = {
 
 def make_standoff(h):
     """M2.5 hex standoff."""
-    shape = cq.Workplane("XY").polygon(6, 5).extrude(h)
+    shape = (
+        cq.Workplane("XY")
+        .polygon(6, 5)
+        .extrude(h)
+        .edges("|Z")
+        .chamfer(min(0.3, h * 0.15))
+    )
 
     anchors = {}
     if Anchor is not None:

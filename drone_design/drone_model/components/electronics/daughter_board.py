@@ -47,11 +47,14 @@ CATALOG = {
 
 def make_daughter_board():
     """Daughter board with M2.5 mounting holes, GPIO receptacles, and IC footprints."""
+    pcb_chamfer = _D["assembly"]["pcb_edge_chamfer"]
+    board_chamfer = min(pcb_chamfer, DB_H * 0.45)
     board = (
         cq.Workplane("XY")
         .rect(DB_W, DB_L)
         .extrude(DB_H)
-        .edges("|Z").fillet(1)
+        .edges("|Z")
+        .chamfer(board_chamfer)
     )
 
     # M2.5 mounting holes (match DE10-Nano corner pattern)
@@ -79,8 +82,27 @@ def make_daughter_board():
             .center(cq_x, cq_y + c["length"] / 2)
             .rect(GPIO_WIDTH + 2.0, c["length"] + 2.0)
             .extrude(-GPIO_HEADER_H)
+            .edges("|Z")
+            .chamfer(min(0.6, pcb_chamfer))
         )
         board = board.union(header)
+
+    # Arduino header receptacles (extend downward to mate with DE10 Arduino headers)
+    for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
+        if key not in gpio_connectors:
+            continue
+        c = gpio_connectors[key]
+        cq_x = DE10_W / 2 - c["intel_y"]
+        cq_y = c["intel_x"] - DE10_L / 2
+        ard_header = (
+            cq.Workplane("XY")
+            .center(cq_x, cq_y)
+            .rect(c["width"] + 2.0, c["length"] + 2.0)
+            .extrude(-GPIO_HEADER_H)
+            .edges("|Z")
+            .chamfer(min(0.6, pcb_chamfer))
+        )
+        board = board.union(ard_header)
 
     # Central heatsink/fan cutout — the DE10 heatsink (40x40mm) and cooling fan
     # protrude through this opening. 2mm clearance on each side.
@@ -90,6 +112,8 @@ def make_daughter_board():
         cq.Workplane("XY")
         .rect(_hs_w + 4, _hs_l + 4)
         .extrude(DB_H)
+        .edges("|Z")
+        .chamfer(board_chamfer)
     )
     board = board.cut(hs_cutout)
 
@@ -101,6 +125,8 @@ def make_daughter_board():
             .center(pos[0], pos[1])
             .rect(8, 8)
             .extrude(DB_H + 2)
+            .edges("|Z")
+            .chamfer(min(0.6, pcb_chamfer))
         )
         board = board.union(ic)
 

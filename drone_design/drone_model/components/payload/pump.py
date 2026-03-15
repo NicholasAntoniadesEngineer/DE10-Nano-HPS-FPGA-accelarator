@@ -95,11 +95,18 @@ def make_pump():
             normal=(0, 0, 1),
             label="Outlet tube connection point",
         )
-        # Base of pump body (Z=0) — rests in bracket channel
+        # Base of pump body (Z=0) — bottom face
         anchors["base"] = Anchor(
             point=(0, 0, 0),
             normal=(0, 0, -1),
-            label="Pump base resting in bracket",
+            label="Pump base bottom face",
+        )
+        # Tube face (Z=BODY_H+TUBE_LEN) — top face including tube stubs
+        # Used to mount pump so tubes point downward (away from plate)
+        anchors["tube_face"] = Anchor(
+            point=(0, 0, BODY_H + TUBE_LEN),
+            normal=(0, 0, 1),
+            label="Pump tube face — nearest to plate when underslung",
         )
 
     return shape, anchors

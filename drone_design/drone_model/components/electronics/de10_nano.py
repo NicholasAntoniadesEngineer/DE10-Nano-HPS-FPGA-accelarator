@@ -77,6 +77,17 @@ def _make_anchors():
                 normal=(0, 0, 1),
                 label=f"{key.upper()} 2x20 pin header top")
 
+        # Arduino Uno R3 header anchors
+        for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
+            if key not in connectors:
+                continue
+            c = connectors[key]
+            cx, cy = _intel_to_cq(c["intel_x"], c["intel_y"])
+            anchors[key] = Anchor(
+                point=(cx, cy, DE10_H + c["height"]),
+                normal=(0, 0, 1),
+                label=f"{key} female header top")
+
     return anchors
 
 
@@ -92,13 +103,17 @@ def _make_assembly():
     connectors = _D["de10_nano"]["connectors"]
     hole_d = _D["de10_nano"]["mounting_hole_diameter"]
     hole_inset = _D["de10_nano"]["mounting_hole_inset"]
+    pcb_chamfer = _D["assembly"]["pcb_edge_chamfer"]
+    component_chamfer = min(0.6, pcb_chamfer, DE10_H * 0.45)
 
-    # --- Main PCB ---
+    # --- Main PCB (1.6mm thick: chamfer capped at ~0.7mm) ---
+    board_chamfer = min(pcb_chamfer, DE10_H * 0.45)
     board = (
         cq.Workplane("XY")
         .rect(DE10_W, DE10_L)
         .extrude(DE10_H)
-        .edges("|Z").fillet(1)
+        .edges("|Z")
+        .chamfer(board_chamfer)
     )
 
     # --- 4x M3 mounting holes (through-hole cutouts near corners) ---
@@ -119,6 +134,8 @@ def _make_assembly():
         cq.Workplane("XY")
         .rect(HS_W, HS_L)
         .extrude(DE10_H + HS_H)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(heatsink)
 
@@ -131,6 +148,8 @@ def _make_assembly():
             .center(cx, cy + c["length"] / 2)
             .rect(c["width"], c["length"])
             .extrude(DE10_H + c["height"])
+            .edges("|Z")
+            .chamfer(component_chamfer)
         )
         board = board.union(header)
 
@@ -143,8 +162,26 @@ def _make_assembly():
             .center(cx, cy)
             .rect(c["width"], c["length"])
             .extrude(DE10_H + c["height"])
+            .edges("|Z")
+            .chamfer(component_chamfer)
         )
         board = board.union(block)
+
+    # --- Arduino Uno R3 compatible headers (female, along board edges) ---
+    for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
+        if key not in connectors:
+            continue
+        c = connectors[key]
+        cx, cy = _intel_to_cq(c["intel_x"], c["intel_y"])
+        header = (
+            cq.Workplane("XY")
+            .center(cx, cy)
+            .rect(c["width"], c["length"])
+            .extrude(DE10_H + c["height"])
+            .edges("|Z")
+            .chamfer(component_chamfer)
+        )
+        board = board.union(header)
 
     return board
 
@@ -156,12 +193,17 @@ def _make_detailed():
     hole_d = _D["de10_nano"]["mounting_hole_diameter"]
     hole_inset = _D["de10_nano"]["mounting_hole_inset"]
 
-    # --- Main PCB ---
+    pcb_chamfer = _D["assembly"]["pcb_edge_chamfer"]
+    component_chamfer = min(0.6, pcb_chamfer, DE10_H * 0.45)
+
+    # --- Main PCB (1.6mm thick: chamfer capped at ~0.7mm) ---
+    board_chamfer = min(pcb_chamfer, DE10_H * 0.45)
     board = (
         cq.Workplane("XY")
         .rect(DE10_W, DE10_L)
         .extrude(DE10_H)
-        .edges("|Z").fillet(1)
+        .edges("|Z")
+        .chamfer(board_chamfer)
     )
 
     # --- 4x M3 mounting holes ---
@@ -182,6 +224,8 @@ def _make_detailed():
         cq.Workplane("XY")
         .rect(HS_W, HS_L)
         .extrude(DE10_H + HS_H)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(heatsink)
 
@@ -194,6 +238,8 @@ def _make_detailed():
             .center(cx, cy + c["length"] / 2)
             .rect(c["width"], c["length"])
             .extrude(DE10_H + c["height"])
+            .edges("|Z")
+            .chamfer(component_chamfer)
         )
         board = board.union(header)
 
@@ -207,6 +253,8 @@ def _make_detailed():
         .center(-5, -10)
         .rect(fpga_w, fpga_l)
         .extrude(fpga_h)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(fpga_pkg)
 
@@ -220,6 +268,8 @@ def _make_detailed():
         .center(-5, -10 + fpga_l / 2 + hps_l / 2 + 3)
         .rect(hps_w, hps_l)
         .extrude(hps_h)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(hps_pkg)
 
@@ -254,6 +304,8 @@ def _make_detailed():
             .center(lx, led_y)
             .rect(led_w, led_l)
             .extrude(led_h)
+            .edges("|Z")
+            .chamfer(component_chamfer)
         )
         board = board.union(led)
 
@@ -266,6 +318,8 @@ def _make_detailed():
         .center(DE10_W / 2 - sd_w / 2, 20)
         .rect(sd_w, sd_l)
         .extrude(DE10_H + sd_h)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(sd_slot)
 
@@ -278,6 +332,8 @@ def _make_detailed():
         .center(cx, cy)
         .rect(c["width"], c["length"])
         .extrude(DE10_H + c["height"])
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     # Add the metal shield overhang
     hdmi_shield = (
@@ -285,6 +341,8 @@ def _make_detailed():
         .center(cx, cy)
         .rect(c["width"] + 1.0, c["length"] + 1.0)
         .extrude(DE10_H + c["height"] - 1.0)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(hdmi_shield).union(hdmi_body)
 
@@ -296,6 +354,8 @@ def _make_detailed():
         .center(cx, cy)
         .rect(c["width"], c["length"])
         .extrude(DE10_H + c["height"])
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     # Recessed port opening
     usb_port = (
@@ -315,6 +375,8 @@ def _make_detailed():
         .center(cx, cy)
         .rect(c["width"], c["length"])
         .extrude(DE10_H + c["height"] * 0.6)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     eth_upper = (
         cq.Workplane("XY")
@@ -322,8 +384,26 @@ def _make_detailed():
         .center(cx, cy)
         .rect(c["width"] - 1.0, c["length"] - 1.0)
         .extrude(c["height"] * 0.4)
+        .edges("|Z")
+        .chamfer(component_chamfer)
     )
     board = board.union(eth_lower).union(eth_upper)
+
+    # --- Arduino Uno R3 compatible headers (female, along board edges) ---
+    for key in ("arduino_digital_hi", "arduino_digital_lo", "arduino_analog", "arduino_power"):
+        if key not in connectors:
+            continue
+        c = connectors[key]
+        cx, cy = _intel_to_cq(c["intel_x"], c["intel_y"])
+        ard_header = (
+            cq.Workplane("XY")
+            .center(cx, cy)
+            .rect(c["width"], c["length"])
+            .extrude(DE10_H + c["height"])
+            .edges("|Z")
+            .chamfer(component_chamfer)
+        )
+        board = board.union(ard_header)
 
     # Barrel jack: cylindrical body
     c = connectors["barrel_jack"]

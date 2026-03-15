@@ -1,11 +1,14 @@
 """Viewer overlay schema and loader.
 
 Single overlay file (viewer_overlay.json) in the project output directory
-holds: position/rotation overrides per part, viewer-added anchors per part,
-viewer-added constraints, parametric modifications per part, and new parts.
+holds: viewer-added anchors per part, viewer-added constraints, parametric
+modifications per part, and new parts.
 
-Build applies overlay after core assembly: merge anchors, add constraints,
-apply position overrides; pipeline may apply modifications when building shapes.
+Anchors and constraints are applied before resolve (constraint solver is
+the single source of truth for positions). Parametric modifications
+(cut/add operations) are applied to part geometry during build.
+Position/rotation overrides in the overlay are ignored — anchor-based
+constraints are authoritative.
 """
 
 from pathlib import Path

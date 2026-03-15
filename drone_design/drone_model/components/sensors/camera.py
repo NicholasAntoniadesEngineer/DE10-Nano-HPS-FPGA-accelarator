@@ -47,7 +47,7 @@ def make_camera():
         .rect(CAM_W, CAM_L)
         .extrude(CAM_H)
         .edges("|Z")
-        .fillet(0.5)
+        .chamfer(min(_D["assembly"]["pcb_edge_chamfer"], CAM_H * 0.45))
     )
 
     # M2 mounting holes (4 corners)

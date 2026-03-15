@@ -47,6 +47,7 @@ HEADER_HOLE_D     = _D["connections"]["header_hole_diameter"]  # 1.0 mm
 HEADER_PAD_D      = _D["connections"]["header_pad_diameter"]   # 1.7 mm
 BOOM_HEADER_PINS  = _D["connections"]["boom_header_pins"]      # 6
 BOOM_HEADER_INSET = _D["connections"]["boom_header_inset"]     # 3.0 mm
+PCB_EDGE_CHAMFER = _D["assembly"]["pcb_edge_chamfer"]
 
 OVERLAP_LENGTH = _D["nose_boom"]["overlap_length"]
 HOLE_PITCH     = 10.0
@@ -102,11 +103,14 @@ def _cut_ibeam_pockets(solid: cq.Workplane,
     if cutout_w <= 1.0 or cutout_len <= 1.0:
         return solid
 
+    pocket_fillet = min(PCB_EDGE_CHAMFER * 2, cutout_w / 2 - 0.3, cutout_len / 2 - 0.3)
     for side in (-1, 1):
         cy = side * (BOOM_WEB / 2 + BOOM_FLANGE + cutout_w / 2)
         pocket = (
             cq.Workplane("XY")
             .box(cutout_len, cutout_w, BOOM_THICK, centered=(True, True, False))
+            .edges("|Z")
+            .fillet(pocket_fillet)
             .translate((0.0, cy, 0.0))
         )
         solid = solid.cut(pocket)
@@ -148,6 +152,8 @@ def make_boom_root() -> cq.Workplane:
     root = (
         cq.Workplane("XY")
         .box(ROOT_TOTAL, BOOM_WIDTH, BOOM_THICK, centered=(True, True, False))
+        .edges("|Z")
+        .chamfer(min(PCB_EDGE_CHAMFER, BOOM_THICK * 0.45))
         # Shift so that X=0 is the left (root) face:
         .translate((ROOT_TOTAL / 2, 0.0, 0.0))
     )
@@ -158,12 +164,15 @@ def make_boom_root() -> cq.Workplane:
     cutout_len = ROOT_USABLE - 30.0   # pocket from x=30 to x=ROOT_USABLE
     cutout_w   = (BOOM_WIDTH - BOOM_WEB) / 2 - BOOM_FLANGE
     if cutout_len > 1.0 and cutout_w > 1.0:
+        pocket_fillet = min(PCB_EDGE_CHAMFER * 2, cutout_w / 2 - 0.3, cutout_len / 2 - 0.3)
         pocket_cx = 30.0 + cutout_len / 2   # centre of pocket in root-local X
         for side in (-1, 1):
             cy = side * (BOOM_WEB / 2 + BOOM_FLANGE + cutout_w / 2)
             pocket = (
                 cq.Workplane("XY")
                 .box(cutout_len, cutout_w, BOOM_THICK, centered=(True, True, False))
+                .edges("|Z")
+                .fillet(pocket_fillet)
                 .translate((pocket_cx, cy, 0.0))
             )
             root = root.cut(pocket)
@@ -173,12 +182,15 @@ def make_boom_root() -> cq.Workplane:
     # We remove the flange strips (BOOM_FLANGE wide, each side of the web)
     # so only the web (3 mm wide) remains — it slides into the tip collar.
     flange_cutout_w = (BOOM_WIDTH - BOOM_WEB) / 2   # = 8.5 mm each side
+    flange_fillet = min(PCB_EDGE_CHAMFER * 2, flange_cutout_w / 2 - 0.3, OVERLAP_LENGTH / 2 - 0.3)
     for side in (-1, 1):
         cy = side * (BOOM_WEB / 2 + flange_cutout_w / 2)
         flange_strip = (
             cq.Workplane("XY")
             .box(OVERLAP_LENGTH, flange_cutout_w, BOOM_THICK,
                  centered=(True, True, False))
+            .edges("|Z")
+            .fillet(flange_fillet)
             .translate((ROOT_USABLE + OVERLAP_LENGTH / 2, cy, 0.0))
         )
         root = root.cut(flange_strip)
@@ -246,6 +258,8 @@ def make_boom_tip() -> cq.Workplane:
     tip = (
         cq.Workplane("XY")
         .box(TIP_TOTAL, BOOM_WIDTH, BOOM_THICK, centered=(True, True, False))
+        .edges("|Z")
+        .chamfer(min(PCB_EDGE_CHAMFER, BOOM_THICK * 0.45))
         .translate((TIP_TOTAL / 2, 0.0, 0.0))
     )
 
@@ -255,12 +269,15 @@ def make_boom_tip() -> cq.Workplane:
     cutout_len  = body_len - 30.0
     cutout_w    = (BOOM_WIDTH - BOOM_WEB) / 2 - BOOM_FLANGE
     if cutout_len > 1.0 and cutout_w > 1.0:
+        pocket_fillet = min(PCB_EDGE_CHAMFER * 2, cutout_w / 2 - 0.3, cutout_len / 2 - 0.3)
         pocket_cx = OVERLAP_LENGTH + cutout_len / 2
         for side in (-1, 1):
             cy = side * (BOOM_WEB / 2 + BOOM_FLANGE + cutout_w / 2)
             pocket = (
                 cq.Workplane("XY")
                 .box(cutout_len, cutout_w, BOOM_THICK, centered=(True, True, False))
+                .edges("|Z")
+                .fillet(pocket_fillet)
                 .translate((pocket_cx, cy, 0.0))
             )
             tip = tip.cut(pocket)
@@ -370,27 +387,30 @@ def make_nose_boom(overlap_mm: float = OVERLAP_LENGTH) -> cq.Workplane:
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rect_outline, outline_to_sexpr, header_pad_row,
+        rounded_rect_outline, outline_to_sexpr, header_pad_row,
         text_sexpr, kicad_pcb_wrapper,
     )
 except ImportError:
     pass  # KiCad export not available
 
+PCB_OUTLINE_R = _D["assembly"].get("pcb_outline_corner_radius", 1.5)
+
 
 def generate_nose_boom_pcb():
-    """Generate .kicad_pcb for the nose boom (I-beam profile)."""
+    """Generate .kicad_pcb for the nose boom (I-beam profile). Rounded corners in outline and cutouts."""
     segs = []
 
-    # Outer rectangle
-    segs.extend(rect_outline(BOOM_LENGTH, BOOM_WIDTH))
+    # Outer rectangle — rounded corners in cutout design
+    segs.extend(rounded_rect_outline(BOOM_LENGTH, BOOM_WIDTH, min(PCB_OUTLINE_R, BOOM_WIDTH / 2 - 0.5), 0, 0))
 
-    # I-beam side cutouts
+    # I-beam side cutouts — rounded corners
     cutout_length = BOOM_LENGTH - 40  # leave 20mm solid at each end
     cutout_width = (BOOM_WIDTH - BOOM_WEB) / 2 - BOOM_FLANGE
+    cutout_r = min(PCB_OUTLINE_R, cutout_width / 2 - 0.2) if cutout_width > 1 else 0
     if cutout_width > 1 and cutout_length > 1:
         for side in [-1, 1]:
             cy = side * (BOOM_WEB / 2 + BOOM_FLANGE + cutout_width / 2)
-            segs.extend(rect_outline(cutout_length, cutout_width, 0, cy))
+            segs.extend(rounded_rect_outline(cutout_length, cutout_width, cutout_r, 0, cy))
 
     content = outline_to_sexpr(segs)
 

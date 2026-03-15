@@ -37,8 +37,8 @@ def make_battery():
         cq.Workplane("XY")
         .rect(BATT_W, BATT_L)
         .extrude(BATT_H)
-        .edges("|Z").fillet(BATT_CORNER_R)
-        .edges(">Z").fillet(min(BATT_CORNER_R * 0.5, 1.5))
+        .edges("|Z").chamfer(min(BATT_CORNER_R, BATT_H * 0.45))
+        .edges(">Z").chamfer(min(BATT_CORNER_R * 0.5, 1.5, BATT_H * 0.2))
     )
     xt60_z = (BATT_H - BATT_XT60_H) / 2
     xt60 = (

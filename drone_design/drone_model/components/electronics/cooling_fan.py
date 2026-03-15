@@ -45,7 +45,7 @@ def make_cooling_fan():
         cq.Workplane("XY")
         .rect(FRAME_SIZE, FRAME_SIZE)
         .extrude(FRAME_H)
-        .edges("|Z").fillet(FRAME_CR)
+        .edges("|Z").chamfer(min(FRAME_CR, FRAME_H * 0.45))
     )
 
     # Central airflow opening — circular, leaving ~1.5mm wall
