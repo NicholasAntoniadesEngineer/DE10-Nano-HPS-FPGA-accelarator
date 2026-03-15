@@ -263,6 +263,7 @@ class _PartEntry:
     color: str
     display: str
     meta: dict = field(default_factory=dict)
+    no_collision: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +294,8 @@ class AssemblyBuilder:
         self._constraints = []   # list of _Constraint
         self._constraint_order = []  # child names in insertion order
 
-    def add(self, name, builder, args=(), color="#888888", display=None, meta=None):
+    def add(self, name, builder, args=(), color="#888888", display=None,
+            meta=None, no_collision=False):
         """Register a part with its builder function.
 
         Args:
@@ -305,6 +307,8 @@ class AssemblyBuilder:
             color: Hex color string for viewer display.
             display: Human-readable name (defaults to name).
             meta: Optional metadata dict.
+            no_collision: If True, exclude from collision detection
+                (e.g. visualization-only clearance volumes).
         """
         if name in self._parts:
             raise ValueError(f"Part '{name}' already registered")
@@ -315,6 +319,7 @@ class AssemblyBuilder:
             color=color,
             display=display or name,
             meta=meta or {},
+            no_collision=no_collision,
         )
 
     def place(self, part, at=(0, 0, 0), rot=(0, 0, 0)):
@@ -531,7 +536,7 @@ class AssemblyBuilder:
         # --- Step 4: Build manifest ---
         manifest = []
         for name, entry in self._parts.items():
-            manifest.append({
+            entry_dict = {
                 "name": name,
                 "display": entry.display,
                 "color": entry.color,
@@ -541,7 +546,8 @@ class AssemblyBuilder:
                 "rot": world_rot[name],
                 "meta": entry.meta,
                 "anchors": world_anchors.get(name, {}),
-            })
+            }
+            manifest.append(entry_dict)
 
         return manifest
 

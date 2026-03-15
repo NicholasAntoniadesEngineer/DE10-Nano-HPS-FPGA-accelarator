@@ -1,4 +1,10 @@
-"""Silicone tubing segment — dimensions from pump config (tube_od/id)."""
+"""Silicone tubing segments for water path: reservoir → pump → frame edge → boom → drip nozzle.
+
+Dimensions (OD/ID) come from pump config in dimensions.json so tubing matches pump
+tube stubs and nozzle barb. Each segment is a hollow cylinder along local +Z;
+assembly places segments between anchor points (reservoir outlet, pump inlet/outlet,
+nozzle barb) with computed rotation so segments connect end-to-end.
+"""
 
 import json
 import cadquery as cq
@@ -16,7 +22,11 @@ TUBE_ID = _D["pump"]["tube_id"]
 
 
 def make_tubing_segment(length):
-    """Silicone tubing segment with OD/ID from pump tube config."""
+    """Silicone tubing segment: hollow cylinder along +Z from 0 to length.
+
+    OD/ID from pump tube config. Start at (0,0,0), end at (0,0,length); assembly
+    positions and orients each segment so start/end align with part anchors.
+    """
     shape = (
         cq.Workplane("XY")
         .circle(TUBE_OD / 2)
@@ -29,12 +39,12 @@ def make_tubing_segment(length):
         anchors["start"] = Anchor(
             point=(0, 0, 0),
             normal=(0, 0, -1),
-            label="Tubing start connection endpoint",
+            label="Start (connects to reservoir barb, pump stub, or previous segment)",
         )
         anchors["end"] = Anchor(
             point=(0, 0, length),
             normal=(0, 0, 1),
-            label="Tubing end connection endpoint",
+            label="End (connects to pump stub, waypoint, or nozzle barb)",
         )
 
     return shape, anchors

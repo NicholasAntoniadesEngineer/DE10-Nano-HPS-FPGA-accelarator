@@ -71,7 +71,7 @@ def make_daughter_board():
     for key in ("gpio0", "gpio1"):
         c = gpio_connectors[key]
         # Intel layout: x along 107mm length, y along 68.6mm width
-        cq_x = c["intel_y"] - DE10_W / 2
+        cq_x = DE10_W / 2 - c["intel_y"]
         cq_y = c["intel_x"] - DE10_L / 2
         # Header block extending downward (negative Z)
         header = (
@@ -82,8 +82,20 @@ def make_daughter_board():
         )
         board = board.union(header)
 
+    # Central heatsink/fan cutout — the DE10 heatsink (40x40mm) and cooling fan
+    # protrude through this opening. 2mm clearance on each side.
+    _hs_w = _D["de10_nano"]["heatsink_width"]
+    _hs_l = _D["de10_nano"]["heatsink_length"]
+    hs_cutout = (
+        cq.Workplane("XY")
+        .rect(_hs_w + 4, _hs_l + 4)
+        .extrude(DB_H)
+    )
+    board = board.cut(hs_cutout)
+
     # IC component blocks (level shifters, mux, power regulators)
-    for pos in [(0, 20), (-15, -15), (15, -15), (0, -30)]:
+    # Positioned around the heatsink cutout, not overlapping it
+    for pos in [(25, 20), (-25, -15), (25, -15), (0, -30)]:
         ic = (
             cq.Workplane("XY")
             .center(pos[0], pos[1])
@@ -96,24 +108,38 @@ def make_daughter_board():
     anchors = {}
     if Anchor is not None:
         anchors["bottom_face"] = Anchor(point=(0, 0, 0), normal=(0, 0, -1), label="Daughter board bottom mates with DE10 headers")
+        # Top face at tallest IC block height — used for top plate clearance chain
+        _ic_top = DB_H + 2  # PCB + IC component height
+        anchors["top_face"] = Anchor(point=(0, 0, _ic_top), normal=(0, 0, 1), label="Tallest point on daughter board")
 
-        # Mounting holes matching DE10-Nano corner pattern
+        # Mounting holes matching DE10-Nano corner pattern (bottom — mates lower standoffs)
         idx = 1
         for dx in [-DE10_W/2 + DB_MOUNT_INSET, DE10_W/2 - DB_MOUNT_INSET]:
             for dy in [-DE10_L/2 + DB_MOUNT_INSET, DE10_L/2 - DB_MOUNT_INSET]:
                 anchors[f"mounting_hole_{idx}"] = Anchor(
                     point=(dx, dy, 0), normal=(0, 0, -1),
-                    label=f"M2.5 mounting hole {idx}")
+                    label=f"M2.5 mounting hole {idx} (bottom)")
+                # Upper standoff mount point — top of PCB at same XY
+                anchors[f"standoff_top_{idx}"] = Anchor(
+                    point=(dx, dy, DB_H), normal=(0, 0, 1),
+                    label=f"upper standoff mount {idx} (top)")
                 idx += 1
+
+        # ToF-up mount on top surface corner — -X side to avoid ethernet (+X)
+        anchors["tof_mount_up"] = Anchor(
+            point=(-(DB_W / 2 - 8), DB_L / 2 - 8, _ic_top),
+            normal=(0, 0, 1),
+            label="ToF up — board direct-mount on daughter board top surface, sensor faces +Z",
+        )
 
         # GPIO receptacles at same positions as DE10 headers, pointing down
         for key, anchor_name in (("gpio0", "gpio0_receptacle"), ("gpio1", "gpio1_receptacle")):
             c = gpio_connectors[key]
-            cq_x = c["intel_y"] - DE10_W / 2
+            cq_x = DE10_W / 2 - c["intel_y"]
             cq_y = c["intel_x"] - DE10_L / 2
             anchors[anchor_name] = Anchor(
-                point=(cq_x, cq_y + c["length"] / 2, -GPIO_HEADER_H),
+                point=(cq_x, cq_y + c["length"] / 2, 0),
                 normal=(0, 0, -1),
-                label=f"{key.upper()} receptacle bottom")
+                label=f"{key.upper()} receptacle (PCB bottom, mates header top)")
 
     return board, anchors

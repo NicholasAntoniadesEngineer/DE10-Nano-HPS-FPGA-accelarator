@@ -11,13 +11,13 @@
         "plate_corner_radius": 2.0,
         "bottom_plate_thickness": 2.0,
         "top_plate_thickness": 1.6,
-        "plate_spacing": 55.0,
+        "plate_spacing": 19.7,
         "arm_slot_width": 1.7,
         "arm_slot_length": 20.0
     },
     "arms": {
         "_doc": "Motor arms \u2014 1.6mm FR4, I-beam profile. Motor-to-motor diagonal 170mm (4-inch prop class). Arms are short stubs extending from plate corners to motor mounts.",
-        "motor_to_motor_diagonal": 170.0,
+        "motor_to_motor_diagonal": 220.0,
         "arm_tab": 20.0,
         "arm_width": 12.0,
         "arm_thickness": 1.6,
@@ -121,7 +121,7 @@
         "board_length": 107.95,
         "pcb_thickness": 1.6,
         "tallest_component_height": 17.0,
-        "standoff_height": 24.0,
+        "standoff_height": 8.0,
         "gpio_header_length": 50.8,
         "gpio_header_width": 5.08,
         "gpio_header_height": 8.5,
@@ -205,7 +205,7 @@
         "width": 72.0,
         "length": 80.0,
         "pcb_thickness": 1.6,
-        "gap_above_de10": 24.0
+        "gap_above_de10": 8.5
     },
     "battery": {
         "_doc": "4S 1300mAh 75C LiPo \u2014 compact pack for 5-10min flight with docking station recharge. Rotated 90deg in assembly (long axis along Y) to clear reservoir.",
@@ -330,6 +330,31 @@
         "mounting_hole_inset_x": 3.0,
         "mounting_hole_inset_y": 4.0
     },
+    "cooling_fan": {
+        "_doc": "30x30x7mm 5V DC brushless fan (e.g. Sunon MF30070V1-1000U-A99). Mounts on top of DE10-Nano heatsink with M3 screws at 24mm bolt pattern. ~3.5g, 5V 0.12A, ~4.6 CFM.",
+        "frame_size": 30.0,
+        "frame_height": 7.0,
+        "frame_corner_radius": 3.0,
+        "hub_diameter": 16.0,
+        "hub_height": 5.0,
+        "blade_count": 7,
+        "blade_outer_diameter": 28.0,
+        "mount_hole_spacing": 24.0,
+        "mount_hole_diameter": 3.2,
+        "wire_count": 2,
+        "wire_diameter": 0.8,
+        "wire_exit_length": 5.0
+    },
+    "camera_bracket": {
+        "_doc": "Forward-facing camera bracket on top of nose boom, tilt-adjustable",
+        "base_length_x": 28.0,
+        "base_width_y": 20.0,
+        "thickness": 1.6,
+        "wall_height": 40.0,
+        "hole_diameter": 2.2,
+        "pivot_slot_pitch": 12.0,
+        "tilt_slot_length": 5.0
+    },
     "assembly": {
         "_doc": "Assembly-level placement parameters and derived geometry",
         "esc_radial_fraction": 0.55,
@@ -340,9 +365,9 @@
         "underslung_gap": 5.0,
         "reservoir_offset_y": 0.0,
         "pump_bracket_offset_x": 35.0,
-        "pump_bracket_offset_y": -46.0,
+        "pump_bracket_offset_y": -52.0,
         "camera_boom_offset": 25.0,
         "battery_rotation_deg": 0.0,
-        "arm_z_above_bottom": 7.0
+        "arm_z_above_bottom": 6.0
     }
 }

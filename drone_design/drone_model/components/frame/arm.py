@@ -37,8 +37,12 @@ MOUNT_HOLE_D      = 2.2
 MOUNT_ROW_OFFSET  = _D["arms"]["mount_row_offset"]
 MOUNT_HOLE_PITCH  = 10.0
 
-ARM_CLEARANCE_R = math.ceil((_D["arms"]["arm_width"] + 2) / math.sqrt(2))
-ARM_LENGTH    = MOTOR_R - ARM_CLEARANCE_R
+# Arm slot at plate corner — arm extends from plate edge outward to motor.
+_PLATE_SIZE = _D["frame"]["plate_size"]
+_PLATE_DIAG_R = _PLATE_SIZE * math.sqrt(2) / 2
+ARM_SLOT_R    = _PLATE_DIAG_R - MOUNT_FLANGE_LEN
+ARM_CLEARANCE_R = ARM_SLOT_R  # legacy alias
+ARM_LENGTH    = MOTOR_R - ARM_SLOT_R + _D["arms"]["motor_mount_section_length"] / 2
 ARM_WIDTH     = _D["arms"]["arm_width"]
 ARM_THICK     = _D["arms"]["arm_thickness"]
 ARM_FLANGE    = _D["arms"]["arm_flange_width"]
@@ -314,10 +318,12 @@ def make_arm_outer():
             normal=(-1, 0, 0),
             label="overlap end (outer)",
         )
+        # Motor mount center — MOTOR_SECTION/2 inward from the arm tip
+        _mount_cx = outer_right - MOTOR_SECTION / 2
         anchors["motor_tip"] = Anchor(
-            point=(outer_right, 0, ARM_THICK),
+            point=(_mount_cx, 0, ARM_THICK),
             normal=(0, 0, 1),
-            label="motor tip (outer)",
+            label="motor mount center (outer)",
         )
         anchors["top_face"] = Anchor(
             point=(0, 0, ARM_THICK), normal=(0, 0, 1), label="top face (outer)"
@@ -352,17 +358,16 @@ def make_arm():
             normal=(0, 0, -1),
             label="frame end (inner tip)",
         )
+        # Motor mount center — MOTOR_SECTION/2 inward from the arm tip
+        _mount_cx = ARM_LENGTH / 2 - MOTOR_SECTION / 2
         anchors["motor_tip"] = Anchor(
-            point=(ARM_LENGTH / 2, 0, ARM_THICK),
+            point=(_mount_cx, 0, ARM_THICK),
             normal=(0, 0, 1),
-            label="motor tip",
+            label="motor mount center",
         )
-        # ESC mount: underside of arm at ESC_RADIAL_FRAC of motor radius.
-        # Arm local x=0 is arm center. frame_end at -ARM_LENGTH/2 sits at
-        # drone radius ARM_CLEARANCE_R. So local_x = drone_r - ARM_CLEARANCE_R - ARM_LENGTH/2.
-        esc_radial_frac = _D["assembly"]["esc_radial_fraction"]
-        esc_drone_r = MOTOR_R * esc_radial_frac
-        esc_local_x = esc_drone_r - ARM_CLEARANCE_R - ARM_LENGTH / 2
+        # ESC mount: underside of arm, centered along arm length.
+        # ESC sits at the midpoint of the arm stub for balanced weight.
+        esc_local_x = 0.0
         anchors["esc_mount"] = Anchor(
             point=(esc_local_x, 0, 0),
             normal=(0, 0, -1),

@@ -24,6 +24,7 @@ from components.payload.reservoir import CATALOG as _reservoir_cat, make_reservo
 from components.payload.pump import CATALOG as _pump_cat, make_pump
 from components.payload.pump_bracket import CATALOG as _pump_bracket_cat, make_pump_bracket
 from components.payload.drip_nozzle import CATALOG as _nozzle_cat, make_drip_nozzle
+from components.electronics.cooling_fan import CATALOG as _fan_cat, make_cooling_fan
 
 
 # =============================================================================
@@ -50,6 +51,7 @@ COMPONENT_CATALOG.update(_reservoir_cat)
 COMPONENT_CATALOG.update(_pump_cat)
 COMPONENT_CATALOG.update(_pump_bracket_cat)
 COMPONENT_CATALOG.update(_nozzle_cat)
+COMPONENT_CATALOG.update(_fan_cat)
 
 
 # =============================================================================
@@ -75,6 +77,7 @@ INDIVIDUAL_PARTS = {
     "reservoir": (make_reservoir, ()),
     "pump": (make_pump, ()),
     "standoff": (make_standoff, (DE10_STANDOFF,)),
+    "cooling_fan": (make_cooling_fan, ()),
     "drip_nozzle": (make_drip_nozzle, ()),
     "camera": (make_camera, ()),
     "camera_bracket": (make_camera_bracket, ()),

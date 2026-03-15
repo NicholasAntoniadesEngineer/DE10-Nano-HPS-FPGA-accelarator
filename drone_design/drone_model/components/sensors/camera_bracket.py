@@ -1,8 +1,8 @@
-"""L-bracket camera mount — 1.6mm FR4, bolts to nose boom underside.
+"""Forward-facing camera bracket — mounts on top of nose boom, lens forward (+X).
 
-Geometry: horizontal base plate (bolts to boom bottom) and vertical
-drop-down face (camera PCB bolts to this). Similar to tof_bracket
-but sized for the OV5640 adapter PCB.
+Base plate bolts to boom top; vertical wall at +X presents a face for the camera
+PCB so the lens points forward. One pivot hole and one linear slot in the base
+allow mechanical tilt adjustment (loosen front bolt, rotate, tighten).
 """
 
 import json
@@ -18,88 +18,107 @@ _D = json.loads(
     (Path(__file__).resolve().parents[2] / "dimensions.json").read_text()
 )
 
-CAM_BRACKET_BASE_W = 30.0    # mm, along boom (X direction)
-CAM_BRACKET_BASE_D = 15.0    # mm, across boom (Y direction)
-CAM_BRACKET_TAB_H  = 20.0    # mm, vertical drop for camera face
-CAM_BRACKET_T      = 1.6     # mm, FR4 thickness
-CAM_BRACKET_HOLE_D = 2.2     # mm, M2 holes
+_CB = _D["camera_bracket"]
+BASE_LX = _CB["base_length_x"]
+BASE_LY = _CB["base_width_y"]
+BRACKET_T = _CB["thickness"]
+WALL_H = _CB["wall_height"]
+HOLE_D = _CB["hole_diameter"]
+PIVOT_PITCH = _CB["pivot_slot_pitch"]
+SLOT_LEN = _CB["tilt_slot_length"]
+
+CAM_MOUNT = _D["camera_mounting"]
+CAM_HOLE_IX = CAM_MOUNT["mounting_hole_inset_x"]
+CAM_HOLE_IY = CAM_MOUNT["mounting_hole_inset_y"]
+CAM_W = _D["camera"]["adapter_pcb_width"]
+CAM_L = _D["camera"]["adapter_pcb_length"]
 
 CATALOG = {
     "camera_bracket": {
-        "material": "FR4 Glass Epoxy", "thickness": "1.6mm",
-        "dims": "30 x 15 x 20mm L-bracket",
-        "mass_g": 3, "qty": 1,
+        "material": "FR4 Glass Epoxy",
+        "thickness": "1.6mm",
+        "dims": f"{BASE_LX} x {BASE_LY} base + {WALL_H}mm wall",
+        "mass_g": 4,
+        "qty": 1,
         "supplier": "JLCPCB (mechanical PCB)",
-        "notes": "L-bracket for OV5640 camera, bolts to boom underside",
-        "interface": "2x M2 to boom; 4x M2 to camera PCB",
+        "notes": "Forward-facing bracket on boom top; pivot + slot for tilt adjustment",
+        "interface": "2x M2 to boom (pivot + slot); 4x M2 to camera PCB",
     },
 }
 
 
 def make_camera_bracket():
-    """L-bracket camera mount with boom and camera mounting holes.
+    """Bracket: horizontal base (mates to boom top) and forward vertical wall (camera face).
 
-    Base face lies in XY plane (bolts to boom underside).
-    Tab extends downward from -Y edge (camera PCB bolts to tab face).
+    Local coords: base in XY, bottom at Z=0. Base center at origin. Wall at +X;
+    its front face (normal +X) carries the camera. Pivot hole at -X, tilt slot at +X.
     """
-    # Base plate — sits under boom
+    # Base plate — bottom at Z=0, top at Z=BRACKET_T, centered in XY
     base = (
         cq.Workplane("XY")
-        .rect(CAM_BRACKET_BASE_W, CAM_BRACKET_BASE_D)
-        .extrude(CAM_BRACKET_T)
+        .box(BASE_LX, BASE_LY, BRACKET_T, centered=(True, True, False))
     )
-    # 2x M2 boom mounting holes
-    for sx in [-1, 1]:
-        hx = sx * (CAM_BRACKET_BASE_W / 2 - 4)
-        hole = (
-            cq.Workplane("XY")
-            .center(hx, 0)
-            .circle(CAM_BRACKET_HOLE_D / 2)
-            .extrude(CAM_BRACKET_T)
-        )
-        base = base.cut(hole)
 
-    # Vertical tab — drops from -Y edge of base
-    tab = (
-        cq.Workplane("XZ")
-        .center(0, -CAM_BRACKET_TAB_H / 2)
-        .rect(CAM_BRACKET_BASE_W, CAM_BRACKET_TAB_H)
-        .extrude(CAM_BRACKET_T)
-        .translate((0, -CAM_BRACKET_BASE_D / 2, 0))
+    # Pivot hole (rear, frame side)
+    pivot_x = -PIVOT_PITCH / 2
+    base = (
+        base.faces(">Z")
+        .workplane(centerOption="CenterOfBoundBox")
+        .center(pivot_x, 0)
+        .circle(HOLE_D / 2)
+        .cutThruAll()
     )
-    # 4x M2 camera PCB mounting holes (match camera adapter)
-    cam_hole_inset_x = _D["camera_mounting"]["mounting_hole_inset_x"]
-    cam_hole_inset_y = _D["camera_mounting"]["mounting_hole_inset_y"]
-    cam_w = _D["camera"]["adapter_pcb_width"]
-    cam_l = _D["camera"]["adapter_pcb_length"]
-    for sx in [-1, 1]:
-        for sy in [-1, 1]:
-            hx = sx * (cam_w / 2 - cam_hole_inset_x)
-            hz = -CAM_BRACKET_TAB_H / 2 + sy * (min(cam_l, CAM_BRACKET_TAB_H) / 2 - cam_hole_inset_y)
+
+    # Tilt slot (front) — linear slot so bracket can rotate about pivot
+    slot_center_x = PIVOT_PITCH / 2
+    slot_half = SLOT_LEN / 2
+    base = (
+        base.faces(">Z")
+        .workplane(centerOption="CenterOfBoundBox")
+        .center(slot_center_x, 0)
+        .rect(SLOT_LEN, HOLE_D, centered=True)
+        .cutThruAll()
+    )
+
+    # Vertical wall at +X edge of base (forward face for camera)
+    wall_x_back = BASE_LX / 2 - BRACKET_T
+    wall_x_front = BASE_LX / 2
+    wall = (
+        cq.Workplane("XY")
+        .box(BRACKET_T, BASE_LY, WALL_H, centered=(False, True, False))
+        .translate((wall_x_back, 0, BRACKET_T))
+    )
+
+    # Camera PCB mounting holes on wall front face (YZ plane at X=wall_x_front)
+    wall_center_z = BRACKET_T + WALL_H / 2
+    for sy in [-1, 1]:
+        for sz in [-1, 1]:
+            hy = sy * (CAM_W / 2 - CAM_HOLE_IX)
+            hz_offset = sz * (CAM_L / 2 - CAM_HOLE_IY)
             hole = (
-                cq.Workplane("XZ")
-                .center(hx, hz)
-                .circle(CAM_BRACKET_HOLE_D / 2)
-                .extrude(CAM_BRACKET_T)
-                .translate((0, -CAM_BRACKET_BASE_D / 2, 0))
+                cq.Workplane("YZ")
+                .workplane(offset=wall_x_front)
+                .center(hy, wall_center_z + hz_offset)
+                .circle(HOLE_D / 2)
+                .extrude(-BRACKET_T)
             )
-            tab = tab.cut(hole)
+            wall = wall.cut(hole)
 
-    shape = base.union(tab)
+    shape = base.union(wall)
 
     anchors = {}
     if Anchor is not None:
-        # Base plate top face (Z=CAM_BRACKET_T), normal up — bolts to boom underside
+        # Base bottom face — mates to boom top (bracket sits on boom)
         anchors["boom_mount"] = Anchor(
-            point=(0, 0, CAM_BRACKET_T),
-            normal=(0, -1, 0),
-            label="Base plate top face for boom attachment",
+            point=(0, 0, 0),
+            normal=(0, 0, -1),
+            label="Base bottom for boom top attachment",
         )
-        # Vertical tab outer face (-Y side), normal -Y — camera PCB bolts here
+        # Wall front face center — camera PCB mounts here, lens then points +X
         anchors["camera_mount"] = Anchor(
-            point=(0, -CAM_BRACKET_BASE_D / 2 - CAM_BRACKET_T, -CAM_BRACKET_TAB_H / 2),
-            normal=(0, -1, 0),
-            label="Tab face for camera PCB mounting",
+            point=(BASE_LX / 2, 0, BRACKET_T + WALL_H / 2),
+            normal=(1, 0, 0),
+            label="Vertical wall face for camera PCB (forward-facing)",
         )
 
     return shape, anchors

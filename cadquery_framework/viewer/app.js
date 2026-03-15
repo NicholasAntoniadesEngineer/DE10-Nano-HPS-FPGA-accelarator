@@ -106,30 +106,47 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
     var snapGrid = 5;
     var snapAngle = 15;
     var originalTransforms = {};
+    var translationDamping = 0.25;
+    var translationLastPos = null;
 
     tfc.addEventListener('dragging-changed', function(e) {
         controls.enabled = !e.value;
+        if (e.value && transformMode === 'translate' && selectedPart && parts[selectedPart]) {
+            translationLastPos = parts[selectedPart].group.position.clone();
+        }
+        if (!e.value) translationLastPos = null;
     });
     tfc.addEventListener('change', function() {
         if (!selectedPart || !parts[selectedPart]) return;
-        var mesh = parts[selectedPart].mesh;
+        var p = parts[selectedPart];
+        var group = p.group;
+        if (transformMode === 'translate' && translationLastPos) {
+            var rawPos = group.position.clone();
+            var delta = rawPos.clone().sub(translationLastPos);
+            delta.multiplyScalar(translationDamping);
+            translationLastPos.add(delta);
+            group.position.copy(translationLastPos);
+        }
+        var mesh = p.mesh;
         if (highlightedMesh) {
             highlightedMesh.position.copy(mesh.position);
             highlightedMesh.rotation.copy(mesh.rotation);
             highlightedMesh.scale.copy(mesh.scale);
         }
-        updateTransformFields(mesh);
+        controls.target.copy(group.position);
+        updateTransformFields(p);
     });
 
-    function updateTransformFields(mesh) {
-        if (!mesh) return;
+    function updateTransformFields(p) {
+        if (!p || !p.group) return;
+        var group = p.group;
         var d = THREE.MathUtils.radToDeg;
-        document.getElementById('tf-px').value = mesh.position.x.toFixed(1);
-        document.getElementById('tf-py').value = mesh.position.y.toFixed(1);
-        document.getElementById('tf-pz').value = mesh.position.z.toFixed(1);
-        document.getElementById('tf-rx').value = d(mesh.rotation.x).toFixed(1);
-        document.getElementById('tf-ry').value = d(mesh.rotation.y).toFixed(1);
-        document.getElementById('tf-rz').value = d(mesh.rotation.z).toFixed(1);
+        document.getElementById('tf-px').value = group.position.x.toFixed(1);
+        document.getElementById('tf-py').value = group.position.y.toFixed(1);
+        document.getElementById('tf-pz').value = group.position.z.toFixed(1);
+        document.getElementById('tf-rx').value = d(group.rotation.x).toFixed(1);
+        document.getElementById('tf-ry').value = d(group.rotation.y).toFixed(1);
+        document.getElementById('tf-rz').value = d(group.rotation.z).toFixed(1);
     }
 
     function setTransformMode(mode) {
@@ -145,7 +162,10 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         }
         transformMode = mode;
         tfc.setMode(mode);
-        tfc.attach(parts[selectedPart].mesh);
+        var group = parts[selectedPart].group;
+        if (mode === 'translate') translationLastPos = group.position.clone();
+        tfc.attach(group);
+        controls.target.copy(group.position);
         tfc.visible = true;
         tfc.enabled = true;
         document.getElementById('btn-move').classList.toggle('btn-active-move', mode === 'translate');
@@ -157,22 +177,44 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         tfc.visible = false;
         tfc.enabled = false;
         transformMode = null;
+        translationLastPos = null;
         document.getElementById('btn-move').classList.remove('btn-active-move');
         document.getElementById('btn-rotate').classList.remove('btn-active-rotate');
     }
 
     function addPart(name, display, colorHex, geometry, fileSize, meta) {
-        var color = new THREE.Color(colorHex).convertSRGBToLinear();
-        var mat = new THREE.MeshPhysicalMaterial({
+        // Support 8-digit hex (#RRGGBBAA) for semi-transparent parts
+        var alphaVal = 1.0;
+        var cleanHex = colorHex;
+        if (colorHex.length === 9) {
+            cleanHex = colorHex.substring(0, 7);
+            alphaVal = parseInt(colorHex.substring(7, 9), 16) / 255.0;
+        }
+        var color = new THREE.Color(cleanHex).convertSRGBToLinear();
+        var matOpts = {
             color: color, metalness: 0.2, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.2,
             side: THREE.DoubleSide
-        });
+        };
+        if (alphaVal < 0.99) {
+            matOpts.transparent = true;
+            matOpts.opacity = alphaVal;
+            matOpts.depthWrite = false;
+        }
+        var mat = new THREE.MeshPhysicalMaterial(matOpts);
         var mesh = new THREE.Mesh(geometry, mat);
-        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         mesh.userData.partName = name;
-        scene.add(mesh);
-        parts[name] = { mesh: mesh, geometry: geometry, fileSize: fileSize, color: colorHex, display: display, visible: true, meta: meta || {} };
-        originalTransforms[name] = { pos: mesh.position.clone(), rot: mesh.rotation.clone() };
+        geometry.computeBoundingBox();
+        var center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        var group = new THREE.Group();
+        group.position.copy(center);
+        mesh.position.set(-center.x, -center.y, -center.z);
+        group.add(mesh);
+        scene.add(group);
+        parts[name] = { group: group, mesh: mesh, geometry: geometry, fileSize: fileSize, color: colorHex, display: display, visible: true, meta: meta || {} };
+        originalTransforms[name] = { pos: group.position.clone(), rot: group.rotation.clone() };
         if (partOrder.indexOf(name) === -1) partOrder.push(name);
         updatePartsList();
     }
@@ -181,7 +223,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         var p = parts[name];
         if (!p) return;
         p.visible = !p.visible;
-        p.mesh.visible = p.visible;
+        p.group.visible = p.visible;
         if (!p.visible && selectedPart === name) {
             selectedPart = null; clearHighlight(); selMarker.visible = false;
             document.getElementById('selection-panel').style.display = 'none';
@@ -194,7 +236,9 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
 
     function clearHighlight() {
         if (highlightedMesh) {
-            scene.remove(highlightedMesh); highlightedMesh.geometry.dispose(); highlightedMesh.material.dispose();
+            if (highlightedMesh.parent) highlightedMesh.parent.remove(highlightedMesh);
+            highlightedMesh.geometry.dispose();
+            highlightedMesh.material.dispose();
             highlightedMesh = null;
         }
     }
@@ -250,10 +294,10 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         highlightedMesh.position.copy(p.mesh.position);
         highlightedMesh.rotation.copy(p.mesh.rotation);
         highlightedMesh.scale.copy(p.mesh.scale);
-        scene.add(highlightedMesh);
+        p.group.add(highlightedMesh);
 
         p.geometry.computeBoundingBox();
-        var box = p.geometry.boundingBox;
+        var box = p.geometry.boundingBox.clone().applyMatrix4(p.mesh.matrixWorld);
         var size = new THREE.Vector3(); box.getSize(size);
         var center = new THREE.Vector3(); box.getCenter(center);
         var tris = p.geometry.attributes.position.count / 3;
@@ -275,7 +319,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         document.getElementById('sel-max').textContent = '(' + box.max.x.toFixed(1) + ', ' + box.max.y.toFixed(1) + ', ' + box.max.z.toFixed(1) + ')';
         document.getElementById('sel-center').textContent = '(' + center.x.toFixed(1) + ', ' + center.y.toFixed(1) + ', ' + center.z.toFixed(1) + ')';
 
-        updateTransformFields(p.mesh);
+        updateTransformFields(p);
         populatePartAnchors(selectedPart);
         var partToggle = document.getElementById('sel-anchors-toggle');
         if (!partToggle.checked) {
@@ -284,7 +328,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         updateAnchorVisibility();
 
         if (transformMode) {
-            tfc.attach(p.mesh);
+            tfc.attach(p.group);
             tfc.visible = true;
             tfc.enabled = true;
         }
@@ -559,12 +603,12 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         if (!selectedPart || !parts[selectedPart]) return;
         var panel = document.getElementById('dir-move-panel');
         if (panel.style.display !== 'block') return;
-        var mesh = parts[selectedPart].mesh;
+        var group = parts[selectedPart].group;
         var dir = getDirVector();
         var dist = parseFloat(document.getElementById('dm-distance').value) || 10;
         var len = Math.max(dist, 20);
         var arrowColor = 0xf0a030;
-        dirArrow = new THREE.ArrowHelper(dir, mesh.position.clone(), len, arrowColor, len * 0.15, len * 0.08);
+        dirArrow = new THREE.ArrowHelper(dir, group.position.clone(), len, arrowColor, len * 0.15, len * 0.08);
         scene.add(dirArrow);
     }
 
@@ -591,14 +635,11 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
 
     document.getElementById('dm-apply').addEventListener('click', function() {
         if (!selectedPart || !parts[selectedPart]) return;
-        var mesh = parts[selectedPart].mesh;
+        var p = parts[selectedPart];
         var dir = getDirVector();
         var dist = parseFloat(document.getElementById('dm-distance').value) || 0;
-        mesh.position.add(dir.multiplyScalar(dist));
-        if (highlightedMesh) {
-            highlightedMesh.position.copy(mesh.position);
-        }
-        updateTransformFields(mesh);
+        p.group.position.add(dir.multiplyScalar(dist));
+        updateTransformFields(p);
         updateDirArrow();
     });
 
@@ -663,15 +704,11 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
 
     document.getElementById('btn-reset-part').addEventListener('click', function() {
         if (!selectedPart || !parts[selectedPart] || !originalTransforms[selectedPart]) return;
-        var mesh = parts[selectedPart].mesh;
+        var p = parts[selectedPart];
         var orig = originalTransforms[selectedPart];
-        mesh.position.copy(orig.pos);
-        mesh.rotation.copy(orig.rot);
-        if (highlightedMesh) {
-            highlightedMesh.position.copy(mesh.position);
-            highlightedMesh.rotation.copy(mesh.rotation);
-        }
-        updateTransformFields(mesh);
+        p.group.position.copy(orig.pos);
+        p.group.rotation.copy(orig.rot);
+        updateTransformFields(p);
     });
 
     document.getElementById('btn-export-pos').addEventListener('click', function() {
@@ -680,12 +717,12 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             var name = partOrder[i];
             var p = parts[name];
             if (!p) continue;
-            var mesh = p.mesh;
+            var group = p.group;
             var orig = originalTransforms[name];
             if (!orig) continue;
-            var dx = mesh.position.x - orig.pos.x;
-            var dy = mesh.position.y - orig.pos.y;
-            var dz = mesh.position.z - orig.pos.z;
+            var dx = group.position.x - orig.pos.x;
+            var dy = group.position.y - orig.pos.y;
+            var dz = group.position.z - orig.pos.z;
             var dzup_x = dx;
             var dzup_y = -dz;
             var dzup_z = dy;
@@ -695,9 +732,9 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
             }
             var origZup = embPart && embPart.pos_zup ? embPart.pos_zup : [0, 0, 0];
             var origRotZup = embPart && embPart.rot_zup ? embPart.rot_zup : [0, 0, 0];
-            var dRx = THREE.MathUtils.radToDeg(mesh.rotation.x - orig.rot.x);
-            var dRy = THREE.MathUtils.radToDeg(mesh.rotation.y - orig.rot.y);
-            var dRz = THREE.MathUtils.radToDeg(mesh.rotation.z - orig.rot.z);
+            var dRx = THREE.MathUtils.radToDeg(group.rotation.x - orig.rot.x);
+            var dRy = THREE.MathUtils.radToDeg(group.rotation.y - orig.rot.y);
+            var dRz = THREE.MathUtils.radToDeg(group.rotation.z - orig.rot.z);
             var hasDelta = Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01 ||
                            Math.abs(dRx) > 0.01 || Math.abs(dRy) > 0.01 || Math.abs(dRz) > 0.01;
             exported.push({
@@ -729,25 +766,26 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
         URL.revokeObjectURL(a.href);
     });
 
-    // Save Configuration
+    // Save Configuration (model_configuration.json). Place in project output dir
+    // to apply these positions/rotations on next rebuild.
     document.getElementById('btn-save-config').addEventListener('click', function() {
         var config = { parts: [], exported_at: new Date().toISOString() };
         for (var i = 0; i < partOrder.length; i++) {
             var name = partOrder[i];
             var p = parts[name];
             if (!p) continue;
-            var mesh = p.mesh;
+            var group = p.group;
             config.parts.push({
                 name: name,
                 position: [
-                    parseFloat(mesh.position.x.toFixed(4)),
-                    parseFloat(mesh.position.y.toFixed(4)),
-                    parseFloat(mesh.position.z.toFixed(4))
+                    parseFloat(group.position.x.toFixed(4)),
+                    parseFloat(group.position.y.toFixed(4)),
+                    parseFloat(group.position.z.toFixed(4))
                 ],
                 rotation: [
-                    parseFloat(THREE.MathUtils.radToDeg(mesh.rotation.x).toFixed(4)),
-                    parseFloat(THREE.MathUtils.radToDeg(mesh.rotation.y).toFixed(4)),
-                    parseFloat(THREE.MathUtils.radToDeg(mesh.rotation.z).toFixed(4))
+                    parseFloat(THREE.MathUtils.radToDeg(group.rotation.x).toFixed(4)),
+                    parseFloat(THREE.MathUtils.radToDeg(group.rotation.y).toFixed(4)),
+                    parseFloat(THREE.MathUtils.radToDeg(group.rotation.z).toFixed(4))
                 ],
                 visible: p.visible
             });
@@ -788,12 +826,12 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                     var cp = config.parts[i];
                     var p = parts[cp.name];
                     if (!p) continue;
-                    var mesh = p.mesh;
+                    var group = p.group;
                     if (cp.position && cp.position.length === 3) {
-                        mesh.position.set(cp.position[0], cp.position[1], cp.position[2]);
+                        group.position.set(cp.position[0], cp.position[1], cp.position[2]);
                     }
                     if (cp.rotation && cp.rotation.length === 3) {
-                        mesh.rotation.set(
+                        group.rotation.set(
                             THREE.MathUtils.degToRad(cp.rotation[0]),
                             THREE.MathUtils.degToRad(cp.rotation[1]),
                             THREE.MathUtils.degToRad(cp.rotation[2])
@@ -801,7 +839,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                     }
                     if (typeof cp.visible === 'boolean') {
                         p.visible = cp.visible;
-                        mesh.visible = cp.visible;
+                        group.visible = cp.visible;
                         var eyeEl = document.querySelector('.part-item[data-part="' + cp.name + '"] .eye');
                         if (eyeEl) {
                             if (cp.visible) { eyeEl.classList.add('visible'); }
@@ -811,7 +849,7 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
                     applied++;
                 }
                 if (selectedPart && parts[selectedPart]) {
-                    updateTransformFields(parts[selectedPart].mesh);
+                    updateTransformFields(parts[selectedPart]);
                     selectPart(selectedPart, null);
                 }
                 alert('Configuration loaded: ' + applied + ' part(s) updated.');
@@ -827,18 +865,15 @@ var EMBEDDED_CONSTRAINTS = window.__VIEWER_CONSTRAINTS;
     ['px', 'py', 'pz', 'rx', 'ry', 'rz'].forEach(function(id) {
         document.getElementById('tf-' + id).addEventListener('change', function() {
             if (!selectedPart || !parts[selectedPart]) return;
-            var mesh = parts[selectedPart].mesh;
+            var group = parts[selectedPart].group;
             var val = parseFloat(this.value) || 0;
-            if (id === 'px') mesh.position.x = val;
-            else if (id === 'py') mesh.position.y = val;
-            else if (id === 'pz') mesh.position.z = val;
-            else if (id === 'rx') mesh.rotation.x = THREE.MathUtils.degToRad(val);
-            else if (id === 'ry') mesh.rotation.y = THREE.MathUtils.degToRad(val);
-            else if (id === 'rz') mesh.rotation.z = THREE.MathUtils.degToRad(val);
-            if (highlightedMesh) {
-                highlightedMesh.position.copy(mesh.position);
-                highlightedMesh.rotation.copy(mesh.rotation);
-            }
+            if (id === 'px') group.position.x = val;
+            else if (id === 'py') group.position.y = val;
+            else if (id === 'pz') group.position.z = val;
+            else if (id === 'rx') group.rotation.x = THREE.MathUtils.degToRad(val);
+            else if (id === 'ry') group.rotation.y = THREE.MathUtils.degToRad(val);
+            else if (id === 'rz') group.rotation.z = THREE.MathUtils.degToRad(val);
+            updateTransformFields(parts[selectedPart]);
         });
     });
 

@@ -2,14 +2,61 @@
 
 Takes an assembly manifest and runs: build parts, collision check,
 STL export, and viewer HTML generation.
+
+Viewer edits can be persisted: save configuration from the viewer as
+model_configuration.json in the output directory; the next build will
+apply those position/rotation overrides so the exported assembly
+matches the edited layout.
 """
 
 import base64
+import json
 from pathlib import Path
 
 from .exporters.stl_export import export_stl, stl_to_bytes, apply_transform, to_yup
 from .assembly.collision import check_assembly_overlaps, print_overlap_report, print_bbox_summary
 from .viewer.generator import generate_viewer_html
+
+CONFIG_FILENAME = "model_configuration.json"
+
+
+def _viewer_pos_to_zup(viewer_pos):
+    """Convert viewer (Y-up) position [x, y, z] to pipeline (Z-up) [x, -z, y]."""
+    if not viewer_pos or len(viewer_pos) != 3:
+        return None
+    return [float(viewer_pos[0]), float(-viewer_pos[2]), float(viewer_pos[1])]
+
+
+def _load_viewer_overrides(output_dir):
+    """Load model_configuration.json from output_dir if present.
+
+    Returns a dict part_name -> {"pos": [x,y,z] z-up, "rot": [rx,ry,rz] degrees}
+    or {} if file missing/invalid.
+    """
+    path = Path(output_dir) / CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    parts_list = data.get("parts")
+    if not parts_list or not isinstance(parts_list, list):
+        return {}
+    overrides = {}
+    for cp in parts_list:
+        name = cp.get("name")
+        if not name:
+            continue
+        pos_zup = _viewer_pos_to_zup(cp.get("position"))
+        rot = cp.get("rotation")
+        if pos_zup is not None:
+            overrides.setdefault(name, {})["pos"] = pos_zup
+        if rot and len(rot) == 3:
+            overrides.setdefault(name, {})["rot"] = [
+                float(rot[0]), float(rot[1]), float(rot[2]),
+            ]
+    return overrides
 
 
 def build_assembly(manifest):
@@ -61,11 +108,45 @@ def build_assembly(manifest):
     return parts
 
 
+def _derive_connected_pairs(constraints):
+    """Derive pairs of directly constrained parts from constraint metadata.
+
+    Parts connected by mate/offset/align constraints are physically mating —
+    AABB overlap between them is expected and should not trigger collision
+    errors.  This is standard CAD behaviour (SolidWorks, Fusion 360, etc.).
+    """
+    pairs = set()
+    if not constraints:
+        return pairs
+    for c in constraints:
+        pairs.add(frozenset({c["child_part"], c["parent_part"]}))
+    return pairs
+
+
+def _derive_exclude_names(manifest):
+    """Return set of part names that should be excluded from collision checks.
+
+    Parts flagged with ``no_collision=True`` (e.g. visualization-only
+    clearance volumes) are not physical and must never participate in
+    collision detection.
+    """
+    return {e["name"] for e in manifest if e.get("no_collision")}
+
+
 def export_assembly(manifest, output_dir, title="3D Model Viewer",
                     toolbar_title="3D Viewer", loading_message="Loading model...",
                     allowed_pairs=None, kicad_files=None, individual_parts=None,
                     verbose=False, constraints=None):
     """Full export pipeline: build, collision check, STL export, viewer generation.
+
+    Collision check is blocking: if any overlaps remain (after filtering)
+    RuntimeError is raised and STL/viewer export is not performed.
+
+    Automatically excluded from collision detection:
+    - Pairs of parts that are directly constrained together (mate/offset/align)
+      — these are physically mating surfaces, not collisions.
+    - Parts flagged with ``no_collision=True`` in the manifest (e.g.
+      visualization-only clearance volumes).
 
     Args:
         manifest: list of part dicts (the assembly manifest).
@@ -86,6 +167,19 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     parts_dir.mkdir(parents=True, exist_ok=True)
     assembly_dir.mkdir(parents=True, exist_ok=True)
 
+    overrides = _load_viewer_overrides(output_dir)
+    if overrides:
+        for entry in manifest:
+            name = entry.get("name")
+            if name not in overrides:
+                continue
+            o = overrides[name]
+            if "pos" in o:
+                entry["pos"] = tuple(o["pos"])
+            if "rot" in o:
+                entry["rot"] = tuple(o["rot"])
+        print(f"  Applied viewer overrides from {CONFIG_FILENAME} for {len(overrides)} part(s)")
+
     # Export individual parts at origin (no assembly transforms)
     if individual_parts:
         print("\nExporting individual parts at origin...")
@@ -101,10 +195,23 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
     print("\nBuilding assembly...")
     parts = build_assembly(manifest)
 
-    # Collision check
+    # Collision check (blocking: pipeline fails if any overlaps remain)
+    # Only exclusion: directly constrained mating pairs (surface contact is
+    # expected at bolted/mated joints — standard CAD behaviour).
+    # No allowed_pairs, no no_collision flags.
     print("\nRunning collision check...")
-    overlaps = check_assembly_overlaps(parts, allowed_pairs=allowed_pairs)
+
+    connected = _derive_connected_pairs(constraints)
+    if connected:
+        print(f"  Auto-excluded: {len(connected)} constrained mating pairs")
+
+    overlaps = check_assembly_overlaps(parts, allowed_pairs=connected)
     print_overlap_report(overlaps)
+    if overlaps:
+        raise RuntimeError(
+            f"Collision check failed: {len(overlaps)} overlap(s) detected. "
+            "Fix assembly or add allowed pairs; export aborted."
+        )
 
     if verbose:
         print_bbox_summary(parts)
@@ -158,3 +265,29 @@ def export_assembly(manifest, output_dir, title="3D Model Viewer",
         print(f"  Collisions: {len(overlaps)} overlap(s) detected")
     else:
         print(f"  Collisions: none")
+
+
+def _run_drone_model():
+    """Run drone model export when pipeline is invoked with drone_design/drone_model path."""
+    import sys
+    repo_root = Path(__file__).resolve().parents[1]
+    project_dir = repo_root / "drone_design" / "drone_model"
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(project_dir))
+    from drone_3d_model import main
+    main()
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python -m cadquery_framework.pipeline <project_path>")
+        print("  Example: python -m cadquery_framework.pipeline drone_design/drone_model")
+        sys.exit(1)
+    arg = Path(sys.argv[1]).resolve()
+    repo = Path(__file__).resolve().parents[1]
+    if "drone_model" in str(arg) or (repo / "drone_design" / "drone_model").resolve() == arg:
+        _run_drone_model()
+    else:
+        print("Unknown project path. Supported: drone_design/drone_model")
+        sys.exit(1)

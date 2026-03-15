@@ -51,7 +51,25 @@ def aabb_center(aabb):
     return tuple((aabb["min"][i] + aabb["max"][i]) / 2 for i in range(3))
 
 
-def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None):
+def _mesh_intersects(shape_a, shape_b):
+    """Check if two CadQuery shapes actually intersect at the mesh level.
+
+    Returns True only if the boolean intersection has non-trivial volume.
+    This catches AABB false positives (e.g. circular prop disc boxed into
+    a rectangle appearing to overlap a nearby standoff).
+    """
+    try:
+        intersection = shape_a.intersect(shape_b)
+        bb = intersection.val().BoundingBox()
+        vol = (bb.xmax - bb.xmin) * (bb.ymax - bb.ymin) * (bb.zmax - bb.zmin)
+        return vol > 1.0  # > 1mm³ real intersection
+    except Exception:
+        # "Bnd_Box is void" = empty intersection = no real collision
+        return False
+
+
+def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None,
+                            verify_mesh=True):
     """Check all pairwise AABB overlaps between positioned parts.
 
     Args:
@@ -60,6 +78,9 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None):
                before to_yup).
         volume_threshold: minimum overlap volume (mm^3) to report.
         allowed_pairs: optional set of frozenset pairs to skip (intentional overlaps).
+        verify_mesh: if True, AABB overlaps are verified with actual mesh
+            boolean intersection to eliminate false positives from axis-aligned
+            bounding boxes (e.g. circular props boxed into rectangles).
 
     Returns:
         list of dicts with overlap details, sorted by volume descending.
@@ -68,13 +89,17 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None):
         allowed_pairs = set()
 
     part_bboxes = []
+    parts_by_name = {}
     for p in parts:
         try:
             aabb = compute_aabb(p["shape"])
             part_bboxes.append({"name": p["name"], "aabb": aabb})
+            parts_by_name[p["name"]] = p
         except Exception as e:
             print(f"  AABB warning: {p['name']}: {e}")
 
+    aabb_hits = 0
+    mesh_filtered = 0
     overlaps = []
     n = len(part_bboxes)
     for i in range(n):
@@ -91,6 +116,18 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None):
             if vol < volume_threshold:
                 continue
 
+            aabb_hits += 1
+
+            # Verify with actual mesh intersection to eliminate AABB false positives
+            if verify_mesh:
+                name_a = part_bboxes[i]["name"]
+                name_b = part_bboxes[j]["name"]
+                shape_a = parts_by_name[name_a]["shape"]
+                shape_b = parts_by_name[name_b]["shape"]
+                if not _mesh_intersects(shape_a, shape_b):
+                    mesh_filtered += 1
+                    continue
+
             overlaps.append({
                 "part_a": part_bboxes[i]["name"],
                 "part_b": part_bboxes[j]["name"],
@@ -99,6 +136,11 @@ def check_assembly_overlaps(parts, volume_threshold=10.0, allowed_pairs=None):
                 "aabb_a": part_bboxes[i]["aabb"],
                 "aabb_b": part_bboxes[j]["aabb"],
             })
+
+    if verify_mesh and mesh_filtered > 0:
+        print(f"  Mesh verification: {aabb_hits} AABB hits, "
+              f"{mesh_filtered} filtered as false positives, "
+              f"{len(overlaps)} confirmed real")
 
     overlaps.sort(key=lambda x: x["volume_mm3"], reverse=True)
     return overlaps

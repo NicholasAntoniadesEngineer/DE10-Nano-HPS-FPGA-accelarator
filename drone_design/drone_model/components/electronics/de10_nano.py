@@ -38,7 +38,7 @@ def _intel_to_cq(intel_x, intel_y):
     Intel layout: x along 107mm length, y along 68.6mm width.
     CadQuery:     DE10_W (68.58) on x-axis, DE10_L (107.95) on y-axis.
     """
-    cq_x = intel_y - DE10_W / 2
+    cq_x = DE10_W / 2 - intel_y
     cq_y = intel_x - DE10_L / 2
     return cq_x, cq_y
 
@@ -61,6 +61,13 @@ def _make_anchors():
                 idx += 1
 
         anchors["top_surface"] = Anchor(point=(0, 0, DE10_H), normal=(0, 0, 1), label="PCB top surface center")
+
+        # Heatsink top — fan mounting surface (centered on board)
+        anchors["heatsink_top"] = Anchor(
+            point=(0, 0, DE10_H + HS_H),
+            normal=(0, 0, 1),
+            label="Heatsink top surface — cooling fan mount (40x40mm)",
+        )
 
         for key in ("gpio0", "gpio1"):
             c = connectors[key]

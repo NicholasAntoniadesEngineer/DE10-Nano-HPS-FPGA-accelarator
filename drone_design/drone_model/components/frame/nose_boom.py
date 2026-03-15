@@ -350,10 +350,10 @@ def make_nose_boom(overlap_mm: float = OVERLAP_LENGTH) -> cq.Workplane:
             label="nozzle tip",
         )
         camera_x = -overlap_mm + TIP_TOTAL * 0.4
-        anchors["camera_mount"] = Anchor(
-            point=(camera_x, 0, 0),
-            normal=(0, 0, -1),
-            label="camera mount (underside)",
+        anchors["camera_platform"] = Anchor(
+            point=(camera_x, 0, BOOM_THICK),
+            normal=(0, 0, 1),
+            label="camera platform (top of boom, forward-facing mount)",
         )
         anchors["nozzle_mount"] = Anchor(
             point=(tip_end_x, 0, 0),

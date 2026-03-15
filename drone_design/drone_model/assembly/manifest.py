@@ -27,19 +27,18 @@ from components.frame.arm import make_arm
 from components.frame.nose_boom import make_nose_boom
 from components.landing_gear.landing_leg import make_landing_leg
 from components.propulsion.motor import make_motor
-from components.propulsion.propeller import make_propeller
+from components.propulsion.propeller import make_propeller, make_prop_clearance_disc
 from components.propulsion.esc import make_esc
 from components.electronics.de10_nano import make_de10_nano
 from components.electronics.daughter_board import make_daughter_board
 from components.electronics.standoff import make_standoff
+from components.electronics.cooling_fan import make_cooling_fan
 from components.sensors.tof_board import make_tof_board
 from components.sensors.tof_bracket import (
     make_tof_bracket, TOF_BRACKET_T, TOF_BRACKET_TAB, TOF_BRACKET_DEPTH,
 )
 from components.sensors.camera import make_camera
-from components.sensors.camera_bracket import (
-    make_camera_bracket, CAM_BRACKET_TAB_H, CAM_BRACKET_T,
-)
+from components.sensors.camera_bracket import make_camera_bracket
 from components.payload.battery import make_battery
 from components.payload.reservoir import make_reservoir
 from components.payload.pump import make_pump
@@ -57,7 +56,7 @@ from components.assembly_constants import (
     LEG_ANGLES, LEG_THICK,
     DE10_W, DE10_L, DE10_H,
     BATT_H, BATT_CG_OFFSET,
-    RES_H, RES_OFFSET_X,
+    RES_H, RES_OFFSET_X, RES_W, RES_L,
     BOOM_LENGTH, BOOM_THICK, BOOM_WIDTH,
     TOF_H, TOF_L,
     GROUND_Z, BOTTOM_Z, TOP_Z, DE10_Z, DB_Z, ARM_CENTER_Z,
@@ -224,6 +223,15 @@ COMPONENT_CATALOG = {
         "notes": "L-shaped bracket for VL53L1X ToF sensor",
         "interface": "2x M2 to frame plate; 2x M2 to ToF board",
     },
+    "tubing": {
+        "material": "Silicone (flexible)",
+        "dims": "2.5mm OD, 1.5mm ID (per pump tube spec)",
+        "mass_g": 0.5,
+        "qty": 4,
+        "supplier": "Generic silicone tubing",
+        "notes": "Reservoir outlet to pump inlet; pump outlet to spout (nozzle). Pump can run in reverse to fill reservoir by sucking through the spout.",
+        "interface": "Push-fit on reservoir barb, pump tube stubs, and nozzle barb.",
+    },
 }
 
 
@@ -240,18 +248,18 @@ def _catalog_meta(meta_key):
 _ARM_Z_GAP = ARM_CENTER_Z - ARM_THICK / 2 - (BOTTOM_Z + BOTTOM_THICK)
 
 
-def _build_assembly_builder():
-    """Build the assembly with physical mating constraints for ALL parts.
+def _build_core_assembly():
+    """Build the assembly with physical mating constraints for ALL rigid parts.
 
-    Only root plates (bottom_plate, top_plate) use absolute placement.
-    All other parts are connected via mate()/offset() constraint chains.
-    Tubing segments use computed routing (absolute) as flexible components.
+    Only bottom_plate uses absolute placement (assembly root).
+    All other parts — including top_plate — are connected via mate()/offset()
+    constraint chains.  Tubing is handled separately in _route_tubing() using
+    resolved anchor positions from this assembly.
     """
     asm = AssemblyBuilder()
-    GAP = 1.0  # minimum clearance (mm)
 
     # ========================================================================
-    # ROOT — absolute placement
+    # ROOT — bottom plate is the single assembly root
     # ========================================================================
 
     asm.add("bottom_plate", make_skeleton_plate, args=(BOTTOM_THICK, True),
@@ -259,17 +267,24 @@ def _build_assembly_builder():
             meta=_catalog_meta("bottom_plate"))
     asm.place("bottom_plate", at=(0, 0, BOTTOM_Z))
 
+    # ========================================================================
+    # TOP PLATE — bolts directly onto daughter board via M2.5 through-stack
+    # ========================================================================
+    # Physical mounting chain:
+    #   bottom_plate → 5mm standoffs → DE10 → (GPIO headers 8.5mm) →
+    #   daughter_board → top_plate
+    # M2.5 bolts pass through top plate, DB, DE10, into standoffs.
+    # No separate upper spacers — top plate sits directly on DB PCB top.
+
     asm.add("top_plate", make_skeleton_plate, args=(TOP_THICK, False),
             color="#2FA84A", display="Top Plate (FR4 1.6mm)",
             meta=_catalog_meta("top_plate"))
-    asm.place("top_plate", at=(0, 0, TOP_Z))
+    asm.mate("top_plate.standoff_hole_1", "daughter_board.standoff_top_1")
 
     # ========================================================================
     # FRAME — CONSTRAINED: arms bolt to plate arm_slot anchors
     # ========================================================================
 
-    # Arms (4x) — arm frame_end (bottom face) mates plate arm_slot (top surface)
-    # with Z gap for rail hardware and spin for angular orientation.
     for i, angle in enumerate(ARM_ANGLES):
         name = f"arm_{i+1}"
         asm.add(name, make_arm, color="#B87333",
@@ -282,7 +297,6 @@ def _build_assembly_builder():
     # FRAME — CONSTRAINED: legs bolt to plate edges, boom pins into plate
     # ========================================================================
 
-    # Landing legs (4x) — mount_tab (top, normal up) mates plate leg_slot (bottom, normal down)
     for i, angle in enumerate(LEG_ANGLES):
         leg_name = f"leg_{i+1}"
         asm.add(leg_name, make_landing_leg, color="#2E8B3E",
@@ -291,7 +305,6 @@ def _build_assembly_builder():
         asm.mate(f"{leg_name}.mount_tab", f"bottom_plate.leg_slot_{i+1}",
                  spin=angle)
 
-    # Nose boom — root (normal -X) mates plate boom_root (normal +X)
     asm.add("nose_boom", make_nose_boom, color="#2FA84A",
             display="Nose Boom (FR4 I-beam)",
             meta=_catalog_meta("nose_boom"))
@@ -302,16 +315,12 @@ def _build_assembly_builder():
     # ========================================================================
 
     for i, angle in enumerate(ARM_ANGLES):
-        rad = math.radians(angle)
-
-        # Motor — base_mount (bottom, normal down) mates arm motor_tip (top, normal up)
         motor_name = f"motor_{i+1}"
         asm.add(motor_name, make_motor, color="#5A5A5A",
                 display=f"Motor {i+1} (X2212)",
                 meta=_catalog_meta("motor"))
         asm.mate(f"{motor_name}.base_mount", f"arm_{i+1}.motor_tip")
 
-        # Propeller — hub_base mates motor shaft_tip
         prop_name = f"prop_{i+1}"
         asm.add(prop_name, make_propeller, color="#4A4A4A",
                 display=f"Propeller {i+1} (1045)",
@@ -319,7 +328,6 @@ def _build_assembly_builder():
         asm.mate(f"{prop_name}.hub_base", f"motor_{i+1}.shaft_tip",
                  spin=angle + 30)
 
-        # ESC — top surface (normal up) mates arm esc_mount (normal down)
         esc_name = f"esc_{i+1}"
         asm.add(esc_name, make_esc, color="#3D3D3D",
                 display=f"ESC {i+1} (30A)",
@@ -330,7 +338,6 @@ def _build_assembly_builder():
     # ELECTRONICS — CONSTRAINED: standoffs bolt to plate, DE10 on standoffs
     # ========================================================================
 
-    # Standoffs (4x) — base mates plate standoff_hole (M2.5 bolt through)
     for j in range(4):
         so_name = f"standoff_{j+1}"
         asm.add(so_name, make_standoff, args=(DE10_STANDOFF,),
@@ -338,13 +345,16 @@ def _build_assembly_builder():
                 meta=_catalog_meta("standoff"))
         asm.mate(f"{so_name}.base", f"bottom_plate.standoff_hole_{j+1}")
 
-    # DE10-Nano — mounting_hole_1 mates standoff_1 top (M3 bolt)
     asm.add("de10_nano", make_de10_nano, color="#1A80CC",
             display="DE10-Nano FPGA Board",
             meta=_catalog_meta("de10_nano"))
     asm.mate("de10_nano.mounting_hole_1", "standoff_1.top")
 
-    # Daughter board — gpio0_receptacle (normal down) mates DE10 gpio0 (normal up)
+    asm.add("cooling_fan", make_cooling_fan, color="#333333",
+            display="Cooling Fan (30mm)",
+            meta=_catalog_meta("cooling_fan"))
+    asm.mate("cooling_fan.mount_face", "de10_nano.heatsink_top")
+
     asm.add("daughter_board", make_daughter_board, color="#CC3333",
             display="Daughter Board",
             meta=_catalog_meta("daughter_board"))
@@ -354,33 +364,24 @@ def _build_assembly_builder():
     # PAYLOAD — CONSTRAINED (underslung beneath bottom plate)
     # ========================================================================
 
-    # Battery — top_face (normal up) mates plate battery_mount (normal down)
-    # offset = UNDERSLUNG_GAP + BATT_H (battery hangs below by its full height + gap)
     asm.add("battery", make_battery, color="#4A4A4A",
             display="Battery (4S 2200mAh)",
             meta=_catalog_meta("battery"))
     asm.offset("battery.top_face", "bottom_plate.battery_mount",
                gap=UNDERSLUNG_GAP, spin=BATT_ROTATION_DEG)
 
-    # Reservoir — bottom_face (normal down) mates plate reservoir_mount (normal down)
-    # After mate: reservoir flips (180°) so its body extends downward from anchor.
-    # offset gap = UNDERSLUNG_GAP pushes anchor point down from plate bottom.
-    # Result: reservoir top at plate_bottom - gap, bottom at top - RES_H.
     asm.add("reservoir", make_reservoir, color="#4D99E6",
             display="Water Reservoir",
             meta=_catalog_meta("reservoir"))
     asm.offset("reservoir.bottom_face", "bottom_plate.reservoir_mount",
                gap=UNDERSLUNG_GAP)
 
-    # Pump bracket — base_mount (normal down) mates plate pump_bracket_mount (normal down)
-    # Bracket flips so base faces up against plate underside
     asm.add("pump_bracket", make_pump_bracket, color="#2FA84A",
             display="Pump Bracket (FR4)",
             meta=_catalog_meta("pump_bracket"))
     asm.offset("pump_bracket.base_mount", "bottom_plate.pump_bracket_mount",
                gap=UNDERSLUNG_GAP)
 
-    # Pump — base (normal down) mates pump_bracket channel_center (normal up)
     asm.add("pump", make_pump, color="#E67300",
             display="Peristaltic Pump",
             meta=_catalog_meta("pump"))
@@ -390,20 +391,16 @@ def _build_assembly_builder():
     # SENSORS — CAMERA (constrained to boom)
     # ========================================================================
 
-    # Camera bracket — boom_mount (normal -Y) mates boom camera_mount (normal -Z)
-    # Produces 90° rotation so bracket tab hangs downward
     asm.add("camera_bracket", make_camera_bracket, color="#2FA84A",
             display="Camera Bracket (FR4)",
             meta=_catalog_meta("camera"))
-    asm.mate("camera_bracket.boom_mount", "nose_boom.camera_mount", spin=-90)
+    asm.mate("camera_bracket.boom_mount", "nose_boom.camera_platform")
 
-    # Camera — mount_face (normal +Z) mates camera_bracket camera_mount (normal -Y)
     asm.add("camera", make_camera, color="#3D3D3D",
             display="OV5640 Camera Module",
             meta=_catalog_meta("camera"))
     asm.mate("camera.mount_face", "camera_bracket.camera_mount")
 
-    # Drip nozzle — flange_mount (normal +Z) mates boom nozzle_mount (normal -Z)
     asm.add("drip_nozzle", make_drip_nozzle, color="#888888",
             display="Drip Nozzle",
             meta=_catalog_meta("drip_nozzle"))
@@ -413,111 +410,177 @@ def _build_assembly_builder():
     # SENSORS — ToF (ALL constrained: brackets to plates, sensors to brackets)
     # ========================================================================
 
-    _brk_gap = TOF_BRACKET_T + 2  # clearance gap between plate and bracket base
+    # --- UP/DOWN: ToF boards mounted DIRECTLY on plate surface (no bracket) ---
+    # Board mount_face (0,0,-1) opposes plate normal → board lies flat,
+    # sensor aperture faces away from plate.
 
-    # (sensor_name, display, bracket_name, display, plate_part, mount_anchor, spin)
-    tof_configs = [
-        ("tof_down", "ToF Down",
-         "tof_bracket_down", "ToF Bracket Down",
-         "bottom_plate", "tof_mount_down", 0),
-        ("tof_up", "ToF Up",
-         "tof_bracket_up", "ToF Bracket Up",
-         "top_plate", "tof_mount_up", 0),
+    # Down: board on bottom plate underside, sensor faces down
+    asm.add("tof_down", make_tof_board, color="#CC44CC",
+            display="ToF Down", meta=_catalog_meta("tof_sensor"))
+    asm.offset("tof_down.mount_face", "bottom_plate.tof_mount_down", gap=0)
+
+    # Up: board on daughter board top surface, sensor faces up
+    asm.add("tof_up", make_tof_board, color="#CC44CC",
+            display="ToF Up", meta=_catalog_meta("tof_sensor"))
+    asm.offset("tof_up.mount_face", "daughter_board.tof_mount_up", gap=0)
+
+    # --- SIDE: L-bracket on plate top surface, sensor on bracket tab ---
+    # Bracket base flat on plate, tab hangs over edge toward target direction.
+    # Spin orients the tab: 0°→+Y, 180°→-Y, 90°→-X, -90°→+X
+    _brk_gap = TOF_BRACKET_T + 2
+
+    tof_side_configs = [
         ("tof_front", "ToF Front",
          "tof_bracket_front", "ToF Bracket Front",
          "top_plate", "tof_mount_front", 0),
         ("tof_back", "ToF Back",
          "tof_bracket_back", "ToF Bracket Back",
-         "top_plate", "tof_mount_back", 0),
+         "top_plate", "tof_mount_back", 180),
         ("tof_left", "ToF Left",
          "tof_bracket_left", "ToF Bracket Left",
-         "top_plate", "tof_mount_left", 0),
+         "top_plate", "tof_mount_left", 90),
         ("tof_right", "ToF Right",
          "tof_bracket_right", "ToF Bracket Right",
-         "top_plate", "tof_mount_right", 0),
+         "top_plate", "tof_mount_right", -90),
     ]
-    for s_name, s_disp, b_name, b_disp, plate, mount_anchor, spin in tof_configs:
-        # Bracket — plate_mount (normal down) mates plate tof_mount_* (directional normal)
+    for s_name, s_disp, b_name, b_disp, plate, mount_anchor, spin in tof_side_configs:
         asm.add(b_name, make_tof_bracket, color="#2FA84A",
                 display=b_disp, meta=_catalog_meta("tof_bracket"))
         asm.offset(f"{b_name}.plate_mount", f"{plate}.{mount_anchor}",
                    gap=_brk_gap, spin=spin)
 
-        # Sensor — mount_face mates bracket sensor_mount
         asm.add(s_name, make_tof_board, color="#CC44CC",
                 display=s_disp, meta=_catalog_meta("tof_sensor"))
         asm.mate(f"{s_name}.mount_face", f"{b_name}.sensor_mount")
 
-    # ========================================================================
-    # TUBING — computed routing (absolute placement)
-    # ========================================================================
-
-    _pc = _D["pump"]
-    _tube_y_local = _pc["body_length"] / 2 - _pc.get("tube_exit_inset_from_front", 5)
-    _tube_z_local = _pc["body_height"] + _pc.get("tube_exit_length", 8)
-    _tube_sp = _pc.get("tube_spacing", 10)
-
-    pump_x = BRACKET_OFFSET_X
-    pump_y = BRACKET_OFFSET_Y
-    pump_z_ref = BOTTOM_Z - 14
-
-    pump_fit_inlet = (pump_x + _tube_sp / 2, pump_y - 2,
-                      pump_z_ref - _tube_z_local - 3)
-    pump_fit_outlet = (pump_x - _tube_sp / 2, pump_y - 2,
-                       pump_z_ref - _tube_z_local - 3)
-
-    res_length = _D["reservoir"]["length"]
-    _res_z = BOTTOM_Z - RES_H - UNDERSLUNG_GAP  # computed for tubing routing
-    res_outlet = (RES_OFFSET_X + _D["reservoir"]["width"] / 2 + 3,
-                  RES_OFFSET_Y - res_length / 2 - 3,
-                  _res_z - 3)
-
-    nozzle_tube_x = PLATE_SIZE / 2 + BOOM_LENGTH + 13
-
-    def _add_tube(name, display, start, end):
-        dx = end[0] - start[0]
-        dy = end[1] - start[1]
-        dz = end[2] - start[2]
-        length = math.sqrt(dx * dx + dy * dy + dz * dz)
-        mid = ((start[0] + end[0]) / 2,
-               (start[1] + end[1]) / 2,
-               (start[2] + end[2]) / 2)
-        horiz = math.sqrt(dx * dx + dy * dy)
-        pitch = math.degrees(math.atan2(horiz, dz)) if length > 0 else 0
-        yaw = math.degrees(math.atan2(dy, dx)) if horiz > 0 else 0
-
-        asm.add(name, make_tubing_segment, args=(length,),
-                color="#C0C0C0", display=display)
-        asm.place(name, at=mid, rot=(pitch, 0, yaw))
-
-    _add_tube("tubing_res_to_pump", "Tubing: Reservoir \u2192 Pump",
-              res_outlet, pump_fit_inlet)
-
-    outside_x = PLATE_SIZE / 2 + 55
-    waypoint_low = (outside_x, pump_fit_outlet[1], pump_fit_outlet[2])
-    _add_tube("tubing_pump_to_edge", "Tubing: Pump \u2192 Frame Edge",
-              pump_fit_outlet, waypoint_low)
-
-    boom_z_ref = ARM_CENTER_Z + ARM_THICK / 2 + GAP
-    waypoint_high = (outside_x, 0, boom_z_ref - 3)
-    _add_tube("tubing_edge_vertical", "Tubing: Vertical Rise",
-              waypoint_low, waypoint_high)
-
-    boom_start = (PLATE_SIZE / 2 + 3, 0, boom_z_ref - 3)
-    boom_end = (nozzle_tube_x - 3, 0, boom_z_ref - 3)
-    _add_tube("tubing_edge_to_boom", "Tubing: Along Boom",
-              boom_start, boom_end)
-
     return asm
 
+
+# ============================================================================
+# Tubing — anchor-driven routing from resolved part positions
+# ============================================================================
+
+def _tube_placement(start, end):
+    """Compute position and rotation for a tube segment between two world points.
+
+    Tube is built along local +Z from 0 to length. Returns (length, position, rotation)
+    so that the tube start sits at `start` and end at `end`. Rotation uses CCW
+    convention (rx, ry, rz) so that local +Z aligns with direction (end - start).
+    """
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    dz = end[2] - start[2]
+    length = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if length < 0.1:
+        return None
+    dir_x = dx / length
+    dir_y = dy / length
+    dir_z = dz / length
+    dir_x_clamp = max(-1.0, min(1.0, dir_x))
+    ry_rad = math.asin(dir_x_clamp)
+    rx_rad = math.atan2(-dir_y, dir_z) if (dir_z != 0 or dir_y != 0) else 0.0
+    rot = (math.degrees(rx_rad), math.degrees(ry_rad), 0.0)
+    return length, start, rot
+
+
+def _route_tubing(anchors_by_part):
+    """Create tubing manifest entries with simple, direct routing.
+
+    Two fluid paths:
+    1. Reservoir outlet -> pump inlet (short, underslung, gravity-fed)
+    2. Pump outlet -> along boom -> drip nozzle barb
+    """
+    entries = []
+    tube_meta = _catalog_meta("tubing")
+
+    def _make_tube(name, display, start, end):
+        result = _tube_placement(start, end)
+        if result is None:
+            return
+        length, pos, rot = result
+        entries.append({
+            "name": name, "display": display, "color": "#C0C0C0",
+            "builder": make_tubing_segment, "args": (length,),
+            "pos": pos, "rot": rot, "meta": tube_meta, "anchors": {},
+        })
+
+    res_outlet = anchors_by_part["reservoir"]["outlet"].point
+    pump_inlet = anchors_by_part["pump"]["inlet_tube"].point
+    pump_outlet = anchors_by_part["pump"]["outlet_tube"].point
+    nozzle_barb = anchors_by_part["drip_nozzle"]["barb_inlet"].point
+    boom_root = anchors_by_part["nose_boom"]["root"].point
+
+    # All routing must avoid passing through any solid part.
+    # Key clearance constraints:
+    #   Reservoir body: ~X[8,48] Y[-35,35] Z[12,47]
+    #   Bottom plate:   ~X[-55,55] Y[-55,55] Z[52,54]
+    #   Pump body:      ~X[29,41] Y[-78,-36] Z[23,45]
+    #   Boom:           ~X[55,195] Y[-1,1] Z[58,60]
+    #   Camera bracket: ~X[144] Y=0 Z=60-82
+
+    # --- Reservoir -> Pump: drop below reservoir, run underneath ---
+    # Reservoir outlet at +Y face (Y≈45, outside reservoir). Drop to Z=5
+    # (below reservoir bottom Z=12), run to pump inlet X/Y, then up.
+    _clear_z = 5.0  # below all underslung parts
+    wp1 = (res_outlet[0], res_outlet[1], _clear_z)
+    wp2 = (pump_inlet[0], pump_inlet[1], _clear_z)
+    _make_tube("tubing_res_pump_1", "Tubing: Res Outlet Down", res_outlet, wp1)
+    _make_tube("tubing_res_pump_2", "Tubing: Under to Pump", wp1, wp2)
+    _make_tube("tubing_res_pump_3", "Tubing: Up to Pump Inlet", wp2, pump_inlet)
+
+    # --- Pump -> Nozzle: drop below everything, route outside, rise to boom ---
+    # Pump is inverted (tubes exit downward at Z≈23.5). Drop to Z=2 (below
+    # all parts), run horizontally to outside plate footprint at X=60,
+    # rise straight up at pump's Y (far from boom/legs at Y=0), shift to
+    # boom side at altitude, run along boom offset in Y to clear camera
+    # bracket (Y±10), approach nozzle from above.
+    plate_half = PLATE_SIZE / 2
+    boom_z = boom_root[2]
+    _outside_x = plate_half + 5                         # X=60
+    _boom_above = max(boom_z + 5, nozzle_barb[2] + 3)  # above boom AND nozzle
+    _boom_y_offset = 20.0                                # clears camera (Y±17.5) and bracket (Y±10)
+    _feed_z = 2.0                                        # separate from res-pump at Z=5
+
+    wp_down = (pump_outlet[0], pump_outlet[1], _feed_z)
+    wp_floor = (_outside_x, pump_outlet[1], _feed_z)
+    wp_top = (_outside_x, pump_outlet[1], _boom_above)
+    wp_boom_start = (_outside_x, _boom_y_offset, _boom_above)
+    wp_boom_end = (nozzle_barb[0], _boom_y_offset, _boom_above)
+    wp_nozzle_above = (nozzle_barb[0], nozzle_barb[1], _boom_above)
+
+    _make_tube("tubing_feed_1", "Tubing: Pump Down", pump_outlet, wp_down)
+    _make_tube("tubing_feed_2", "Tubing: Floor to Edge", wp_down, wp_floor)
+    _make_tube("tubing_feed_3", "Tubing: Rise", wp_floor, wp_top)
+    _make_tube("tubing_feed_4", "Tubing: Shift to Boom", wp_top, wp_boom_start)
+    _make_tube("tubing_feed_5", "Tubing: Along Boom", wp_boom_start, wp_boom_end)
+    _make_tube("tubing_feed_6", "Tubing: Over Nozzle", wp_boom_end, wp_nozzle_above)
+    _make_tube("tubing_feed_7", "Tubing: Down to Nozzle", wp_nozzle_above, nozzle_barb)
+
+    return entries
+
+
+# ============================================================================
+# Public API
+# ============================================================================
 
 def build_drone_manifest():
     """Build the drone assembly manifest.
 
+    Phase 1: Resolve all rigid parts via constraint solver.
+    Phase 2: Route tubing between resolved anchor positions.
+
     Returns:
         list[dict]: Manifest entries compatible with pipeline.export_assembly().
     """
-    return _build_assembly_builder().resolve()
+    # Phase 1 — resolve rigid parts
+    asm = _build_core_assembly()
+    core_manifest = asm.resolve()
+
+    # Phase 2 — route tubing using resolved world-space anchors
+    anchors_by_part = {e["name"]: e["anchors"] for e in core_manifest}
+    tubing_entries = _route_tubing(anchors_by_part)
+
+    return core_manifest + tubing_entries
 
 
 def get_assembly_constraints():
@@ -527,7 +590,7 @@ def get_assembly_constraints():
     parent_part, parent_anchor, kind — suitable for passing to
     export_assembly(constraints=...).
     """
-    asm = _build_assembly_builder()
+    asm = _build_core_assembly()
     constraints = []
     for c in asm._constraints:
         constraints.append({

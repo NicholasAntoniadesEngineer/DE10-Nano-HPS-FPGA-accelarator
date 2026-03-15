@@ -197,6 +197,28 @@ def _make_detailed():
     return hub
 
 
+def make_prop_clearance_disc():
+    """Thin annulus representing the cylindrical volume swept by a spinning prop.
+
+    Used as a separate assembly part (with semi-transparent color) for
+    clearance checking against standoffs, electronics, and frame members.
+    The disc diameter matches the full propeller sweep; it mates to the
+    same motor shaft_tip as the propeller.
+    """
+    disc = (
+        cq.Workplane("XY")
+        .circle(PROP_DIAMETER / 2)
+        .circle(PROP_HUB_D / 2)
+        .extrude(PROP_BLADE_T)
+    )
+    anchors = {}
+    if Anchor is not None:
+        anchors["hub_base"] = Anchor(
+            point=(0, 0, 0), normal=(0, 0, -1),
+            label="Clearance disc base (mates motor shaft)")
+    return disc, anchors
+
+
 def make_prop_hub():
     """GemFan 1045 propeller hub only."""
     return cq.Workplane("XY").circle(PROP_HUB_D / 2).extrude(PROP_HUB_H)

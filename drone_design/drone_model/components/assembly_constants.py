@@ -33,11 +33,17 @@ PLATE_SPACING  = _D["frame"]["plate_spacing"]
 MOTOR_TO_MOTOR_DIAG = _D["arms"]["motor_to_motor_diagonal"]
 MOTOR_R      = MOTOR_TO_MOTOR_DIAG / 2
 MOUNT_FLANGE_LEN = _D["arms"]["mount_flange_length"]
-# Minimum radial distance from drone centre to arm flange inner edge.
-# Adjacent arms are 90° apart; at radius r their centrelines are r*√2 apart.
-# Require r*√2 ≥ ARM_WIDTH + 2 mm margin  →  r ≥ ceil((ARM_WIDTH+2)/√2).
-ARM_CLEARANCE_R = math.ceil((_D["arms"]["arm_width"] + 2) / math.sqrt(2))
-ARM_LENGTH   = MOTOR_R - ARM_CLEARANCE_R
+# Arm slot at plate corner: arm extends FROM the plate edge OUTWARD to motor.
+# At 45°, plate corner distance = PLATE_SIZE * √2 / 2.  The arm's mount
+# flange overlaps the plate by MOUNT_FLANGE_LEN, so the inner tip of the arm
+# sits that distance inboard from the corner.
+PLATE_DIAG_R = PLATE_SIZE * math.sqrt(2) / 2          # ~77.8 mm for 110mm plate
+ARM_SLOT_R   = PLATE_DIAG_R - MOUNT_FLANGE_LEN        # ~62.8 mm — arm inner tip
+# Keep legacy name for imports that reference it
+ARM_CLEARANCE_R = ARM_SLOT_R
+# Arm extends from ARM_SLOT_R outward so motor mount CENTER sits at MOTOR_R.
+MOTOR_SECTION_VAL = _D["arms"]["motor_mount_section_length"]
+ARM_LENGTH   = MOTOR_R - ARM_SLOT_R + MOTOR_SECTION_VAL / 2
 ARM_WIDTH    = _D["arms"]["arm_width"]
 ARM_THICK    = _D["arms"]["arm_thickness"]
 ARM_FLANGE   = _D["arms"]["arm_flange_width"]
@@ -74,6 +80,8 @@ DB_ABOVE_DE10 = _D["daughter_board"]["gap_above_de10"]
 # ─── Payload ──────────────────────────────────────────────────────────────────
 BATT_H       = _D["battery"]["height"]
 BATT_CG_OFFSET = _D["battery"]["cg_offset_x"]
+RES_W        = _D["reservoir"]["width"]
+RES_L        = _D["reservoir"]["length"]
 RES_H        = _D["reservoir"]["height"]
 RES_OFFSET_X = _D["reservoir"]["offset_x"]
 
