@@ -17,6 +17,21 @@ try:
 except ImportError:
     Anchor = None
 
+from cadquery_framework.kicad.jlcpcb_constraints import (
+    CU_OUTER_MM, CU_INNER_MM,
+    PREPREG_THICKNESS_MM, PREPREG_MATERIAL, PREPREG_DK, PREPREG_LOSS_TANGENT,
+    CORE_THICKNESS_MM, CORE_MATERIAL, CORE_DK, CORE_LOSS_TANGENT,
+    SOLDER_MASK_THICKNESS_MM, SOLDER_MASK_EXPANSION_MM, SOLDER_MASK_MIN_WIDTH_MM,
+    TH_GPIO_DRILL_MM, TH_GPIO_PAD_MM, TH_M25_DRILL_MM, TH_M25_PAD_MM,
+    EDGE_CUTS_WIDTH_MM, COURTYARD_WIDTH_MM,
+    SILK_LARGE_SIZE_MM, SILK_LARGE_THICK_MM,
+    SILK_REF_SIZE_MM, SILK_REF_THICK_MM,
+    SILK_SMALL_SIZE_MM, SILK_SMALL_THICK_MM,
+    SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
+    SILK_FAB_SIZE_MM, SILK_FAB_THICK_MM,
+    DRM_MIN_TRACE_MM, JLCPCB_MIN_DRILL_MM,
+)
+
 _D = json.loads((Path(__file__).resolve().parents[2] / "dimensions.json").read_text())
 
 DB_W = _D["daughter_board"]["width"]
@@ -373,7 +388,7 @@ def _th_pad_with_net(cx, cy, pad_no, drill_d, pad_d, net_id, net_name, square=Fa
     )
 
 
-def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
+def _gpio_footprint(layout, global_nets, pitch=2.54, drill_d=1.0, pad_d=1.7):
     """Generate a complete 2x20 through-hole GPIO receptacle footprint.
 
     Pin numbering follows DE10-Nano JP1/JP2 conventions:
@@ -381,8 +396,9 @@ def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
       - Even pins (2,4,6,...) are on row B: x = cx + pitch/2
       - Pin 1 at y_pin1 (lowest Y), pin 39 at y_pin1 + 19*pitch
 
-    net_offset: first net ID to assign (net IDs must be unique across entire file).
-    Returns (footprint_str, {net_name: net_id} mapping).
+    global_nets: dict {net_name: net_id} — the file-wide net table (net 0 = "").
+        Any NC pins not in global_nets are added to it automatically.
+    Returns footprint_str.
     """
     cx    = layout["cx"]
     y_p1  = layout["y_pin1"]
@@ -391,11 +407,10 @@ def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
     nets  = layout["nets"]
     label = layout["label"]
 
-    # Collect unique net names → assign IDs starting at net_offset
-    net_map = {}   # net_name → net_id (int)
-    for pin, net_name in nets.items():
-        if net_name not in net_map:
-            net_map[net_name] = net_offset + len(net_map)
+    def _lookup(name):
+        if name not in global_nets:
+            global_nets[name] = len(global_nets)
+        return global_nets[name]
 
     # Build pad list
     pads = []
@@ -408,21 +423,17 @@ def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
 
         net_a = nets.get(pin_a, f"NC_{ref}_{pin_a}")
         net_b = nets.get(pin_b, f"NC_{ref}_{pin_b}")
-        if net_a not in net_map:
-            net_map[net_a] = net_offset + len(net_map)
-        if net_b not in net_map:
-            net_map[net_b] = net_offset + len(net_map)
 
         pads.append(_th_pad_with_net(
             xa - cx, y_pos - (y_p1 + 19 * pitch / 2),   # relative to footprint origin
             pin_a, drill_d, pad_d,
-            net_map[net_a], net_a,
+            _lookup(net_a), net_a,
             square=(pin_a == 1),   # square pad on pin 1
         ))
         pads.append(_th_pad_with_net(
             xb - cx, y_pos - (y_p1 + 19 * pitch / 2),
             pin_b, drill_d, pad_d,
-            net_map[net_b], net_b,
+            _lookup(net_b), net_b,
         ))
 
     # Courtyard (F.Courtyard)
@@ -432,31 +443,31 @@ def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
     hw, hl = cyd_w / 2, cyd_l / 2
     courtyard = (
         f'    (fp_line (start {-hw:.3f} {-hl:.3f}) (end {hw:.3f} {-hl:.3f}) '
-        f'(layer "F.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {hw:.3f} {-hl:.3f}) (end {hw:.3f} {hl:.3f}) '
-        f'(layer "F.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {hw:.3f} {hl:.3f}) (end {-hw:.3f} {hl:.3f}) '
-        f'(layer "F.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {-hw:.3f} {hl:.3f}) (end {-hw:.3f} {-hl:.3f}) '
-        f'(layer "F.Courtyard") (width 0.05) (uuid "{_uid()}"))'
+        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
     )
     # Silkscreen pin-1 indicator and reference label
     silk_pin1 = (
         f'    (fp_text "1" (at {-(pitch / 2 + 2.0):.3f} {-hl + 0.5:.3f}) (layer "F.SilkS") '
         f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size 0.8 0.8) (thickness 0.10)))\n'
+        f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))\n'
         f'    )'
     )
     silk_ref = (
         f'    (fp_text reference "{ref}" (at 0 {-hl - 2.5:.3f}) (layer "F.SilkS") '
         f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size 1.2 1.2) (thickness 0.15)))\n'
+        f'      (effects (font (size {SILK_REF_SIZE_MM} {SILK_REF_SIZE_MM}) (thickness {SILK_REF_THICK_MM})))\n'
         f'    )'
     )
     silk_val = (
         f'    (fp_text value "{label}" (at 0 {hl + 2.0:.3f}) (layer "F.Fab") '
         f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size 1.0 1.0) (thickness 0.12)))\n'
+        f'      (effects (font (size {SILK_SMALL_SIZE_MM} {SILK_SMALL_SIZE_MM}) (thickness {SILK_SMALL_THICK_MM})))\n'
         f'    )'
     )
 
@@ -471,7 +482,7 @@ def _gpio_footprint(layout, net_offset, pitch=2.54, drill_d=1.0, pad_d=1.7):
         + "\n".join(pads) + "\n"
         f'  )'
     )
-    return fp, net_map
+    return fp
 
 
 def _component_footprint(ref, value, cx, cy, w, h, layer, description):
@@ -484,20 +495,20 @@ def _component_footprint(ref, value, cx, cy, w, h, layer, description):
         f'  (descr "{description}")\n'
         f'    (fp_text reference "{ref}" (at 0 {-hh - 1.0:.3f}) (layer "{layer_prefix}.SilkS") '
         f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size 0.8 0.8) (thickness 0.10)))\n'
+        f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))\n'
         f'    )\n'
         f'    (fp_text value "{value}" (at 0 {hh + 0.8:.3f}) (layer "{layer_prefix}.Fab") '
         f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size 0.7 0.7) (thickness 0.09)))\n'
+        f'      (effects (font (size {SILK_FAB_SIZE_MM} {SILK_FAB_SIZE_MM}) (thickness {SILK_FAB_THICK_MM})))\n'
         f'    )\n'
         f'    (fp_line (start {-hw:.3f} {-hh:.3f}) (end {hw:.3f} {-hh:.3f}) '
-        f'(layer "{layer_prefix}.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {hw:.3f} {-hh:.3f}) (end {hw:.3f} {hh:.3f}) '
-        f'(layer "{layer_prefix}.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {hw:.3f} {hh:.3f}) (end {-hw:.3f} {hh:.3f}) '
-        f'(layer "{layer_prefix}.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'    (fp_line (start {-hw:.3f} {hh:.3f}) (end {-hw:.3f} {-hh:.3f}) '
-        f'(layer "{layer_prefix}.Courtyard") (width 0.05) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
         f'  )'
     )
     return lines
@@ -519,7 +530,7 @@ def _kicad_pcb_4layer(title, thickness, nets_block, content):
     (company "Drone Project")
     (comment 1 "Material: FR4, Tg150")
     (comment 2 "Layers: 4  Thickness: {thickness:.1f}mm  Finish: ENIG")
-    (comment 3 "Min trace: 0.1mm  Min space: 0.1mm  Min drill: 0.2mm via / 1.0mm TH")
+    (comment 3 "Min trace: {DRM_MIN_TRACE_MM}mm  Min space: {DRM_MIN_TRACE_MM}mm  Min drill: {JLCPCB_MIN_DRILL_MM}mm via / {TH_GPIO_DRILL_MM}mm TH")
     (comment 4 "Stackup: F.Cu(sig) / In1.Cu(GND) / In2.Cu(PWR) / B.Cu(sig)")
   )
   (layers
@@ -540,29 +551,30 @@ def _kicad_pcb_4layer(title, thickness, nets_block, content):
     (42 "Eco1.User"     user      "User.Eco1")
     (43 "Eco2.User"     user      "User.Eco2")
     (44 "Edge.Cuts"     user)
-    (45 "F.Courtyard"   user)
-    (46 "B.Courtyard"   user)
-    (47 "F.Fab"         user)
+    (45 "Margin"        user)
+    (46 "B.CrtYd"       user      "B.Courtyard")
+    (47 "F.CrtYd"       user      "F.Courtyard")
     (48 "B.Fab"         user)
+    (49 "F.Fab"         user)
   )
   (setup
     (stackup
       (layer "F.SilkS"      (type "Top Silk Screen"))
       (layer "F.Paste"       (type "Top Solder Paste"))
-      (layer "F.Mask"        (type "Top Solder Mask")    (thickness 0.010))
-      (layer "F.Cu"          (type "copper")             (thickness 0.035))
-      (layer "dielectric 1"  (type "prepreg")            (thickness 0.100) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-      (layer "In1.Cu"        (type "copper")             (thickness 0.035))
-      (layer "dielectric 2"  (type "core")               (thickness 1.240) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-      (layer "In2.Cu"        (type "copper")             (thickness 0.035))
-      (layer "dielectric 3"  (type "prepreg")            (thickness 0.100) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-      (layer "B.Cu"          (type "copper")             (thickness 0.035))
-      (layer "B.Mask"        (type "Bottom Solder Mask") (thickness 0.010))
+      (layer "F.Mask"        (type "Top Solder Mask")    (thickness {SOLDER_MASK_THICKNESS_MM}))
+      (layer "F.Cu"          (type "copper")             (thickness {CU_OUTER_MM}))
+      (layer "dielectric 1"  (type "prepreg")            (thickness {PREPREG_THICKNESS_MM}) (material "{PREPREG_MATERIAL}") (epsilon_r {PREPREG_DK}) (loss_tangent {PREPREG_LOSS_TANGENT}))
+      (layer "In1.Cu"        (type "copper")             (thickness {CU_INNER_MM}))
+      (layer "dielectric 2"  (type "core")               (thickness {CORE_THICKNESS_MM})  (material "{CORE_MATERIAL}") (epsilon_r {CORE_DK}) (loss_tangent {CORE_LOSS_TANGENT}))
+      (layer "In2.Cu"        (type "copper")             (thickness {CU_INNER_MM}))
+      (layer "dielectric 3"  (type "prepreg")            (thickness {PREPREG_THICKNESS_MM}) (material "{PREPREG_MATERIAL}") (epsilon_r {PREPREG_DK}) (loss_tangent {PREPREG_LOSS_TANGENT}))
+      (layer "B.Cu"          (type "copper")             (thickness {CU_OUTER_MM}))
+      (layer "B.Mask"        (type "Bottom Solder Mask") (thickness {SOLDER_MASK_THICKNESS_MM}))
       (layer "B.Paste"       (type "Bottom Solder Paste"))
       (layer "B.SilkS"       (type "Bottom Silk Screen"))
     )
-    (pad_to_mask_clearance 0.05)
-    (solder_mask_min_width 0.05)
+    (pad_to_mask_clearance {SOLDER_MASK_EXPANSION_MM})
+    (solder_mask_min_width {SOLDER_MASK_MIN_WIDTH_MM})
     (allow_soldermask_bridges_in_footprints no)
     (aux_axis_origin 0 0)
     (pcbplotparams
@@ -650,10 +662,6 @@ def generate_daughter_board_pcb():
         if pnet not in all_nets:
             all_nets[pnet] = len(all_nets)
 
-    nets_block = "\n".join(
-        _net_sexpr(nid, nname) for nname, nid in sorted(all_nets.items(), key=lambda x: x[1])
-    )
-
     # Assign GPIO connector net IDs using the global table
     def _gp_net_id(name):
         return all_nets.get(name, 0)
@@ -679,13 +687,13 @@ def generate_daughter_board_pcb():
   (at {hx:.4f} {hy:.4f})
   (descr "M2.5 standoff, GND-tied")
     (fp_text reference "{ref_label}" (at 0 -2.5) (layer "F.SilkS") (uuid "{_uid()}")
-      (effects (font (size 0.8 0.8) (thickness 0.10)))
+      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))
     )
     (fp_text value "M2.5" (at 0 2.5) (layer "F.Fab") (uuid "{_uid()}")
-      (effects (font (size 0.7 0.7) (thickness 0.09)))
+      (effects (font (size {SILK_FAB_SIZE_MM} {SILK_FAB_SIZE_MM}) (thickness {SILK_FAB_THICK_MM})))
     )
-    (fp_circle (center 0 0) (end 2.0 0) (layer "F.Courtyard") (width 0.05) (uuid "{_uid()}"))
-    (pad "" thru_hole circle (at 0 0) (size 3.90 3.90) (drill 2.70)
+    (fp_circle (center 0 0) (end 2.0 0) (layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))
+    (pad "" thru_hole circle (at 0 0) (size {TH_M25_PAD_MM} {TH_M25_PAD_MM}) (drill {TH_M25_DRILL_MM})
       (layers "*.Cu" "*.Mask")
       (net {mh_net} "GND")
       (uuid "{_uid()}")
@@ -693,20 +701,20 @@ def generate_daughter_board_pcb():
   )"""
 
     # ── GPIO0 (JP1) footprint ─────────────────────────────────────────────────
-    jp1_fp, jp1_net_map = _gpio_footprint(
+    jp1_fp = _gpio_footprint(
         _GPIO_LAYOUT["gpio0"],
-        net_offset=0,   # we use global net IDs, not offset-based
+        global_nets=all_nets,
         pitch=GPIO_PITCH,
-        drill_d=1.0, pad_d=1.7,
+        drill_d=TH_GPIO_DRILL_MM, pad_d=TH_GPIO_PAD_MM,
     )
     content += "\n" + jp1_fp
 
     # ── GPIO1 (JP2) footprint ─────────────────────────────────────────────────
-    jp2_fp, jp2_net_map = _gpio_footprint(
+    jp2_fp = _gpio_footprint(
         _GPIO_LAYOUT["gpio1"],
-        net_offset=0,
+        global_nets=all_nets,
         pitch=GPIO_PITCH,
-        drill_d=1.0, pad_d=1.7,
+        drill_d=TH_GPIO_DRILL_MM, pad_d=TH_GPIO_PAD_MM,
     )
     content += "\n" + jp2_fp
 
@@ -721,29 +729,34 @@ def generate_daughter_board_pcb():
     content += "\n" + text_sexpr(
         "DE10-Nano PCB shadow (routing reference only — not Edge.Cuts)",
         0, -de10_l / 2 - 5.0,
-        "Dwgs.User", 0.8, 0.10,
+        "Dwgs.User", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
     )
 
     # ── Board identification silkscreen ───────────────────────────────────────
     content += "\n" + text_sexpr(
         "DE10-NANO FLIGHT CTRL DAUGHTER BOARD",
         0, db_l / 2 - 4.5,
-        "F.SilkS", 1.2, 0.15,
+        "F.SilkS", SILK_REF_SIZE_MM, SILK_REF_THICK_MM,
     )
     content += "\n" + text_sexpr(
         f"{db_w:.0f}x{db_l:.0f}mm  FR4  1.6mm  4L  ENIG",
         0, db_l / 2 - 8.5,
-        "F.SilkS", 0.9, 0.11,
+        "F.SilkS", SILK_SMALL_SIZE_MM, SILK_SMALL_THICK_MM,
     )
     content += "\n" + text_sexpr(
         "HEATSINK/FAN OPENING",
         0, 0,
-        "F.SilkS", 0.8, 0.10,
+        "F.SilkS", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
     )
     content += "\n" + text_sexpr(
         "Stackup: F.Cu(sig) / In1(GND) / In2(PWR) / B.Cu(sig)",
         0, db_l / 2 - 12.0,
-        "Cmts.User", 0.8, 0.10,
+        "Cmts.User", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
+    )
+
+    # ── Build net table AFTER all footprints (NC pins may have been added) ─────
+    nets_block = "\n".join(
+        _net_sexpr(nid, nname) for nname, nid in sorted(all_nets.items(), key=lambda x: x[1])
     )
 
     return _kicad_pcb_4layer("DE10-Nano Daughter Board v1.0", db_t, nets_block, content)

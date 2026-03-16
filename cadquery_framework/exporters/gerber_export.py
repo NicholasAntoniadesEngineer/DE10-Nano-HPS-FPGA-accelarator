@@ -2,13 +2,21 @@
 
 Takes a list of (name, generator_function) pairs, calls each generator
 to produce KiCad PCB content, and writes the files to disk.
+
+A single shared .kicad_dru design rules file is written alongside every
+.kicad_pcb — generated from cadquery_framework/kicad/jlcpcb_constraints.py
+so all boards stay in sync automatically when constraints change.
 """
 
 from pathlib import Path
 
+from cadquery_framework.kicad.jlcpcb_constraints import dru_content
+
+_DRU_FILENAME = "jlcpcb_constraints.kicad_dru"
+
 
 def export_gerber_pcbs(pcb_generators, output_dir, readme_text=None, verbose=False):
-    """Run PCB generator functions and write .kicad_pcb files.
+    """Run PCB generator functions and write .kicad_pcb + .kicad_dru files.
 
     Args:
         pcb_generators: list of (name, generator_func) tuples.
@@ -20,7 +28,13 @@ def export_gerber_pcbs(pcb_generators, output_dir, readme_text=None, verbose=Fal
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Write shared design rules file — one copy used by all boards in this directory
+    dru_path = output_dir / _DRU_FILENAME
+    dru_path.write_text(dru_content(), encoding="utf-8")
+    dru_kb = dru_path.stat().st_size / 1024
     print("Generating KiCad PCB files...")
+    print(f"  {_DRU_FILENAME} ({dru_kb:.1f} KB)  [shared design rules]")
+
     for name, generator in pcb_generators:
         path = output_dir / f"{name}.kicad_pcb"
         content = generator()

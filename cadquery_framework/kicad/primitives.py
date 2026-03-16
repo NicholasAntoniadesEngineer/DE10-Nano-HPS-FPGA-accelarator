@@ -2,11 +2,28 @@
 
 These functions generate the building blocks for mechanical PCB files:
 board outlines, mounting holes, cutouts, silkscreen labels, etc.
+
+Manufacturing tolerances are centralised in:
+  cadquery_framework/kicad/jlcpcb_constraints.py
 """
 
 import math
 import uuid
 from datetime import datetime
+
+from cadquery_framework.kicad.jlcpcb_constraints import (
+    CU_OUTER_MM,
+    FR4_2L_DK,
+    FR4_2L_LOSS_TANGENT,
+    SOLDER_MASK_THICKNESS_MM,
+    SOLDER_MASK_EXPANSION_MM,
+    EDGE_CUTS_WIDTH_MM,
+    TH_GPIO_DRILL_MM,
+    TH_GPIO_PAD_MM,
+    TH_DEFAULT_ANNULAR_MM,
+    SILK_LARGE_SIZE_MM,
+    SILK_LARGE_THICK_MM,
+)
 
 
 def uid():
@@ -151,7 +168,7 @@ def rotated_rect_outline(w, h, cx, cy, angle_deg):
     return lines
 
 
-def outline_to_sexpr(outline_segments, layer="Edge.Cuts", width=0.05):
+def outline_to_sexpr(outline_segments, layer="Edge.Cuts", width=EDGE_CUTS_WIDTH_MM):
     """Convert outline segments to KiCad S-expression strings."""
     lines = []
     for seg in outline_segments:
@@ -179,7 +196,7 @@ def outline_to_sexpr(outline_segments, layer="Edge.Cuts", width=0.05):
     return "\n".join(lines)
 
 
-def circle_sexpr(cx, cy, r, layer="Edge.Cuts", width=0.05):
+def circle_sexpr(cx, cy, r, layer="Edge.Cuts", width=EDGE_CUTS_WIDTH_MM):
     """Generate a KiCad circle S-expression."""
     return (
         f'  (gr_circle (center {cx:.4f} {cy:.4f}) (end {cx + r:.4f} {cy:.4f}) '
@@ -190,7 +207,7 @@ def circle_sexpr(cx, cy, r, layer="Edge.Cuts", width=0.05):
 def through_hole_pad(cx, cy, drill_d, pad_d=None):
     """Generate a mounting hole footprint at (cx, cy)."""
     if pad_d is None:
-        pad_d = drill_d + 0.5
+        pad_d = drill_d + 2 * TH_DEFAULT_ANNULAR_MM
     u = uid()
     return f"""  (footprint "MountingHole:MountingHole_{drill_d:.1f}mm" (layer "F.Cu")
     (uuid "{u}")
@@ -202,7 +219,7 @@ def through_hole_pad(cx, cy, drill_d, pad_d=None):
   )"""
 
 
-def header_pad_row(cx, cy, count, pitch, angle_deg=0, drill_d=1.0, pad_d=1.7):
+def header_pad_row(cx, cy, count, pitch, angle_deg=0, drill_d=TH_GPIO_DRILL_MM, pad_d=TH_GPIO_PAD_MM):
     """Generate through-hole pads for a row of pin header holes.
 
     Args:
@@ -225,7 +242,7 @@ def header_pad_row(cx, cy, count, pitch, angle_deg=0, drill_d=1.0, pad_d=1.7):
     return "\n".join(pads)
 
 
-def text_sexpr(text, cx, cy, layer="F.SilkS", size=1.5, thickness=0.15):
+def text_sexpr(text, cx, cy, layer="F.SilkS", size=SILK_LARGE_SIZE_MM, thickness=SILK_LARGE_THICK_MM):
     """Generate a text label."""
     return (
         f'  (gr_text "{text}" (at {cx:.4f} {cy:.4f}) (layer "{layer}") '
@@ -275,15 +292,15 @@ def kicad_pcb_wrapper(title, thickness, inner_content, generator_name="cadquery_
     (stackup
       (layer "F.SilkS" (type "Top Silk Screen"))
       (layer "F.Paste" (type "Top Solder Paste"))
-      (layer "F.Mask" (type "Top Solder Mask") (thickness 0.01))
-      (layer "F.Cu" (type "copper") (thickness 0.035))
-      (layer "dielectric 1" (type "core") (thickness {thickness - 0.07:.3f}) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-      (layer "B.Cu" (type "copper") (thickness 0.035))
-      (layer "B.Mask" (type "Bottom Solder Mask") (thickness 0.01))
+      (layer "F.Mask" (type "Top Solder Mask") (thickness {SOLDER_MASK_THICKNESS_MM}))
+      (layer "F.Cu" (type "copper") (thickness {CU_OUTER_MM}))
+      (layer "dielectric 1" (type "core") (thickness {"{:.3f}".format(thickness - 2 * CU_OUTER_MM)}) (material "FR4") (epsilon_r {FR4_2L_DK}) (loss_tangent {FR4_2L_LOSS_TANGENT}))
+      (layer "B.Cu" (type "copper") (thickness {CU_OUTER_MM}))
+      (layer "B.Mask" (type "Bottom Solder Mask") (thickness {SOLDER_MASK_THICKNESS_MM}))
       (layer "B.Paste" (type "Bottom Solder Paste"))
       (layer "B.SilkS" (type "Bottom Silk Screen"))
     )
-    (pad_to_mask_clearance 0.05)
+    (pad_to_mask_clearance {SOLDER_MASK_EXPANSION_MM})
     (allow_soldermask_bridges_in_footprints no)
     (aux_axis_origin 0 0)
     (pcbplotparams
