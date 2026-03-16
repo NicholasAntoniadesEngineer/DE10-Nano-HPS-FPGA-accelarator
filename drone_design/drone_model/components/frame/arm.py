@@ -19,7 +19,10 @@ motor tip at +ARM_LENGTH/2.
 
 import math
 import json
-import cadquery as cq
+try:
+    import cadquery as cq
+except ImportError:
+    cq = None
 from pathlib import Path
 
 try:

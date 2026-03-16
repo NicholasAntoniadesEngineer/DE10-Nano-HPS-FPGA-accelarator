@@ -23,9 +23,13 @@ Coordinate convention (local per section)
 The long axis is X.  X = 0 is the frame-side (root) end of each section.
 Positive X points toward the nozzle.
 """
+from __future__ import annotations
 
 import json
-import cadquery as cq
+try:
+    import cadquery as cq
+except ImportError:
+    cq = None
 from pathlib import Path
 
 try:
