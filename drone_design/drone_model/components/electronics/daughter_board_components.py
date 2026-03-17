@@ -384,33 +384,80 @@ JST_SH_3PIN = ComponentDef(
 
 
 # =============================================================================
-# Section 7: WiFi/BLE — WILC3000, LTC bridge connector
+# Section 7: WiFi/BLE — ESP32-WROOM-32-N4 (JLCPCB standard, HPS SPI1 or FPGA SPI)
 # =============================================================================
 
-# ATWILC3000-MR110UB — WiFi/BLE SPI module (castellated)
-def _wilc3000_pin(i: int) -> Pin:
-    """Return Pin for WILC3000 module position i (0-based).
+def _esp32_pin(i: int) -> Pin:
+    """Return Pin for ESP32-WROOM-32-N4 module position i (0-based, 0-37 = pins 1-38).
 
-    Pins 11-16 and 24-34 (1-based) are reserved/unused module pads —
-    mark them no_connect so the ERC does not warn about unconnected
-    unspecified pins.
+    ESP32 38-pin module pinout (25.5 x 18mm SMD):
+    GND, IO23, IO22, IO21, IO19, IO18, IO17, IO16, IO4, EN, CLK, SDO, SDI, CS, IO5,
+    IO35, IO34, IO39, IO36, IO32, IO33, IO25, IO26, IO27, IO14, IO12, IO13, IO15, IO2,
+    IO0, IO4, GND, VDD33, NC, IO10, IO9, IO11, GND
     """
-    pin_num = i + 1
-    _NO_CONNECT_PINS = frozenset(range(11, 17)) | frozenset(range(24, 35))
-    pin_type = "no_connect" if pin_num in _NO_CONNECT_PINS else "unspecified"
-    return Pin(str(pin_num), f"MOD_{pin_num}", pin_type)
+    # Pin names for standard ESP32-WROOM-32-N4 pinout
+    pin_names = [
+        "GND",    # 1
+        "IO23",   # 2
+        "IO22",   # 3
+        "IO21",   # 4
+        "IO19",   # 5
+        "IO18",   # 6
+        "IO17",   # 7
+        "IO16",   # 8
+        "IO4",    # 9
+        "EN",     # 10 (enable/reset)
+        "CLK",    # 11 (flash clock)
+        "SDO",    # 12 (flash data out)
+        "SDI",    # 13 (flash data in)
+        "CS",     # 14 (flash chip select)
+        "IO5",    # 15
+        "IO35",   # 16 (input only)
+        "IO34",   # 17 (input only)
+        "IO39",   # 18 (input only)
+        "IO36",   # 19 (input only, SENSOR_VP)
+        "IO32",   # 20
+        "IO33",   # 21
+        "IO25",   # 22
+        "IO26",   # 23
+        "IO27",   # 24
+        "IO14",   # 25
+        "IO12",   # 26
+        "IO13",   # 27
+        "IO15",   # 28
+        "IO2",    # 29
+        "IO0",    # 30 (bootstrap/strapping)
+        "IO4",    # 31 (duplicate row in module)
+        "GND",    # 32
+        "VDD33",  # 33 (3.3V supply)
+        "NC",     # 34 (no connect)
+        "IO10",   # 35 (strapping)
+        "IO9",    # 36 (strapping)
+        "IO11",   # 37 (strapping)
+        "GND",    # 38
+    ]
+    if "GND" in pin_names[i]:
+        pin_type = "passive"
+    elif "VDD" in pin_names[i]:
+        pin_type = "power_in"
+    else:
+        pin_type = "unspecified"
+    return Pin(str(i + 1), pin_names[i], pin_type)
 
 
-WILC3000 = ComponentDef(
-    ref_prefix="U", value="ESP32-WROOM-32E-N8", package="Module",
-    description="WiFi 802.11 b/g/n + BLE 5.0 SoC module (JLCPCB standard replacement)",
-    mpn="ESP32-WROOM-32E-N8", lcsc="C701342",
-    datasheet="https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/70005327B.pdf",
-    pins=tuple(_wilc3000_pin(i) for i in range(34)),
-    pads=pads_wilc3000_module(),
-    courtyard_w=21.00, courtyard_h=15.50,
-    model_3d="WILC3000-MR10B",
+ESP32_WROOM = ComponentDef(
+    ref_prefix="U", value="ESP32-WROOM-32-N4", package="SMD Module",
+    description="WiFi 802.11 b/g/n + dual-mode Bluetooth/BLE SoC module (25.5×18mm, JLCPCB stock)",
+    mpn="ESP32-WROOM-32-N4", lcsc="C82899",
+    datasheet="https://www.espressif.com/sites/default/files/documentation/esp32_datasheet_en.pdf",
+    pins=tuple(_esp32_pin(i) for i in range(38)),
+    pads=pads_wilc3000_module(),  # Reuse pads from WILC3000 (similar module size)
+    courtyard_w=25.50, courtyard_h=18.00,
+    model_3d="ESP32-WROOM-32",
 )
+
+# Alias for compatibility
+WILC3000 = ESP32_WROOM
 
 # SM06B-SRSS-TB(LF)(SN) — JST-SH 6-pin SMD (LTC bridge cable)
 JST_SH_6PIN = ComponentDef(
@@ -631,6 +678,80 @@ XT30PW = ComponentDef(
     model_3d="XT30PW",
 )
 
+# =============================================================================
+# ESP32-WROOM-32-N4 Power Supply & Signal Integrity Components (Section 7 Support)
+# =============================================================================
+
+# AMS1117-3.3 — 3.3V LDO regulator (1A, 1.3V dropout)
+AMS1117_3V3 = ComponentDef(
+    ref_prefix="U", value="AMS1117-3.3", package="SOT-223",
+    description="1A low-dropout linear regulator, 3.3V fixed output",
+    mpn="AMS1117-3.3", lcsc="C6186",
+    datasheet="https://www.lcsc.com/datasheet/C6186.pdf",
+    pins=(
+        Pin("1", "GND", "passive"),
+        Pin("2", "VOUT", "power_out"),
+        Pin("3", "VIN", "power_in"),
+    ),
+    pads=pads_sot23_3(),
+    courtyard_w=5.20, courtyard_h=4.50,
+)
+
+# SMAJ5.0A — 5V TVS diode (400W, 43.5A surge) for power input protection
+TVS_SMAJ5V0 = ComponentDef(
+    ref_prefix="D", value="SMAJ5.0A", package="SMA(DO-214AC)",
+    description="5V TVS diode, 400W, 43.5A surge protection for power input",
+    mpn="SMAJ5.0A", lcsc="C83329",
+    datasheet="https://www.lcsc.com/datasheet/C83329.pdf",
+    pins=(
+        Pin("1", "A", "passive"),
+        Pin("2", "C", "passive"),
+    ),
+    pads=pads_sma(),
+    courtyard_w=4.40, courtyard_h=6.50,
+)
+
+# Ferrite bead 100Ω for power supply line (EMI suppression)
+FERRITE_100R_PWR = ComponentDef(
+    ref_prefix="FB", value="100Ω/100MHz", package="0603",
+    description="Ferrite bead 100Ω @100MHz (0603) for power line filtering",
+    mpn="MMZ1005F121ET000", lcsc="C89458",
+    datasheet="https://www.lcsc.com/datasheet/C89458.pdf",
+    pins=(
+        Pin("1", "1", "passive"),
+        Pin("2", "2", "passive"),
+    ),
+    pads=pads_chip_0603(),
+    courtyard_w=3.20, courtyard_h=2.50,
+)
+
+# Ferrite bead 100Ω for SPI clock line (EMI suppression)
+FERRITE_100R_CLK = ComponentDef(
+    ref_prefix="FB", value="100Ω/100MHz", package="0603",
+    description="Ferrite bead 100Ω @100MHz (0603) for clock line filtering",
+    mpn="MMZ1005F121ET000", lcsc="C89458",
+    datasheet="https://www.lcsc.com/datasheet/C89458.pdf",
+    pins=(
+        Pin("1", "1", "passive"),
+        Pin("2", "2", "passive"),
+    ),
+    pads=pads_chip_0603(),
+    courtyard_w=3.20, courtyard_h=2.50,
+)
+
+# 10µH inductor for LC filter on VDD3P3 rail
+INDUCTOR_10U_PWR = ComponentDef(
+    ref_prefix="L", value="10µH/500mA", package="1210",
+    description="10µH power inductor 500mA+ (LC filter for ESP32 VDD)",
+    mpn="XRNR201610-10uH/M", lcsc="C5289252",
+    datasheet="https://www.lcsc.com/datasheet/C5289252.pdf",
+    pins=(
+        Pin("1", "1", "passive"),
+        Pin("2", "2", "passive"),
+    ),
+    pads=pads_chip_1210(),
+    courtyard_w=4.30, courtyard_h=5.80,
+)
 
 # =============================================================================
 # Section 9 & 10: Pump, Buzzer, LEDs, Switches — MOSFETs, connectors, passives
