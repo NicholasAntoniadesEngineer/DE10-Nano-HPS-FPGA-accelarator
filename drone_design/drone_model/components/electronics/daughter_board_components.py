@@ -62,6 +62,7 @@ SCHMITT_74LVC1G17 = ComponentDef(
     ),
     pads=pads_sot353(),
     courtyard_w=2.80, courtyard_h=2.00,
+    model_3d="SOT-353",
 )
 
 # PESD5V0S1BL,315 — ESD/TVS protection diode (SOD-882)
@@ -77,6 +78,7 @@ TVS_PESD5V0S1BL = ComponentDef(
     ),
     pads=pads_sod882(),
     courtyard_w=1.60, courtyard_h=1.00,
+    model_3d="SOD-882",
 )
 
 # B3B-XH-A(LF)(SN) — JST-XH 3-pin through-hole header
@@ -93,6 +95,7 @@ JST_XH_3PIN = ComponentDef(
     ),
     pads=pads_jst_xh(3),
     courtyard_w=10.5, courtyard_h=5.00,
+    model_3d="JST-XH-3",
 )
 
 
@@ -137,6 +140,7 @@ ICM_20948 = ComponentDef(
     ),
     pads=pads_qfn24_3x3(epad_w=1.70, epad_h=1.54),
     courtyard_w=4.00, courtyard_h=4.00,
+    model_3d="QFN-24",
 )
 
 # SN74AVC4T245RGYR — 4-bit dual-supply level translator (VQFN-16)
@@ -167,6 +171,7 @@ SN74AVC4T245 = ComponentDef(
     ),
     pads=pads_vqfn16(epad=1.70),
     courtyard_w=4.50, courtyard_h=4.50,
+    model_3d="VQFN-16",
 )
 
 # TPS7A2018DBVR — 1.8V LDO 300mA (SOT-23-5)
@@ -185,6 +190,7 @@ TPS7A2018 = ComponentDef(
     ),
     pads=pads_sot23_5(),
     courtyard_w=3.40, courtyard_h=3.20,
+    model_3d="SOT-23-5",
 )
 
 # BSS138 — N-channel MOSFET for INT level shifting (SOT-23)
@@ -201,6 +207,7 @@ BSS138 = ComponentDef(
     ),
     pads=pads_sot23_3(),
     courtyard_w=3.40, courtyard_h=3.00,
+    model_3d="SOT-23-3",
 )
 
 
@@ -220,6 +227,7 @@ FPC_24PIN = ComponentDef(
     ),
     pads=pads_fpc_zif_24(),
     courtyard_w=15.50, courtyard_h=4.00,
+    model_3d="FPC-24-0.5",
 )
 
 # TPS7A2028DBVR — 2.8V LDO (camera AVDD)
@@ -237,6 +245,7 @@ TPS7A2028 = ComponentDef(
     ),
     pads=pads_sot23_5(),
     courtyard_w=3.40, courtyard_h=3.20,
+    model_3d="SOT-23-5",
 )
 
 # TPS7A2015DBVR — 1.5V LDO (camera DVDD)
@@ -254,6 +263,7 @@ TPS7A2015 = ComponentDef(
     ),
     pads=pads_sot23_5(),
     courtyard_w=3.40, courtyard_h=3.20,
+    model_3d="SOT-23-5",
 )
 
 
@@ -296,6 +306,7 @@ TCA9548A = ComponentDef(
     ),
     pads=pads_tssop24(),
     courtyard_w=8.00, courtyard_h=9.50,
+    model_3d="TSSOP-24",
 )
 
 # SM04B-SRSS-TB(LF)(SN) — JST-SH 4-pin SMD (ToF sensor)
@@ -314,6 +325,7 @@ JST_SH_4PIN = ComponentDef(
     ),
     pads=pads_jst_sh(4),
     courtyard_w=7.80, courtyard_h=4.50,
+    model_3d="JST-SH-4",
 )
 
 
@@ -344,6 +356,7 @@ BMP390 = ComponentDef(
     ),
     pads=pads_lga10_2x2(),
     courtyard_w=3.00, courtyard_h=3.00,
+    model_3d="LGA-10",
 )
 
 
@@ -366,6 +379,7 @@ JST_SH_3PIN = ComponentDef(
     ),
     pads=pads_jst_sh(3),
     courtyard_w=6.80, courtyard_h=4.50,
+    model_3d="JST-SH-3",
 )
 
 
@@ -395,6 +409,7 @@ WILC3000 = ComponentDef(
     pins=tuple(_wilc3000_pin(i) for i in range(34)),
     pads=pads_wilc3000_module(),
     courtyard_w=21.00, courtyard_h=15.50,
+    model_3d="WILC3000-MR10B",
 )
 
 # SM06B-SRSS-TB(LF)(SN) — JST-SH 6-pin SMD (LTC bridge cable)
@@ -415,6 +430,7 @@ JST_SH_6PIN = ComponentDef(
     ),
     pads=pads_jst_sh(6),
     courtyard_w=10.80, courtyard_h=4.50,
+    model_3d="JST-SH-6",
 )
 
 
@@ -434,6 +450,7 @@ XT60PW = ComponentDef(
     ),
     pads=pads_xt60pw(),
     courtyard_w=12.00, courtyard_h=8.00,
+    model_3d="XT60PW",
 )
 
 # SI4435DDY — P-channel MOSFET (SO-8) for reverse polarity protection
@@ -455,6 +472,7 @@ SI4435DDY = ComponentDef(
     ),
     pads=pads_soic8(),
     courtyard_w=6.50, courtyard_h=5.50,
+    model_3d="SOIC-8",
 )
 
 # SMBJ20A — TVS diode 20V (SMB package)
@@ -469,6 +487,7 @@ TVS_SMBJ20A = ComponentDef(
     ),
     pads=pads_smb(),
     courtyard_w=6.50, courtyard_h=4.50,
+    model_3d="SMB",
 )
 
 # BZX84C15 — 15V Zener diode (SOT-23)
@@ -484,6 +503,7 @@ BZX84C15 = ComponentDef(
     ),
     pads=pads_sot23_3(),
     courtyard_w=3.40, courtyard_h=3.00,
+    model_3d="SOT-23-3",
 )
 
 # TPS54560DDAR — 5V/5A buck converter (HSOP-8 with PowerPAD)
@@ -506,6 +526,7 @@ TPS54560 = ComponentDef(
     ),
     pads=pads_hsop8_powerpad(),
     courtyard_w=8.00, courtyard_h=7.00,
+    model_3d="HSOP-8",
 )
 
 # SRP1265A-100M — 10uH power inductor (12.5×12.5mm)
@@ -520,6 +541,7 @@ INDUCTOR_10UH = ComponentDef(
     ),
     pads=pads_inductor_1265(),
     courtyard_w=14.50, courtyard_h=14.50,
+    model_3d="SRP1265A",
 )
 
 # AP2112K-3.3TRG1 — 3.3V/600mA LDO (SOT-23-5)
@@ -538,6 +560,7 @@ AP2112K = ComponentDef(
     ),
     pads=pads_sot23_5(),
     courtyard_w=3.40, courtyard_h=3.20,
+    model_3d="SOT-23-5",
 )
 
 # INA219BIDR — Current/power monitor (SOT-23-8)
@@ -559,6 +582,7 @@ INA219 = ComponentDef(
     ),
     pads=pads_sot23_8(),
     courtyard_w=3.40, courtyard_h=3.20,
+    model_3d="SOT-23-8",
 )
 
 # CSS2H-2512R-L010F — 10mΩ 2W current sense shunt (2512)
@@ -573,6 +597,7 @@ SHUNT_10MOHM = ComponentDef(
     ),
     pads=pads_chip_2512(),
     courtyard_w=7.80, courtyard_h=4.20,
+    model_3d="2512",
 )
 
 # DC005-T25 — 5.5×2.1mm barrel jack (LCSC stock replacement)
@@ -588,6 +613,7 @@ BARREL_JACK = ComponentDef(
     ),
     pads=pads_barrel_jack(),
     courtyard_w=10.00, courtyard_h=12.00,
+    model_3d="PJ-102AH",
 )
 
 # DC-005-20A — 2-pin power connector (arm switch replacement)
@@ -602,6 +628,7 @@ XT30PW = ComponentDef(
     ),
     pads=pads_xt30pw(),
     courtyard_w=8.00, courtyard_h=6.00,
+    model_3d="XT30PW",
 )
 
 
@@ -622,6 +649,7 @@ AO3400A = ComponentDef(
     ),
     pads=pads_sot23_3(),
     courtyard_w=3.40, courtyard_h=3.00,
+    model_3d="SOT-23-3",
 )
 
 # SS14 — 1A 40V Schottky diode (SMA)
@@ -636,6 +664,7 @@ SS14 = ComponentDef(
     ),
     pads=pads_sma(),
     courtyard_w=5.00, courtyard_h=3.50,
+    model_3d="SMA",
 )
 
 # B2B-XH-A(LF)(SN) — JST-XH 2-pin (pump, buzzer, ESTOP, ARM)
@@ -650,6 +679,7 @@ JST_XH_2PIN = ComponentDef(
     ),
     pads=pads_jst_xh(2),
     courtyard_w=8.00, courtyard_h=5.00,
+    model_3d="JST-XH-2",
 )
 
 
@@ -667,6 +697,7 @@ def _resistor(value: str, lcsc: str) -> ComponentDef:
         pins=(Pin("1", "1", "passive"), Pin("2", "2", "passive")),
         pads=pads_chip_0402(),
         courtyard_w=1.60, courtyard_h=1.00,
+        model_3d="0402",
     )
 
 
@@ -683,6 +714,7 @@ def _capacitor(value: str, package: str, lcsc: str) -> ComponentDef:
         pins=(Pin("1", "1", "passive"), Pin("2", "2", "passive")),
         pads=pads_fn[package](),
         courtyard_w=cw[package], courtyard_h=ch[package],
+        model_3d=package,
     )
 
 
@@ -722,6 +754,7 @@ LED_GREEN = ComponentDef(
     pins=(Pin("1", "A", "passive"), Pin("2", "K", "passive")),
     pads=pads_led_0603(),
     courtyard_w=2.40, courtyard_h=1.50,
+    model_3d="0603",
 )
 
 LED_RED = ComponentDef(
@@ -732,6 +765,7 @@ LED_RED = ComponentDef(
     pins=(Pin("1", "A", "passive"), Pin("2", "K", "passive")),
     pads=pads_led_0603(),
     courtyard_w=2.40, courtyard_h=1.50,
+    model_3d="0603",
 )
 
 LED_BLUE = ComponentDef(
@@ -742,6 +776,7 @@ LED_BLUE = ComponentDef(
     pins=(Pin("1", "A", "passive"), Pin("2", "K", "passive")),
     pads=pads_led_0603(),
     courtyard_w=2.40, courtyard_h=1.50,
+    model_3d="0603",
 )
 
 LED_YELLOW = ComponentDef(
@@ -752,6 +787,7 @@ LED_YELLOW = ComponentDef(
     pins=(Pin("1", "A", "passive"), Pin("2", "K", "passive")),
     pads=pads_led_0603(),
     courtyard_w=2.40, courtyard_h=1.50,
+    model_3d="0603",
 )
 
 # GPIO headers (2×20 female) — BOOMELE replacement
@@ -763,4 +799,5 @@ GPIO_HEADER_2X20 = ComponentDef(
     pins=tuple(Pin(str(i + 1), f"P{i + 1}", "passive") for i in range(40)),
     pads=pads_header_2x20(),
     courtyard_w=6.00, courtyard_h=52.00,
+    model_3d="GPIO-2x20",
 )
