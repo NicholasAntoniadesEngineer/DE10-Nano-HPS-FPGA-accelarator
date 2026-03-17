@@ -28,6 +28,14 @@ def export_gerber_pcbs(pcb_generators, output_dir, readme_text=None, verbose=Fal
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Generate 3D STEP models for all component packages
+    try:
+        from cadquery_framework.kicad.models_3d.step_generator import generate_all_package_models
+        models_3d_dir = output_dir / "models_3d"
+        generate_all_package_models(models_3d_dir, verbose=verbose)
+    except Exception as e:
+        print(f"  [warning] 3D STEP model generation failed: {e}")
+
     # Write shared design rules file — one copy used by all boards in this directory
     dru_path = output_dir / _DRU_FILENAME
     dru_path.write_text(dru_content(), encoding="utf-8")

@@ -351,7 +351,7 @@ def _footprint_sexpr(placement: CompPlacement,
 
     # 3D model reference (if component has one defined)
     if placement.component.model_3d:
-        model_path = f"${{KIPRJMOD}}/../../cadquery_framework/kicad/models_3d/step/{placement.component.model_3d}.step"
+        model_path = f"${{KIPRJMOD}}/models_3d/step/{placement.component.model_3d}.step"
         lines.append(
             f'  (model "{model_path}"\n'
             f'    (offset (xyz 0 0 0))\n'
