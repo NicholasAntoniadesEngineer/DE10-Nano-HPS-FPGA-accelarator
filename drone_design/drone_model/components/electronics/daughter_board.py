@@ -947,7 +947,19 @@ def generate_daughter_board_pcb():
     for hcx, hcy in hex_centers:
         segs.extend(rounded_hexagon_outline(hcx, hcy, KAGOME_HOLE_R, _hex_r))
 
-    content = outline_to_sexpr(segs)
+    # Transform all outline segments from centre-origin to board-origin (0-110)
+    transformed_segs = []
+    for seg in segs:
+        if seg[0] == "line":
+            _, x1, y1, x2, y2 = seg
+            transformed_segs.append(("line", x1 + ox, y1 + oy, x2 + ox, y2 + oy))
+        elif seg[0] == "arc":
+            _, cx, cy, r, sa, ea = seg
+            transformed_segs.append(("arc", cx + ox, cy + oy, r, sa, ea))
+        else:
+            transformed_segs.append(seg)
+
+    content = outline_to_sexpr(transformed_segs)
 
     # ── Mounting holes (NPTH) ────────────────────────────────────────────────
     gnd_net_id = net_ids.get("GND", 0)
