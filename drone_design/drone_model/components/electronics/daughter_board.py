@@ -6,6 +6,7 @@ Two 2x20 GPIO receptacle headers connect to DE10-Nano GPIO0 and GPIO1.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 try:
@@ -506,6 +507,179 @@ def _kicad_pcb_4layer(title, thickness, nets_block, content):
 """
 
 
+def _outer_boundary_with_prop_arcs(bw, bh, cr, dims, arm_angles, plate_size):
+    """Build the outer board boundary with propeller arc cutouts replacing corners.
+
+    Instead of a full rounded rectangle + appended arcs (which creates
+    overlapping Edge.Cuts segments), this builds a single closed boundary
+    where each corner is replaced by the propeller clearance arc.
+
+    Boundary goes clockwise: right edge → 45° arc → top edge → 135° arc →
+    left edge → 225° arc → bottom edge → 315° arc.
+    """
+    half = plate_size / 2  # 55mm
+    motor_r = dims["arms"]["motor_to_motor_diagonal"] / 2  # 110mm
+    prop_r = (dims["propeller"]["diameter"] / 2
+              + dims.get("motor_riser", {}).get("prop_clearance_margin", 3.0))  # 54mm
+
+    def _intersect_edge(mx, my, edge_axis, edge_val, half_plate):
+        """Find where propeller circle intersects a board edge.
+
+        edge_axis='x' means vertical edge at x=edge_val.
+        edge_axis='y' means horizontal edge at y=edge_val.
+        Returns list of (x, y) points on the board edge.
+        """
+        pts = []
+        if edge_axis == "x":
+            dx = edge_val - mx
+            if abs(dx) < prop_r:
+                dy = math.sqrt(prop_r ** 2 - dx ** 2)
+                for sign in [1, -1]:
+                    iy = my + sign * dy
+                    if -half_plate <= iy <= half_plate:
+                        pts.append((edge_val, iy))
+        else:  # y
+            dy = edge_val - my
+            if abs(dy) < prop_r:
+                ddx = math.sqrt(prop_r ** 2 - dy ** 2)
+                for sign in [1, -1]:
+                    ix = mx + sign * ddx
+                    if -half_plate <= ix <= half_plate:
+                        pts.append((ix, edge_val))
+        return pts
+
+    # For each corner motor, find the intersection on each adjacent edge.
+    # Map: corner_angle → {edge1_pt, edge2_pt, motor_centre, arc_angles}
+    # 45° motor  → intersects right edge (x=+half) and top edge (y=+half)
+    # 135° motor → intersects top edge (y=+half) and left edge (x=-half)
+    # 225° motor → intersects left edge (x=-half) and bottom edge (y=-half)
+    # 315° motor → intersects bottom edge (y=-half) and right edge (x=+half)
+
+    corner_data = {}  # angle → dict with edge intersection points + arc params
+
+    for angle_deg in arm_angles:
+        rad = math.radians(angle_deg)
+        mx = motor_r * math.cos(rad)
+        my = motor_r * math.sin(rad)
+
+        # Determine the two adjacent edges for this corner
+        if angle_deg == 45:
+            edges = [("x", half), ("y", half)]  # right, top
+        elif angle_deg == 135:
+            edges = [("y", half), ("x", -half)]  # top, left
+        elif angle_deg == 225:
+            edges = [("x", -half), ("y", -half)]  # left, bottom
+        elif angle_deg == 315:
+            edges = [("y", -half), ("x", half)]  # bottom, right
+        else:
+            continue
+
+        pts_per_edge = {}
+        for axis, val in edges:
+            hits = _intersect_edge(mx, my, axis, val, half)
+            if hits:
+                # Take the point closest to the corner
+                corner_x = half if mx > 0 else -half
+                corner_y = half if my > 0 else -half
+                hits.sort(key=lambda p: math.hypot(p[0] - corner_x, p[1] - corner_y))
+                pts_per_edge[(axis, val)] = hits[0]
+
+        if len(pts_per_edge) == 2:
+            edge_keys = list(pts_per_edge.keys())
+            p1 = pts_per_edge[edge_keys[0]]
+            p2 = pts_per_edge[edge_keys[1]]
+
+            # Arc angles from motor centre
+            a1 = math.degrees(math.atan2(p1[1] - my, p1[0] - mx))
+            a2 = math.degrees(math.atan2(p2[1] - my, p2[0] - mx))
+
+            # Determine correct arc direction (the one containing the board corner)
+            corner_x = half if mx > 0 else -half
+            corner_y = half if my > 0 else -half
+            ca = math.degrees(math.atan2(corner_y - my, corner_x - mx))
+
+            def _in_ccw_arc(s, e, t):
+                s, e, t = s % 360, e % 360, t % 360
+                return (s <= t <= e) if s <= e else (t >= s or t <= e)
+
+            if _in_ccw_arc(a1, a2, ca):
+                sa, ea = a1, a2
+            else:
+                sa, ea = a2, a1
+
+            # Store edge→point mapping (stable, not affected by arc direction)
+            corner_data[angle_deg] = {
+                "mx": mx, "my": my, "r": prop_r,
+                "sa": sa, "ea": ea,
+                "edge_pts": dict(pts_per_edge),  # {edge_key: (x, y)}
+            }
+
+    # Now build the boundary. Each edge is trimmed between two corner arcs.
+    # Right edge (x=+half): from 315°.right_pt up to 45°.right_pt
+    # Top edge (y=+half): from 45°.top_pt left to 135°.top_pt
+    # Left edge (x=-half): from 135°.left_pt down to 225°.left_pt
+    # Bottom edge (y=-half): from 225°.bottom_pt right to 315°.bottom_pt
+
+    def _get_edge_pt(angle, edge_key):
+        """Get the intersection point for a specific corner and edge."""
+        d = corner_data.get(angle)
+        if not d:
+            return None
+        return d["edge_pts"].get(edge_key)
+
+    segs = []
+
+    # Right edge (x = +half): y from bottom to top
+    right_bottom = _get_edge_pt(315, ("x", half))
+    right_top = _get_edge_pt(45, ("x", half))
+    ry_bot = right_bottom[1] if right_bottom else -half + cr
+    ry_top = right_top[1] if right_top else half - cr
+    segs.append(("line", half, ry_bot, half, ry_top))
+
+    # 45° arc (top-right corner)
+    if 45 in corner_data:
+        d = corner_data[45]
+        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+
+    # Top edge (y = +half): x from right to left
+    top_right = _get_edge_pt(45, ("y", half))
+    top_left = _get_edge_pt(135, ("y", half))
+    tx_right = top_right[0] if top_right else half - cr
+    tx_left = top_left[0] if top_left else -half + cr
+    segs.append(("line", tx_right, half, tx_left, half))
+
+    # 135° arc (top-left corner)
+    if 135 in corner_data:
+        d = corner_data[135]
+        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+
+    # Left edge (x = -half): y from top to bottom
+    left_top = _get_edge_pt(135, ("x", -half))
+    left_bottom = _get_edge_pt(225, ("x", -half))
+    ly_top = left_top[1] if left_top else half - cr
+    ly_bot = left_bottom[1] if left_bottom else -half + cr
+    segs.append(("line", -half, ly_top, -half, ly_bot))
+
+    # 225° arc (bottom-left corner)
+    if 225 in corner_data:
+        d = corner_data[225]
+        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+
+    # Bottom edge (y = -half): x from left to right
+    bot_left = _get_edge_pt(225, ("y", -half))
+    bot_right = _get_edge_pt(315, ("y", -half))
+    bx_left = bot_left[0] if bot_left else -half + cr
+    bx_right = bot_right[0] if bot_right else half - cr
+    segs.append(("line", bx_left, -half, bx_right, -half))
+
+    # 315° arc (bottom-right corner)
+    if 315 in corner_data:
+        d = corner_data[315]
+        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+
+    return segs
+
+
 def generate_daughter_board_pcb():
     """Generate production-quality .kicad_pcb for the combined top plate + daughter board.
 
@@ -575,7 +749,7 @@ def generate_daughter_board_pcb():
     ox = bw / 2   # offset: top-left (0,0) → centre
     oy = bh / 2
 
-    segs = rounded_rect_outline(bw, bh, cr)
+    segs = _outer_boundary_with_prop_arcs(bw, bh, cr, _D, ARM_ANGLES, PLATE_SIZE)
 
     # ── Heatsink/fan pass-through cutout (centre of board) ─────────────────
     _hs_w = _D["de10_nano"]["heatsink_width"]
@@ -618,92 +792,6 @@ def generate_daughter_board_pcb():
     hex_centers = _kagome_cutout_centers_pcb(PLATE_SIZE, keepouts)
     for hcx, hcy in hex_centers:
         segs.extend(rounded_hexagon_outline(hcx, hcy, KAGOME_HOLE_R, _hex_r))
-
-    # ── Propeller clearance arc cutouts on Edge.Cuts ───────────────────────
-    # Motor positions at 45/135/225/315° on diagonal, distance = motor_to_motor_diagonal / 2.
-    # Prop disc radius = propeller diameter / 2 + clearance margin.
-    # Where each prop disc overlaps the board rectangle, draw an arc cutout.
-    _motor_r = _D["arms"]["motor_to_motor_diagonal"] / 2  # 110mm
-    _prop_r = _D["propeller"]["diameter"] / 2 + _D.get("motor_riser", {}).get("prop_clearance_margin", 3.0)  # 54mm
-    _half_plate = PLATE_SIZE / 2  # 55mm
-
-    for _angle_deg in ARM_ANGLES:  # 45, 135, 225, 315
-        _rad = math.radians(_angle_deg)
-        _mx = _motor_r * math.cos(_rad)  # motor centre X (centre-origin)
-        _my = _motor_r * math.sin(_rad)  # motor centre Y (centre-origin)
-
-        # Find intersections of the prop circle (cx=_mx, cy=_my, r=_prop_r)
-        # with the board rectangle edges (±_half_plate).
-        # Each corner motor can intersect two edges of the board rectangle.
-        intersections = []
-
-        # Check all 4 board edges: x = ±half, y = ±half
-        for edge_val in [-_half_plate, _half_plate]:
-            # Vertical edges: x = edge_val
-            dx = edge_val - _mx
-            if abs(dx) < _prop_r:
-                dy_sq = _prop_r ** 2 - dx ** 2
-                dy = math.sqrt(dy_sq)
-                for sign in [1, -1]:
-                    iy = _my + sign * dy
-                    # Point must be on the board edge segment
-                    if -_half_plate - 0.01 <= iy <= _half_plate + 0.01:
-                        iy = max(-_half_plate, min(_half_plate, iy))
-                        intersections.append((edge_val, iy))
-
-            # Horizontal edges: y = edge_val
-            dy = edge_val - _my
-            if abs(dy) < _prop_r:
-                dx_sq = _prop_r ** 2 - dy ** 2
-                ddx = math.sqrt(dx_sq)
-                for sign in [1, -1]:
-                    ix = _mx + sign * ddx
-                    if -_half_plate - 0.01 <= ix <= _half_plate + 0.01:
-                        ix = max(-_half_plate, min(_half_plate, ix))
-                        intersections.append((ix, edge_val))
-
-        # Deduplicate points that are very close (corner intersections)
-        unique_pts = []
-        for pt in intersections:
-            if not any(abs(pt[0] - u[0]) < 0.01 and abs(pt[1] - u[1]) < 0.01 for u in unique_pts):
-                unique_pts.append(pt)
-
-        if len(unique_pts) >= 2:
-            # Compute angle (degrees) of each intersection relative to motor centre
-            pt_angles = []
-            for pt in unique_pts:
-                a = math.degrees(math.atan2(pt[1] - _my, pt[0] - _mx))
-                pt_angles.append((a, pt))
-            pt_angles.sort(key=lambda x: x[0])
-
-            # The arc that cuts into the board passes through the board corner.
-            # Find the angular direction toward the board corner from motor centre.
-            corner_x = _half_plate * (1 if math.cos(_rad) > 0 else -1)
-            corner_y = _half_plate * (1 if math.sin(_rad) > 0 else -1)
-            corner_angle = math.degrees(math.atan2(corner_y - _my, corner_x - _mx))
-
-            # Select the arc span that contains corner_angle.
-            # With 2 intersection points we have two candidate arcs.
-            sa = pt_angles[0][0]
-            ea = pt_angles[-1][0]
-
-            # Normalise corner_angle into the same range
-            def _angle_between(start, end, test):
-                """Check if test angle is in the CCW arc from start to end."""
-                s = start % 360
-                e = end % 360
-                t = test % 360
-                if s <= e:
-                    return s <= t <= e
-                else:
-                    return t >= s or t <= e
-
-            if _angle_between(sa, ea, corner_angle):
-                # Arc from sa to ea contains the corner
-                segs.append(("arc", _mx, _my, _prop_r, sa, ea))
-            else:
-                # Arc from ea to sa (going the other way) contains the corner
-                segs.append(("arc", _mx, _my, _prop_r, ea, ea + (360 - (ea - sa))))
 
     content = outline_to_sexpr(segs)
 

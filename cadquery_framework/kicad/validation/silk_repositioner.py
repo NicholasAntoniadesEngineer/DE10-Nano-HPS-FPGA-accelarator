@@ -2,7 +2,7 @@
 
 Algorithm:
   1. Compute default silk positions (courtyard_h/2 + 1.0mm above component centre).
-  2. Build obstacle list: all pad AABBs, mounting holes, board edges.
+  2. Build obstacle list: all pad AABBs, mounting holes, board edges, propeller cutouts.
   3. For each label, check if default position is free. If not, try candidate
      positions in a spiral pattern (8 directions × increasing distances) until
      a collision-free spot is found.
@@ -14,8 +14,10 @@ The returned offsets replace the default (0, -hh - 1.0) in the footprint seriali
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
 
 from cadquery_framework.kicad.component_library import BoardDefinition, Placement
 from cadquery_framework.kicad.jlcpcb_constraints import (
@@ -37,6 +39,45 @@ def _aabb_circle_overlap(aabb: tuple[float, float, float, float],
     closest_x = max(aabb[0], min(cx, aabb[2]))
     closest_y = max(aabb[1], min(cy, aabb[3]))
     return math.hypot(closest_x - cx, closest_y - cy) < r
+
+
+def _point_in_cutout(x: float, y: float, half: float,
+                     cutouts: list[tuple[float, float, float]]) -> bool:
+    """Check if a point (board coords, top-left origin) is in a propeller cutout zone.
+
+    A point is in the cutout if:
+      1. It is outside the board rectangle (beyond any edge), OR
+      2. It is inside a propeller disc AND beyond a board corner
+         (i.e., the propeller arc has cut away the PCB material there).
+    """
+    # Convert to centre-origin for propeller geometry
+    cx = x - half
+    cy = y - half
+    for mx, my, pr in cutouts:
+        dist = math.hypot(cx - mx, cy - my)
+        if dist < pr:
+            # Inside propeller disc — check if the board corner is cut away here.
+            # The cutout removes material OUTSIDE the arc (toward the corner).
+            # Point is in cutout if it's closer to the corner than the arc.
+            # Simple check: point is beyond both adjacent edges toward this corner.
+            corner_x = half if mx > 0 else -half
+            corner_y = half if my > 0 else -half
+            # Is the point on the corner side of the motor?
+            if ((cx - mx) * (corner_x - mx) > 0 or abs(cx - mx) < 1.0) and \
+               ((cy - my) * (corner_y - my) > 0 or abs(cy - my) < 1.0):
+                return True
+    return False
+
+
+def _aabb_in_cutout(aabb: tuple[float, float, float, float], half: float,
+                    cutouts: list[tuple[float, float, float]]) -> bool:
+    """Check if ANY corner of the AABB is in a propeller cutout zone."""
+    x1, y1, x2, y2 = aabb
+    for x, y in [(x1, y1), (x2, y1), (x1, y2), (x2, y2),
+                 ((x1 + x2) / 2, (y1 + y2) / 2)]:
+        if _point_in_cutout(x, y, half, cutouts):
+            return True
+    return False
 
 
 def _text_aabb(bx: float, by: float, text: str, height: float,
@@ -96,6 +137,29 @@ def _build_hole_obstacles(board: BoardDefinition) -> list[tuple[float, float, fl
             for hx, hy, hd in board.mounting_holes]
 
 
+def _build_propeller_cutouts(board_size: float) -> list[tuple[float, float, float]]:
+    """Build propeller cutout circles in centre-origin coordinates.
+
+    Returns list of (mx, my, prop_radius) for each motor.
+    """
+    dims_path = Path(__file__).resolve().parents[3] / "drone_design" / "drone_model" / "dimensions.json"
+    if not dims_path.exists():
+        return []
+    dims = json.loads(dims_path.read_text())
+    motor_r = dims["arms"]["motor_to_motor_diagonal"] / 2
+    prop_r = (dims["propeller"]["diameter"] / 2
+              + dims.get("motor_riser", {}).get("prop_clearance_margin", 3.0))
+    arm_angles = dims["arms"]["arm_angles_deg"]
+
+    cutouts = []
+    for angle_deg in arm_angles:
+        rad = math.radians(angle_deg)
+        mx = motor_r * math.cos(rad)
+        my = motor_r * math.sin(rad)
+        cutouts.append((mx, my, prop_r))
+    return cutouts
+
+
 # ── Candidate generation ───────────────────────────────────────────────────
 
 # 8 directions: above, below, left, right, and 4 diagonals
@@ -116,17 +180,12 @@ _DISTANCES = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
 
 def _candidate_offsets(courtyard_w: float, courtyard_h: float,
                        ) -> list[tuple[float, float]]:
-    """Generate candidate (local_dx, local_dy) offsets for silk label placement.
-
-    Returns offsets in footprint-local coordinates (pre-rotation).
-    The first candidate is the default position (above).
-    """
+    """Generate candidate (local_dx, local_dy) offsets for silk label placement."""
     candidates = []
     hw = courtyard_w / 2
     hh = courtyard_h / 2
     for dist in _DISTANCES:
         for dx_dir, dy_dir in _DIRECTIONS:
-            # Offset from component centre in local coords
             lx = dx_dir * (hw + dist) if dx_dir != 0 else 0.0
             ly = dy_dir * (hh + dist) if dy_dir != 0 else 0.0
             candidates.append((lx, ly))
@@ -144,9 +203,11 @@ def reposition_silk_labels(board: BoardDefinition) -> dict[str, tuple[float, flo
     """
     pad_obstacles = _build_pad_obstacles(board)
     hole_obstacles = _build_hole_obstacles(board)
+    prop_cutouts = _build_propeller_cutouts(board.width)
     edge_margin = JLCPCB_COPPER_TO_EDGE_MM
     bw = board.width
     bh = board.height
+    half = bw / 2  # for centre-origin conversion
 
     # Board-level text obstacles (title labels at fixed positions)
     board_label_aabbs = [
@@ -180,6 +241,10 @@ def reposition_silk_labels(board: BoardDefinition) -> dict[str, tuple[float, flo
                 silk_aabb[2] > bw - edge_margin or
                 silk_aabb[1] < edge_margin or
                 silk_aabb[3] > bh - edge_margin):
+                continue
+
+            # Check propeller cutout zones (no PCB material there)
+            if prop_cutouts and _aabb_in_cutout(silk_aabb, half, prop_cutouts):
                 continue
 
             # Check pad obstacles
