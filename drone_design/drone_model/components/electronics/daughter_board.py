@@ -3,6 +3,7 @@
 Mounts above DE10-Nano via M2.5 standoffs at the same hole pattern.
 Two 2x20 GPIO receptacle headers connect to DE10-Nano GPIO0 and GPIO1.
 """
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -268,7 +269,8 @@ def _pad_sexpr(pad: PadGeometry, net_id: int, net_name: str,
 
 def _footprint_sexpr(placement: CompPlacement,
                      pin_net_map: dict[str, str],
-                     net_ids: dict[str, int]) -> str:
+                     net_ids: dict[str, int],
+                     silk_offsets: dict[str, tuple[float, float]] | None = None) -> str:
     """Generate complete footprint S-expression for a placed component.
 
     Uses real pad geometry from ComponentDef, with net assignments from
@@ -290,9 +292,13 @@ def _footprint_sexpr(placement: CompPlacement,
     lines.append(f'  (at {placement.x:.4f} {placement.y:.4f} {placement.rotation:.1f})')
     lines.append(f'  (descr "{comp.description}")')
 
-    # Reference designator on silkscreen
+    # Reference designator on silkscreen (auto-repositioned if offsets provided)
+    if silk_offsets and ref in silk_offsets:
+        silk_dx, silk_dy = silk_offsets[ref]
+    else:
+        silk_dx, silk_dy = 0.0, -hh - 1.0
     lines.append(
-        f'    (fp_text reference "{ref}" (at 0 {-hh - 1.0:.3f}) '
+        f'    (fp_text reference "{ref}" (at {silk_dx:.3f} {silk_dy:.3f}) '
         f'(layer "{layer_prefix}.SilkS") (uuid "{_uid()}")\n'
         f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) '
         f'(thickness {SILK_MICRO_THICK_MM})))\n'
@@ -535,12 +541,18 @@ def generate_daughter_board_pcb():
     from drone_design.drone_model.components.electronics.daughter_board_netlist import build_board
     board = build_board()
 
-    # Validate silkscreen DRC (currently warnings-only — labels will be manually repositioned)
+    # Auto-reposition silk labels to avoid collisions
+    from cadquery_framework.kicad.validation.silk_repositioner import reposition_silk_labels
+    silk_offsets = reposition_silk_labels(board)
+
+    # Validate silkscreen DRC with repositioned labels
     from cadquery_framework.kicad.validation.silkscreen_checker import validate_silkscreen
-    result = validate_silkscreen(board)
+    result = validate_silkscreen(board, silk_offsets=silk_offsets)
     if result.errors:
-        # Log violations but don't block build — silk labels repositioned manually in KiCad
-        print(f"[silkscreen] {len(result.errors)} label positioning issues found (manual fix in KiCad)")
+        print(f"[silkscreen] {len(result.errors)} label issues remain after auto-reposition")
+        print(result.report())
+    else:
+        print(f"[silkscreen] All labels repositioned — 0 errors")
 
     bw = board.width      # 110.0 mm (PLATE_SIZE)
     bh = board.height     # 110.0 mm
@@ -730,7 +742,8 @@ def generate_daughter_board_pcb():
             rotation=placement.rotation,
             side=placement.side,
         )
-        content += "\n" + _footprint_sexpr(shifted, pin_nets, net_ids)
+        content += "\n" + _footprint_sexpr(shifted, pin_nets, net_ids,
+                                          silk_offsets=silk_offsets)
 
     # ── Copper zone pours on inner layers ────────────────────────────────────
     margin = 0.5

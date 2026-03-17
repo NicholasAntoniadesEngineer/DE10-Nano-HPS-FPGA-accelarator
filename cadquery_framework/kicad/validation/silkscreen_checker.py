@@ -116,8 +116,15 @@ def _compute_silk_text_aabb(
     return (x - rot_hw, y - rot_hh, x + rot_hw, y + rot_hh)
 
 
-def validate_silkscreen(board: BoardDefinition) -> SilkscreenResult:
-    """Run silkscreen validation checks."""
+def validate_silkscreen(
+    board: BoardDefinition,
+    silk_offsets: dict[str, tuple[float, float]] | None = None,
+) -> SilkscreenResult:
+    """Run silkscreen validation checks.
+
+    If silk_offsets is provided, use those (local_dx, local_dy) positions
+    instead of the default (0, -courtyard_h/2 - 1.0) for each component ref.
+    """
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -132,16 +139,18 @@ def validate_silkscreen(board: BoardDefinition) -> SilkscreenResult:
         p = placement
         c = p.component
 
-        # Reference text position:
-        # - Positioned at distance d = courtyard_h/2 + 1.0 from component centre
-        # - Along the direction perpendicular to rotation angle
-        # - text_bx = p.x + d * sin(θ_rad)
-        # - text_by = p.y - d * cos(θ_rad)
-        courtyard_h = c.courtyard_h
-        d = courtyard_h / 2 + 1.0
+        # Use repositioned offset if available, else default
+        if silk_offsets and p.ref in silk_offsets:
+            lx, ly = silk_offsets[p.ref]
+        else:
+            lx, ly = 0.0, -(c.courtyard_h / 2 + 1.0)
+
+        # Transform local offset to board coordinates
         theta_rad = math.radians(p.rotation)
-        text_bx = p.x + d * math.sin(theta_rad)
-        text_by = p.y - d * math.cos(theta_rad)
+        cos_a = math.cos(theta_rad)
+        sin_a = math.sin(theta_rad)
+        text_bx = p.x + lx * cos_a - ly * sin_a
+        text_by = p.y + lx * sin_a + ly * cos_a
 
         # Compute reference text AABB
         ref_aabb = _compute_silk_text_aabb(
