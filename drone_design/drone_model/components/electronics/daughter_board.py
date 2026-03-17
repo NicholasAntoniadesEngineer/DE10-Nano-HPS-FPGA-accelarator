@@ -342,6 +342,17 @@ def _footprint_sexpr(placement: CompPlacement,
         is_pin1 = (pad.number == comp.pads[0].number)
         lines.append(_pad_sexpr(pad, net_id, net_name, pin1=is_pin1))
 
+    # 3D model reference (if component has one defined)
+    if placement.component.model_3d:
+        model_path = f"${{KIPRJMOD}}/../../cadquery_framework/kicad/models_3d/step/{placement.component.model_3d}.step"
+        lines.append(
+            f'  (model "{model_path}"\n'
+            f'    (offset (xyz 0 0 0))\n'
+            f'    (scale (xyz 1 1 1))\n'
+            f'    (rotate (xyz 0 0 0))\n'
+            f'  )'
+        )
+
     lines.append('  )')
     return "\n".join(lines)
 
@@ -523,6 +534,12 @@ def generate_daughter_board_pcb():
     # Import netlist and build board definition
     from drone_design.drone_model.components.electronics.daughter_board_netlist import build_board
     board = build_board()
+
+    # Validate silkscreen DRC
+    from cadquery_framework.kicad.validation.silkscreen_checker import validate_silkscreen
+    result = validate_silkscreen(board)
+    if not result.ok:
+        raise ValueError(f"Silkscreen validation failed:\n{result.report()}")
 
     bw = board.width      # 110.0 mm (PLATE_SIZE)
     bh = board.height     # 110.0 mm

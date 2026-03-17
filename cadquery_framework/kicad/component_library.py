@@ -123,6 +123,7 @@ class ComponentDef:
     pads: tuple[PadGeometry, ...]  # all physical pads
     courtyard_w: float       # bounding box width (mm) — includes margin
     courtyard_h: float       # bounding box height (mm)
+    model_3d: str = ""       # Package name for STEP model, e.g., "SOT-23-3"
 
     def __post_init__(self):
         # Validate that every pad number corresponds to a pin number
