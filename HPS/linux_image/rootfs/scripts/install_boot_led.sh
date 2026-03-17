@@ -10,10 +10,14 @@ set -e
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOTFS_DIR="${SCRIPT_DIR}/../build/rootfs"
+ROOTFS_DIR="${ROOTFS_DIR:-${SCRIPT_DIR}/../build/rootfs}"
 
 # Source locations (relative to HPS directory)
 HPS_DIR="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
+# Docker volume fallback: when running from /var/lib/rootfs-build, SCRIPT_DIR resolves to /
+if [ ! -d "${HPS_DIR}/applications" ] && [ -d "/workspace/HPS" ]; then
+    HPS_DIR="/workspace/HPS"
+fi
 BOOT_LED_DIR="${HPS_DIR}/applications/boot_led"
 BOOT_LED_BIN="${BOOT_LED_DIR}/boot_led"
 BOOT_LED_SERVICE="${BOOT_LED_DIR}/boot-led.service"

@@ -9,9 +9,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOTFS_DIR="${SCRIPT_DIR}/../build/rootfs"
+ROOTFS_DIR="${ROOTFS_DIR:-${SCRIPT_DIR}/../build/rootfs}"
 
 HPS_DIR="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
+# Docker volume fallback: when running from /var/lib/rootfs-build, SCRIPT_DIR resolves to /
+if [ ! -d "${HPS_DIR}/applications" ] && [ -d "/workspace/HPS" ]; then
+    HPS_DIR="/workspace/HPS"
+fi
 DEMO_DIR="${HPS_DIR}/applications/calculator_demo"
 DEMO_BIN="${DEMO_DIR}/calculator_demo"
 DEMO_SERVICE="${DEMO_DIR}/calculator-demo.service"

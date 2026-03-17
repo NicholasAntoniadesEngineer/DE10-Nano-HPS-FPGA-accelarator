@@ -2,7 +2,6 @@
 #
 # Makefile to Manage QuartusII/QSys Design
 #
-# Copyright Altera (c) 2016
 # All Rights Reserved
 #
 ################################################
@@ -12,37 +11,34 @@ SHELL := /bin/bash
 .SUFFIXES: # Delete the default suffixes
 
 ################################################
-# Common Tools
+# Tools
 
-CAT := cat
-CD := cd
-CHMOD := chmod
-CP := cp -rf
-ECHO := echo
-DATE := date
-FIND := find
-GREP := grep
-HEAD := head
-MKDIR := mkdir -p
-MV := mv
-RM := rm -rf
-SED := sed
-TAR := tar
-TOUCH := touch
-WHICH := which
+CAT    := cat
+CD     := cd
+CHMOD  := chmod
+CP     := cp -rf
+ECHO   := echo
+DATE   := date
+FIND   := find
+GREP   := grep
+HEAD   := head
+MKDIR  := mkdir -p
+MV     := mv
+RM     := rm -rf
+SED    := sed
+TAR    := tar
+TOUCH  := touch
+WHICH  := which
 
 # Helpful Macros
 SPACE := $(empty) $(empty)
 
 # Colors for output
-GREEN := \033[0;32m
+GREEN  := \033[0;32m
 YELLOW := \033[1;33m
-BLUE := \033[0;34m
-RED := \033[0;31m
-NC := \033[0m
-
-################################################
-# Platform Detection
+BLUE   := \033[0;34m
+RED    := \033[0;31m
+NC     := \033[0m
 
 ifndef COMSPEC
 ifdef ComSpec
@@ -62,8 +58,8 @@ endif
 
 ################################################
 # Fast-path for Clean Targets
-################################################
 # Skip expensive tool detection when running clean targets.
+################################################
 
 CLEAN_TARGETS := clean clean-all clear-tool-cache show-tool-cache
 
@@ -82,17 +78,21 @@ QUARTUS_PARALLEL_JOBS ?= $(NPROC)
 export NUM_PARALLEL_PROCESSORS := $(QUARTUS_PARALLEL_JOBS)
 
 ################################################
-# Directory Structure
+# Directory structure
+################################################
 
-HDL_DIR := hdl
-QUARTUS_DIR := quartus
-QSYS_DIR := $(QUARTUS_DIR)/qsys
-BUILD_DIR := build
+HDL_DIR       := hdl
+QUARTUS_DIR   := quartus
+QSYS_DIR      := $(QUARTUS_DIR)/qsys
+BUILD_DIR     := build
 GENERATED_DIR := generated
-DOCS_DIR := docs
+DOCS_DIR      := docs
+
+FAST_TARGETS := fast fast-flash fast-rbf qsys-generate quartus-compile qsys_compile quartus_compile qsys_edit quartus_edit sof rbf
 
 ################################################
 # Target Stamping
+################################################
 
 SOCEDS_VERSION := $(if $(wildcard $(SOCEDS_DEST_ROOT)/version.txt),$(shell $(CAT) $(SOCEDS_DEST_ROOT)/version.txt 2>/dev/null | $(GREP) Version | $(HEAD) -n1 | $(SED) -e 's,^Version[: \t=]*\([0-9.]*\).*,\1,g' 2>/dev/null))
 
@@ -110,37 +110,34 @@ define stamp_target
 endef
 
 ################################################
-# Shared Variables (populated by included files)
+# ALL_DEPS accumulator (populated by qsys.mk and quartus.mk)
+################################################
 
 ALL_DEPS :=
-HELP_TARGETS :=
-BATCH_TARGETS :=
-
-# Fast build targets that don't require SoC EDS
-FAST_TARGETS := fast fast-flash fast-rbf qsys-generate quartus-compile qsys_compile quartus_compile qsys_edit quartus_edit sof rbf
 
 ################################################
-# Include Sub-Makefiles
+# Include modular build rules
+# Order matters: tools → qsys → quartus → clean → program → archive → help
+################################################
 
 include mk/tools.mk
 include mk/qsys.mk
 include mk/quartus.mk
-include mk/program.mk
 include mk/clean.mk
+include mk/program.mk
 include mk/archive.mk
 include mk/help.mk
 
 ################################################
-# Default Target
+# Default target
+################################################
 
 .PHONY: default
 default: help
 
 ################################################
 # Build Everything Target
-
-HELP_TARGETS += everything
-everything.HELP := Build FPGA components: QSys generation + Quartus compile + RBF
+################################################
 
 .PHONY: everything
 everything:
@@ -204,8 +201,12 @@ endif
 	@$(ECHO) "Everything build complete!"
 	@$(ECHO) "==========================================="
 
+HELP_TARGETS += everything
+everything.HELP := Build FPGA components: QSys generation + Quartus compile + RBF
+
 ################################################
-# Fast Iteration Targets (FPGA only, no HPS software)
+# Fast Iteration Targets (FPGA only)
+################################################
 
 .PHONY: fast
 ifneq ($(QSYS_FILE),)
@@ -251,7 +252,8 @@ else
 endif
 
 ################################################
-# All Target
+# All target
+################################################
 
 .PHONY: all
 all: $(ALL_DEPS)

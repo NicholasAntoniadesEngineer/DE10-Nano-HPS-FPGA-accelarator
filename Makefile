@@ -321,9 +321,9 @@ timing-report:
 # ============================================================================
 
 fpga: fpga-sof
-	$(call log_header,FPGA Post-Compile (RBF + DTB in parallel))
-	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Generating RBF and DTB in parallel..."
-	@$(MAKE) -j2 fpga-rbf-only fpga-dtb-only
+	$(call log_header,FPGA Post-Compile (RBF))
+	@echo -e "$(CYAN)[INFO]$(NC) $(TIMESTAMP) | Generating RBF..."
+	@$(MAKE) fpga-rbf-only
 	$(call log_ok,FPGA build complete)
 
 fpga-qsys:
