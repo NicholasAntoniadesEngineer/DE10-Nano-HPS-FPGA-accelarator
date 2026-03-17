@@ -1,0 +1,112 @@
+# LCSC Automation Framework Configuration
+# Copy to config.yaml and customize for your environment
+
+# LCSC API Configuration
+lcsc:
+  # Enable official LCSC API (requires approval)
+  api_enabled: false
+
+  # LCSC API credentials (get from https://www.lcsc.com/docs/openapi/)
+  api_key: ""
+  api_secret: ""
+
+  # API rate limiting (requests per minute)
+  # LCSC limits: 100-200 req/min depending on account tier
+  rate_limit_rpm: 100
+
+  # LCSC API base URL
+  base_url: "https://ips.lcsc.com"
+
+# Data source priority order
+# System tries each in order until one succeeds
+sources:
+  priority:
+    - lcsc_api              # Official LCSC REST API (fastest, requires approval)
+    - easyeda2kicad         # easyeda2kicad CLI tool (local, reliable)
+    - jlcparts_json         # Community jlcparts JSON (no rate limits)
+    - web_scraping          # Direct web scraping (slow, last resort)
+
+# Caching configuration
+cache:
+  # Enable/disable caching
+  enabled: true
+
+  # Cache directory (relative to tool directory)
+  directory: "data/lcsc_cache/"
+
+  # Cache TTL in days (refresh parts older than this)
+  ttl_days: 30
+
+# KiCAD library configuration
+kicad:
+  # Base directory for KiCAD libraries
+  # (relative to tool directory - adjust as needed)
+  library_dir: "../../FPGA/kicad_lib/"
+
+  # Symbol library filename
+  symbol_lib: "lcsc_parts.kicad_sym"
+
+  # Footprint library directory (with .pretty suffix)
+  footprint_lib: "lcsc_parts.pretty/"
+
+  # 3D models directory
+  models_dir: "3dmodels/"
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log file location (relative to tool directory)
+  file: "lcsc_automation.log"
+
+# BOM/CPL generation settings
+bom:
+  # Include pricing information in BOM export
+  include_pricing: false
+
+  # Minimum stock threshold for warnings
+  min_stock_warning: 50
+
+# Library management
+library:
+  # Number of parallel workers for downloading parts
+  download_workers: 4
+
+  # Download 3D models (STEP/WRL)
+  download_3d_models: true
+
+  # Auto-organize downloaded files
+  auto_organize: true
+
+# DFM (Design for Manufacturability) settings
+# Based on JLCPCB specifications
+dfm:
+  # Minimum trace width (mm)
+  min_trace_width: 0.15
+
+  # Minimum trace spacing (mm)
+  min_trace_spacing: 0.15
+
+  # Minimum via diameter (mm)
+  min_via_diameter: 0.3
+
+  # Minimum via spacing (mm)
+  min_via_spacing: 0.5
+
+  # Minimum pad size (mm)
+  min_pad_size: 0.2
+
+# Supply chain settings
+supply_chain:
+  # Warn on single-source components (only 1 alternative available)
+  warn_single_source: true
+
+  # Warn on long lead time parts (>4 weeks)
+  warn_long_lead_time: true
+
+  # Warn on price volatility (>20% variance)
+  warn_price_volatility: true
+
+  # Maximum acceptable price variance (as multiplier, e.g., 1.2 = 20%)
+  max_price_variance: 1.2

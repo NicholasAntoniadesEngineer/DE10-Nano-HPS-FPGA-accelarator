@@ -1,0 +1,22 @@
+# LCSC Automation Framework Requirements
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+PyYAML>=5.4.1              # YAML configuration files
+requests>=2.26.0           # HTTP client with retries
+beautifulsoup4>=4.9.3      # Web scraping (fallback)
+
+# KiCAD integration
+easyeda2kicad>=1.4.6       # EasyEDA/LCSC to KiCAD converter
+kiutils>=1.1.0             # KiCad file format utilities
+
+# Optional: for advanced features
+lxml>=4.6.3                # XML parsing (for advanced scraping)
+Selenium>=3.141.0          # Browser automation (for JS-heavy sites)
+pandas>=1.3.0              # Data processing and analytics
+
+# Development and testing
+pytest>=6.2.4              # Unit testing
+pytest-cov>=2.12.1         # Code coverage
+black>=21.5b0              # Code formatting
+flake8>=3.9.2              # Linting
