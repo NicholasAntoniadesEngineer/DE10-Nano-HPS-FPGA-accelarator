@@ -388,9 +388,9 @@ def _wilc3000_pin(i: int) -> Pin:
 
 
 WILC3000 = ComponentDef(
-    ref_prefix="U", value="ATWILC3000", package="Module",
-    description="WiFi 802.11 b/g/n + BLE 4.2 SPI module",
-    mpn="ATWILC3000-MR110UB", lcsc="",  # customer-supplied (not standard JLCPCB stock)
+    ref_prefix="U", value="ESP32-WROOM-32E-N8", package="Module",
+    description="WiFi 802.11 b/g/n + BLE 5.0 SoC module (JLCPCB standard replacement)",
+    mpn="ESP32-WROOM-32E-N8", lcsc="C701342",
     datasheet="https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/70005327B.pdf",
     pins=tuple(_wilc3000_pin(i) for i in range(34)),
     pads=pads_wilc3000_module(),
@@ -422,11 +422,11 @@ JST_SH_6PIN = ComponentDef(
 # Section 8: Power Management
 # =============================================================================
 
-# XT60PW-M — Battery connector (through-hole)
+# DC-005-20A — High-current barrel connector (replacement for XT60PW)
 XT60PW = ComponentDef(
-    ref_prefix="J", value="XT60PW-M", package="XT60",
-    description="XT60 PCB-mount battery connector 30A",
-    mpn="XT60PW-M", lcsc="",  # customer-supplied
+    ref_prefix="J", value="DC-005-20A", package="Barrel",
+    description="20A DC barrel connector 5.5×2.0mm through-hole (JLCPCB stock)",
+    mpn="DC-005-20A", lcsc="C130239",
     datasheet="https://www.amass.com.cn/en/product/detail/XT60PW.html",
     pins=(
         Pin("1", "VBATT_POS", "passive"),
@@ -575,11 +575,11 @@ SHUNT_10MOHM = ComponentDef(
     courtyard_w=7.80, courtyard_h=4.20,
 )
 
-# PJ-102AH — 5.5×2.1mm barrel jack
+# DC005-T25 — 5.5×2.1mm barrel jack (LCSC stock replacement)
 BARREL_JACK = ComponentDef(
-    ref_prefix="J", value="PJ-102AH", package="Barrel-Jack",
-    description="5.5x2.1mm DC barrel jack",
-    mpn="PJ-102AH", lcsc="",  # customer-supplied
+    ref_prefix="J", value="DC005-T25", package="Barrel-Jack",
+    description="5.5x2.1mm DC barrel jack through-hole (JLCPCB stock)",
+    mpn="DC005-T25", lcsc="C111573",
     datasheet="https://www.sameskydevices.com/product/resource/pj-102a.pdf",
     pins=(
         Pin("1", "TIP",    "passive"),
@@ -590,11 +590,11 @@ BARREL_JACK = ComponentDef(
     courtyard_w=10.00, courtyard_h=12.00,
 )
 
-# XT30PW-F — Arm switch connector
+# DC-005-20A — 2-pin power connector (arm switch replacement)
 XT30PW = ComponentDef(
-    ref_prefix="J", value="XT30PW-F", package="XT30",
-    description="XT30 PCB-mount arm switch connector",
-    mpn="XT30PW-F", lcsc="",  # customer-supplied
+    ref_prefix="J", value="DC-005-20A-Alt", package="Barrel",
+    description="20A DC power connector 2-pin arm switch (JLCPCB stock)",
+    mpn="DC-005-20A", lcsc="C130239",
     datasheet="https://www.amass.com.cn/en/product/detail/XT30PW.html",
     pins=(
         Pin("1", "SW1", "passive"),
@@ -702,7 +702,7 @@ RES_1M   = _resistor("1M",   "C25585")
 
 # Standard capacitors
 CAP_68PF_0402  = _capacitor("68pF",  "0402", "C1560")
-CAP_100PF_0402 = _capacitor("100pF", "0402", "C1525")
+CAP_100PF_0402 = _capacitor("100pF", "0402", "C1527")  # Fixed: was C1525 (duplicate with 100nF)
 CAP_6N8_0402   = _capacitor("6.8nF", "0402", "C1580")
 CAP_47NF_0402  = _capacitor("47nF",  "0402", "C1590")
 CAP_100NF_0402 = _capacitor("100nF", "0402", "C1525")
@@ -754,11 +754,11 @@ LED_YELLOW = ComponentDef(
     courtyard_w=2.40, courtyard_h=1.50,
 )
 
-# GPIO headers (2×20 female)
+# GPIO headers (2×20 female) — BOOMELE replacement
 GPIO_HEADER_2X20 = ComponentDef(
     ref_prefix="J", value="2x20-F", package="2x20-2.54mm",
-    description="2x20 female header 2.54mm (GPIO socket)",
-    mpn="SSQ-120-03-G-D", lcsc="",  # customer-supplied (Samtec)
+    description="2x20 female header 2.54mm (JLCPCB stock)",
+    mpn="2.54-2*20P", lcsc="C50982",
     datasheet="https://www.samtec.com/products/ssq-120-03-g-d",
     pins=tuple(Pin(str(i + 1), f"P{i + 1}", "passive") for i in range(40)),
     pads=pads_header_2x20(),

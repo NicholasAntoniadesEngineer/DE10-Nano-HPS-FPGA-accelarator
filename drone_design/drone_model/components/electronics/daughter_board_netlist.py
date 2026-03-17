@@ -11,6 +11,12 @@ Board: 85 × 108 mm, 4-layer, 1.6mm FR4, ENIG finish
 Origin: top-left corner (0,0) = top-left of PCB outline
 X increases rightward, Y increases downward (KiCad convention)
 
+Placement strategy:
+  - GPIO headers HDR1/HDR2 are FIXED to match DE10-Nano mechanical constraints.
+  - All other components are placed algorithmically by the placement optimizer
+    (force-directed zone assignment → Gaussian scatter → simulated annealing).
+  - Frame-area components (ToF connectors) are at fixed structural positions.
+
 Net connections derived from drone_design/docs/daughter_board_pcb_design.md
 sections 1–10, GPIO pin tables, and circuit schematics.
 """
@@ -26,6 +32,7 @@ from cadquery_framework.kicad.component_library import (
     NetConnection,
     Placement,
 )
+from cadquery_framework.kicad.placement_optimizer import optimize_placements
 from drone_design.drone_model.components.electronics.daughter_board_components import (
     # Section 1: Motor Driver
     SCHMITT_74LVC1G17, TVS_PESD5V0S1BL, JST_XH_3PIN,
@@ -63,344 +70,232 @@ NC = NetConnection
 
 
 # =============================================================================
-# Component Placements
+# Component Placements — Algorithmically Optimised
 # =============================================================================
+# All component positions are computed by the placement optimizer:
+#   1. Force-directed zone assignment (subsystem centroids)
+#   2. Gaussian scatter within zones (satellites around ICs)
+#   3. Simulated annealing refinement (HPWL + thermal + overlap cost)
+#
 # Coordinates are in the "electronics zone" system: origin (0, 0) = top-left
-# of the 85 × 108mm DE10-Nano daughter board area, which sits centred within
-# the 110 × 110mm combined top-plate PCB.
+# of the 85 × 108mm DE10-Nano daughter board area.  build_board() applies the
+# zone offset (+12.5mm X, +1.0mm Y) to transform to the 110×110mm board.
 #
-# build_board() applies the zone offset (+12.5mm X, +1.0mm Y) to transform
-# all positions into the full 110 × 110mm board coordinate system.
-#
-# GPIO Header positions are FIXED to match DE10-Nano mechanical constraints:
-#   HDR1 (GPIO0): centre (15.45, 45.48), courtyard x=[12.45, 18.45] y=[19.48, 71.48]
-#   HDR2 (GPIO1): centre (75.90, 45.48), courtyard x=[72.90, 78.90] y=[19.48, 71.48]
-#
-# Mounting holes (DE10-Nano pattern, electronics-zone coords):
-#   (12.21, 4.02), (72.79, 4.02), (12.21, 103.97), (72.79, 103.97) — M2.7
-#
-# Layout Zones (electronics zone coords):
-#   Zone 1 — Power (y < 19.5):        85mm × ~19mm, top edge
-#   Zone 2 — ESC/DShot (x < 12.4):    ~12mm × 52mm, left strip beside HDR1
-#   Zone 3 — Main (x=18.5-72.9):      ~54mm × 52mm, between headers
-#   Zone 4 — Right passives (x > 79):  ~6mm strip, right of HDR2
-#   Zone 5 — Below headers (y > 71.5): 85mm × ~36mm, sensors/connectors/WiFi
-#
-# Thermal: heat sources (U13, L1, R_SHUNT) in Zone 1 are ≥30mm from IMU (U5)
-#          and barometer (U11) in Zone 3.
+# GPIO Header positions are FIXED to match DE10-Nano mechanical constraints.
+# Frame-area placements (ToF connectors) are manually positioned at structural
+# mount points — see FRAME_PLACEMENTS.
 
-PLACEMENTS = [
-    # =========================================================================
-    # ZONE 1: Power Section (y = 0–19.5)
-    # =========================================================================
-    #
-    # L1 (14.5×14.5) dominates this zone. Placed centre-right with U13 left.
-    # Input path: J14 → D6 → Q2 → R_SHUNT → U13 → L1 → COUT
-    # J15 barrel jack at top-right. LEDs far top-right.
-    #
-    # J14 (XT60PW, rot=90 → AABB 8×12) bounds: x=[0.5, 8.5], y=[7.5, 19.5]
-    # Rotated 90° to clear mounting hole at (12.21, 4.02) — bolt zone x≥9.2
-    # y=13.5 clears prop_135deg cutout (board y=14.5, dist=54.5mm > 54mm)
-    # and leaves 0.35mm gap to J1 below (J14 bottom=19.5, J1 top=19.85)
-    Placement(XT60PW,         "J14",    x=4.5,   y=13.5,   rotation=90),
-    # D6 (SMB, 6.5×4.5) bounds: x=[14.25, 20.75], y=[1.75, 6.25]
-    Placement(TVS_SMBJ20A,    "D6",     x=17.5,  y=4.0,    rotation=0),
-    # D7 (SOT-23, 3.4×3.0) bounds: x=[21.3, 24.7], y=[2.5, 5.5]
-    Placement(BZX84C15,       "D7",     x=23.0,  y=4.0,    rotation=0),
-    # Q2 (SO-8, 6.5×5.5) bounds: x=[14.25, 20.75], y=[7.25, 12.75]
-    Placement(SI4435DDY,      "Q2",     x=17.5,  y=10.0,   rotation=0),
-    # R_SHUNT (2512, 7.8×4.2) bounds: x=[21.1, 28.9], y=[7.9, 12.1]
-    Placement(SHUNT_10MOHM,   "R_SHUNT",x=25.0,  y=10.0,   rotation=0),
-    # SW1 (XT30, 8×6) bounds: x=[21, 29], y=[13, 19]
-    Placement(XT30PW,         "SW1",    x=25.0,  y=16.0,   rotation=0),
-
-    # U13 (HSOP-8, 8×7) bounds: x=[29.4, 37.4], y=[6.5, 13.5]
-    Placement(TPS54560,       "U13",    x=33.4,  y=10.0,   rotation=0),
-    # CBOOT (0402) bounds: x=[29.2, 30.8], y=[5.0, 6.0]
-    Placement(CAP_100NF_0402, "CBOOT",  x=30.0,  y=5.5,    rotation=0),
-    # CIN1 (1210, 4.6×3.2) bounds: x=[31.1, 35.7], y=[2.4, 5.6]
-    Placement(CAP_10UF_1210,  "CIN1",   x=33.4,  y=4.0,    rotation=0),
-    # CIN2 (1210, 4.6×3.2) bounds: x=[31.1, 35.7], y=[14.4, 17.6]
-    Placement(CAP_10UF_1210,  "CIN2",   x=33.4,  y=16.0,   rotation=0),
-
-    # L1 (1265, 14.5×14.5) bounds: x=[37.75, 52.25], y=[4.75, 19.25]
-    Placement(INDUCTOR_10UH,  "L1",     x=45.0,  y=12.0,   rotation=0),
-
-    # COUT1 (1210, 4.6×3.2) bounds: x=[52.7, 57.3], y=[2.4, 5.6]
-    Placement(CAP_47UF_1210,  "COUT1",  x=55.0,  y=4.0,    rotation=0),
-    # COUT2 (1210, 4.6×3.2) bounds: x=[52.7, 57.3], y=[6.4, 9.6]
-    Placement(CAP_47UF_1210,  "COUT2",  x=55.0,  y=8.0,    rotation=0),
-
-    # J15 (Barrel Jack, 10×12) bounds: x=[58, 68], y=[1, 13]
-    Placement(BARREL_JACK,    "J15",    x=63.0,  y=7.0,    rotation=0),
-
-    # Status LEDs (0603, 2.4×1.5) — below mounting hole bolt zone
-    # Mounting hole at (72.79, 4.02) → bolt zone x=[69.8, 75.8], y=[1.0, 7.0]
-    # Moved from y=2 to y=9 to clear propeller cutout zone at top-right corner
-    # (prop_45deg motor at board (132.8, -22.8), radius 54mm)
-    Placement(LED_GREEN,      "LED1",   x=69.5,  y=10.0,   rotation=0),
-    Placement(LED_RED,        "LED2",   x=72.0,  y=10.0,   rotation=0),
-    Placement(LED_BLUE,       "LED3",   x=74.5,  y=10.0,   rotation=0),
-    Placement(LED_YELLOW,     "LED4",   x=77.0,  y=10.0,   rotation=0),
-    # LED resistors (0402) — below LEDs
-    Placement(RES_330R,       "R25",    x=69.5,  y=12.0,   rotation=0),
-    Placement(RES_330R,       "R26",    x=72.0,  y=12.0,   rotation=0),
-    Placement(RES_330R,       "R27",    x=74.5,  y=12.0,   rotation=0),
-    Placement(RES_330R,       "R28",    x=77.0,  y=12.0,   rotation=0),
-
-    # Buck passives (0402) — small passives in gaps around power ICs
-    # Row at y=18.5 below CIN2, right of SW1 (SW1 right=29)
-    Placement(RES_100K,       "R_RT",   x=30.0,  y=18.5,   rotation=0),
-    Placement(RES_100K,       "R_FB_T", x=32.0,  y=18.5,   rotation=0),
-    Placement(RES_24K9,       "R_FB_B", x=34.0,  y=18.5,   rotation=0),
-    # Cluster near D7 area (x=26-29, y=2-6)
-    Placement(RES_30K1,       "R_COMP", x=26.0,  y=2.0,    rotation=0),
-    Placement(CAP_6N8_0402,   "C_COMP", x=28.0,  y=2.0,    rotation=0),
-    Placement(CAP_68PF_0402,  "C_COMP2",x=26.0,  y=4.0,    rotation=0),
-    Placement(CAP_47NF_0402,  "CSS",    x=28.0,  y=4.0,    rotation=0),
-    Placement(RES_1M,         "R_EN1",  x=26.0,  y=6.0,    rotation=0),
-    Placement(RES_160K,       "R_EN2",  x=28.0,  y=6.0,    rotation=0),
-
-    # 3.3V LDO — right of L1/COUT area
-    # U14 (SOT-23-5, 3.4×3.2) bounds: x=[53.3, 56.7], y=[14.4, 17.6]
-    Placement(AP2112K,        "U14",    x=55.0,  y=16.0,   rotation=0),
-    # C_LDO_IN (0402) bounds: x=[52.7, 54.3], y=[18.0, 19.0]
-    Placement(CAP_1UF_0402,   "C_LDO_IN", x=53.5, y=18.5,  rotation=0),
-    # C_LDO1 (0402) bounds: x=[57.2, 58.8], y=[14.5, 15.5]
-    Placement(CAP_2U2_0402,   "C_LDO1", x=58.0,  y=15.0,   rotation=0),
-    # C_LDO2 (0603, 2.4×1.5) bounds: x=[54.8, 57.2], y=[17.75, 19.25]
-    Placement(CAP_10UF_0603,  "C_LDO2", x=56.0,  y=18.5,   rotation=0),
-
-    # INA219 + battery divider — below J15
-    # U15 (SOT-23-8, 3.4×3.2) bounds: x=[59.3, 62.7], y=[14.4, 17.6]
-    Placement(INA219,         "U15",    x=61.0,  y=16.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C_INA",  x=64.0,  y=15.0,   rotation=0),
-    Placement(RES_150K,       "R19",    x=64.0,  y=17.0,   rotation=0),
-    Placement(RES_27K,        "R20",    x=66.0,  y=15.0,   rotation=0),
-    Placement(CAP_100PF_0402, "C_BATT", x=66.0,  y=17.0,   rotation=0),
-
-    # =========================================================================
-    # ZONE 2: ESC/DShot (left strip, x < 12.4, y = 19.5–71.5)
-    # =========================================================================
-    #
-    # JST-XH 3-pin at rot=90: effective courtyard 5.0w × 10.5h
-    # Pattern: J at x≈5, U+D+C between J and HDR1
-    #
-    # Channel 1 (y ≈ 24)
-    # J1 (rot=90) bounds: x=[2.5, 7.5], y=[18.75, 29.25]
-    Placement(JST_XH_3PIN, "J1",         x=5.0,   y=25.1,   rotation=90),
-    # U1 (2.8×2.0) bounds: x=[7.6, 10.4], y=[21.0, 23.0]
-    Placement(SCHMITT_74LVC1G17, "U1",   x=9.0,   y=22.0,   rotation=0),
-    # D1 (1.6×1.0) bounds: x=[10.7, 12.3], y=[21.5, 22.5]
-    Placement(TVS_PESD5V0S1BL, "D1",     x=11.5,  y=22.0,   rotation=0),
-    # C1 (0402, 1.6×1.0) bounds: x=[7.7, 9.3], y=[23.5, 24.5]
-    Placement(CAP_100NF_0402, "C1",       x=8.5,   y=24.5,   rotation=0),
-
-    # Channel 2 (y ≈ 36)
-    Placement(JST_XH_3PIN, "J2",         x=5.0,   y=36.0,   rotation=90),
-    Placement(SCHMITT_74LVC1G17, "U2",   x=9.0,   y=34.0,   rotation=0),
-    Placement(TVS_PESD5V0S1BL, "D2",     x=11.5,  y=34.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C2",       x=8.5,   y=36.5,   rotation=0),
-
-    # Channel 3 (y ≈ 48)
-    Placement(JST_XH_3PIN, "J3",         x=5.0,   y=48.0,   rotation=90),
-    Placement(SCHMITT_74LVC1G17, "U3",   x=9.0,   y=46.0,   rotation=0),
-    Placement(TVS_PESD5V0S1BL, "D3",     x=11.5,  y=46.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C3",       x=8.5,   y=48.5,   rotation=0),
-
-    # Channel 4 (y ≈ 60)
-    Placement(JST_XH_3PIN, "J4",         x=5.0,   y=60.0,   rotation=90),
-    Placement(SCHMITT_74LVC1G17, "U4",   x=9.0,   y=58.0,   rotation=0),
-    Placement(TVS_PESD5V0S1BL, "D4",     x=11.5,  y=58.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C4",       x=8.5,   y=60.5,   rotation=0),
-
-    # =========================================================================
-    # GPIO Headers (FIXED positions — non-negotiable)
-    # =========================================================================
-    # HDR1 courtyard: x=[12.45, 18.45], y=[19.48, 71.48]
-    Placement(GPIO_HEADER_2X20, "HDR1",  x=15.45, y=45.48,  rotation=0),
-    # HDR2 courtyard: x=[72.90, 78.90], y=[19.48, 71.48]
-    Placement(GPIO_HEADER_2X20, "HDR2",  x=75.9,  y=45.48,  rotation=0),
-
-    # =========================================================================
-    # ZONE 3: Below heatsink cutout (y = 76–87)
-    # =========================================================================
-    #
-    # CRITICAL: The 44×44mm heatsink/fan cutout occupies the board centre.
-    # In EZ coords: x=[20.5, 64.5], y=[32, 76].  NO components may be here.
-    # All Zone 3 components are placed BELOW the cutout (y > 76).
-    #
-    # Layout sub-zones below cutout:
-    #   Barometer:   x=20-30, y=77-82 (far from heat, close to pressure vent)
-    #   IMU cluster: x=35-55, y=77-86 (centre-X for vibration, close to HDR2 SPI)
-    #   Pump/Buzzer: x=64.5-83, y=77-87 (right zone near HDR1 GPIO)
-
-    # ── IMU Section (below cutout, y ≈ 77–88) ──
-    # Pad-level spacing: U5 QFN-24 bottom pads extend to y+2.355mm
-    #   U6 VQFN-16 top pads extend to y-2.595mm
-    #   Need U5.y+2.355 < U6.y-2.595 → centre gap ≥ 5.0mm
-    # Using 6mm gap: U5 at y=78, U6 at y=84
-    Placement(ICM_20948,      "U5",     x=42.5,  y=78.0,   rotation=0),
-    Placement(SN74AVC4T245,   "U6",     x=42.5,  y=84.0,   rotation=0),
-    # U7 (TPS7A2018 1.8V LDO) — right of U6, feeds U5+U6
-    Placement(TPS7A2018,      "U7",     x=48.5,  y=84.0,   rotation=0),
-    # Q1 (BSS138 INT level shifter) — left of U5
-    Placement(BSS138,         "Q1",     x=35.0,  y=78.0,   rotation=0),
-
-    # IMU decoupling caps — per ICM-20948 DS-000189 §7.1: "as close as possible"
-    # NOTE: cutout boundary at y=76 in EZ coords → must stay y > 76.5 for safety
-    # C5 (10uF 0603) — VDD bulk, left of U5 (within 3mm)
-    Placement(CAP_10UF_0603,  "C5",     x=38.5,  y=78.0,   rotation=90),
-    # C6 (100nF 0402) — VDD bypass, right of U5 (between U5 and C5)
-    Placement(CAP_100NF_0402, "C6",     x=46.0,  y=78.0,   rotation=0),
-    # C7 (100nF 0402) — U6 VCCA decoupling, left of U6
-    Placement(CAP_100NF_0402, "C7",     x=39.0,  y=84.0,   rotation=0),
-    # C8 (100nF 0402) — U6 VCCB decoupling, below U6
-    Placement(CAP_100NF_0402, "C8",     x=42.5,  y=87.0,   rotation=0),
-    # C9 (1uF 0402) — REGOUT cap, between U5 and U6 (mid gap)
-    Placement(CAP_1UF_0402,   "C9",     x=42.5,  y=81.0,   rotation=0),
-    # C10 (4.7uF 0402) — U7 input cap, below U7
-    Placement(CAP_4U7_0402,   "C10",    x=48.5,  y=86.5,   rotation=0),
-    # C11 (1uF 0402) — U7 output cap, right of U7
-    Placement(CAP_1UF_0402,   "C11",    x=52.0,  y=84.0,   rotation=0),
-    # R1 (10K, INT 3.3V pull-up) — near Q1
-    Placement(RES_10K,        "R1",     x=35.0,  y=80.5,   rotation=0),
-    # R2 (10K, INT 1.8V pull-up) — left of Q1 (clear of Q1 courtyard)
-    Placement(RES_10K,        "R2",     x=31.0,  y=78.0,   rotation=0),
-    # R3 (10K, FSYNC pull-down) — left of U5/U6 gap, clear of both courtyards
-    Placement(RES_10K,        "R3",     x=37.0,  y=81.0,   rotation=0),
-
-    # ── Barometer (below cutout, left zone, thermally separated) ──
-    # U11 (BMP390, LGA-10, 3×3) — far from power ICs
-    Placement(BMP390,         "U11",    x=25.0,  y=79.0,   rotation=0),
-    # C20 (100nF) — left of U11 (VDD bypass per BST-BMP390-DS002 §5.2)
-    Placement(CAP_100NF_0402, "C20",    x=22.0,  y=79.0,   rotation=0),
-    # C21 (100nF) — right of U11 (VDDIO bypass)
-    Placement(CAP_100NF_0402, "C21",    x=28.0,  y=77.0,   rotation=0),
-    # R14 (10K, SDO pull-up) — right of U11
-    Placement(RES_10K,        "R14",    x=28.0,  y=79.0,   rotation=0),
-    # R15 (10K, CSB pull-up) — below R14
-    Placement(RES_10K,        "R15",    x=28.0,  y=81.0,   rotation=0),
-
-    # ── Camera LDOs (between headers, upper area y ≈ 21–29) ──
-    # U8 (TPS7A2028, 3.4×3.2) bounds: x=[20.3, 23.7], y=[20.4, 23.6]
-    Placement(TPS7A2028,      "U8",     x=22.0,  y=22.0,   rotation=0),
-    # U9 (TPS7A2015, 3.4×3.2) bounds: x=[25.3, 28.7], y=[20.4, 23.6]
-    Placement(TPS7A2015,      "U9",     x=27.0,  y=22.0,   rotation=0),
-    # C12 bounds: x=[18.6, 20.2], y=[21.0, 22.0] — between HDR1 right and U8 left
-    Placement(CAP_4U7_0402,   "C12",    x=19.4,  y=21.5,   rotation=0),
-    # C13 bounds: x=[29.7, 31.3], y=[21.5, 22.5] — right of U9
-    Placement(CAP_4U7_0402,   "C13",    x=30.5,  y=22.0,   rotation=0),
-    # C14 bounds: x=[19.2, 20.8], y=[24.0, 25.0]
-    Placement(CAP_1UF_0402,   "C14",    x=20.0,  y=24.5,   rotation=0),
-    # C15 bounds: x=[24.2, 25.8], y=[24.5, 25.5]
-    Placement(CAP_1UF_0402,   "C15",    x=25.0,  y=25.0,   rotation=0),
-    # C16 (0603) bounds: x=[20.8, 23.2], y=[25.75, 27.25]
-    Placement(CAP_10UF_0603,  "C16",    x=22.0,  y=26.5,   rotation=0),
-    # C17 (0603) bounds: x=[25.8, 28.2], y=[25.75, 27.25]
-    Placement(CAP_10UF_0603,  "C17",    x=27.0,  y=26.5,   rotation=0),
-    # Camera I2C pull-ups
-    Placement(RES_4K7,        "R4",     x=22.0,  y=28.5,   rotation=0),
-    Placement(RES_4K7,        "R5",     x=24.0,  y=28.5,   rotation=0),
-
-    # ── Pump Driver (above cutout, upper Zone 3, y ≈ 28–32) ──
-    # Placed above the cutout zone (y < 32 in EZ coords = y < 33 in board)
-    Placement(AO3400A,        "Q3",     x=35.0,  y=30.0,   rotation=0),
-    Placement(RES_1K,         "R21",    x=32.0,  y=30.0,   rotation=0),
-    Placement(RES_10K,        "R22",    x=32.0,  y=28.0,   rotation=0),
-    # D8 (SS14, 5.0×3.5 courtyard) — below Q3 with gap
-    Placement(SS14,           "D8",     x=35.0,  y=25.5,   rotation=0),
-    # J16 (JST-XH 2-pin pump connector) — right edge, below R16C
-    # R16C at y=56, bottom at 56.5+0.5=57.0. J16 rot=90: 5×8.
-    # J16 top = centre - 4. Centre = 57.0 + 0.2 + 4 = 61.2
-    Placement(JST_XH_2PIN,   "J16",    x=82.0,  y=62.0,   rotation=90),
-
-    # ── Buzzer Driver (above cutout, y ≈ 28–32) ──
-    Placement(AO3400A,        "Q4",     x=45.0,  y=30.0,   rotation=0),
-    Placement(RES_1K,         "R23",    x=42.0,  y=30.0,   rotation=0),
-    Placement(RES_10K,        "R24",    x=42.0,  y=28.0,   rotation=0),
-    # J17 (JST-XH 2-pin buzzer connector) — right edge, below J16
-    # J16 bottom at 62+4=66. J17 top at 72-4=68. Gap = 2mm OK.
-    Placement(JST_XH_2PIN,   "J17",    x=82.0,  y=72.0,   rotation=90),
-
-    # =========================================================================
-    # ZONE 4: Right of HDR2 (x > 79, y = 19.5–71.5)
-    # =========================================================================
-    #
-    # HDR2 right edge at 78.9. JST-XH 2-pin at rot=90: 5w × 8h.
-    # Centre x ≥ 78.9 + 2.5 = 81.4, max x = 85 - 2.5 = 82.5.
-    # J18 at (82, 25, rot=90) bounds: x=[79.5, 84.5], y=[21, 29]
-    Placement(JST_XH_2PIN,   "J18",    x=82.0,  y=25.0,   rotation=90),
-    # J19 at (82, 35, rot=90) bounds: x=[79.5, 84.5], y=[31, 39]
-    Placement(JST_XH_2PIN,   "J19",    x=82.0,  y=35.0,   rotation=90),
-    # Switch pull-ups (0402) — above J18 courtyard
-    Placement(RES_10K,        "R29",    x=80.0,  y=20.0,   rotation=0),
-    Placement(RES_10K,        "R30",    x=82.5,  y=20.0,   rotation=0),
-    Placement(RES_10K,        "R31",    x=80.0,  y=40.5,   rotation=0),
-    Placement(CAP_100NF_0402, "C29",    x=82.5,  y=40.5,   rotation=0),
-
-    # IR right connector (right edge)
-    # J12C (JST-SH 3-pin, rot=270): effective 4.5w × 6.8h
-    # bounds: x=[79.75, 84.25], y=[47.6, 54.4]
-    Placement(JST_SH_3PIN, "J12C",      x=82.0,  y=51.0,   rotation=270),
-    Placement(CAP_100NF_0402, "C24",     x=80.0,  y=44.0,   rotation=0),
-    Placement(RES_4K7, "R16C",           x=80.0,  y=56.0,   rotation=0),
-
-    # =========================================================================
-    # ZONE 5: Below headers (y > 71.5, down to 108)
-    # =========================================================================
-
-    # ── ToF Hub (below IMU cluster, y ≈ 89–99) ──
-    # U10 (TCA9548A, TSSOP-24, 8×9.5 courtyard) — centred below IMU area
-    Placement(TCA9548A,       "U10",    x=42.0,  y=93.0,   rotation=0),
-    # ToF decoupling — above U10 with clearance (U10 top edge at ~88.25)
-    Placement(CAP_100NF_0402, "C18",    x=40.0,  y=87.5,   rotation=0),
-    Placement(CAP_10UF_0603,  "C19",    x=47.5,  y=88.0,   rotation=0),
-    # ToF I2C upstream pull-ups — above U10
-    Placement(RES_4K7,        "R6",     x=37.0,  y=87.5,   rotation=0),
-    Placement(RES_4K7,        "R7",     x=34.5,  y=87.5,   rotation=0),
-    # XSHUT series resistors — below U10 (U10 bottom at ~97.75)
-    Placement(RES_100R,       "R8",     x=36.0,  y=98.5,   rotation=0),
-    Placement(RES_100R,       "R9",     x=38.0,  y=98.5,   rotation=0),
-    Placement(RES_100R,       "R10",    x=40.0,  y=98.5,   rotation=0),
-    Placement(RES_100R,       "R11",    x=42.0,  y=98.5,   rotation=0),
-
-    # ToF connectors — see FRAME_PLACEMENTS below (positioned on the 110mm
-    # structural frame near bracket mounts, not in the 85×108 electronics zone).
-
-    # ── Camera FPC (bottom-left area) ──
-    # J5 (FPC-ZIF, 15.5×4) bounds: x=[12.25, 27.75], y=[100, 104]
-    Placement(FPC_24PIN,      "J5",     x=24.0,  y=102.0,  rotation=0),
-
-    # ── WiFi/BLE (bottom-right corner) ──
-    # U12 (WILC3000, 21×15.5) bounds: x=[62.5, 83.5], y=[84.25, 99.75]
-    Placement(WILC3000,       "U12",    x=73.0,  y=92.0,   rotation=0),
-    # WiFi caps/resistors — above U12 courtyard
-    Placement(CAP_10UF_0603,  "C26",    x=64.0,  y=82.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C27",    x=67.0,  y=82.0,   rotation=0),
-    Placement(CAP_1UF_0402,   "C28",    x=70.0,  y=82.0,   rotation=0),
-    Placement(RES_10K,        "R17",    x=73.0,  y=82.0,   rotation=0),
-    Placement(RES_10K,        "R18",    x=75.0,  y=82.0,   rotation=0),
-    # J13 (JST-SH 6-pin, 10.8×4.5) bounds: x=[67.1, 77.9], y=[100.75, 105.25]
-    Placement(JST_SH_6PIN,   "J13",    x=64.0,  y=103.0,  rotation=0),
-
-    # ── IR Receiver Connectors (board edges) ──
-    # J12A — Front (bottom edge)
-    Placement(JST_SH_3PIN, "J12A",      x=42.5,  y=105.0,  rotation=0),
-    Placement(CAP_100NF_0402, "C22",     x=47.0,  y=105.0,  rotation=0),
-    Placement(RES_4K7, "R16A",           x=49.0,  y=105.0,  rotation=0),
-
-    # J12B — Left (left edge, rot=90: 4.5w × 6.8h)
-    Placement(JST_SH_3PIN, "J12B",      x=3.5,   y=85.0,   rotation=90),
-    Placement(CAP_100NF_0402, "C23",     x=3.5,   y=80.0,   rotation=0),
-    Placement(RES_4K7, "R16B",           x=3.5,   y=89.5,   rotation=0),
-
-    # J12D — Rear (placed in Zone 5 bottom-left, cable routed to rear sensor)
-    # bounds: x=[6.6, 13.4], y=[94.75, 99.25]
-    Placement(JST_SH_3PIN, "J12D",      x=10.0,  y=97.0,   rotation=0),
-    Placement(CAP_100NF_0402, "C25",     x=10.0,  y=94.0,   rotation=0),
-    Placement(RES_4K7, "R16D",           x=12.0,  y=94.0,   rotation=0),
+# Fixed placements — mechanical constraint, never moved by optimizer.
+FIXED_PLACEMENTS = [
+    Placement(GPIO_HEADER_2X20, "HDR1", x=15.45, y=45.48, rotation=0),
+    Placement(GPIO_HEADER_2X20, "HDR2", x=75.9,  y=45.48, rotation=0),
 ]
+
+# All components to be placed by the optimizer.
+# Grouped by subsystem for clarity; the optimizer also auto-detects groups
+# from net connectivity.
+COMPONENTS_TO_PLACE: list[tuple] = [
+    # ── Power Buck (Section 8) ──
+    (XT60PW,         "J14"),
+    (TVS_SMBJ20A,    "D6"),
+    (BZX84C15,       "D7"),
+    (SI4435DDY,      "Q2"),
+    (SHUNT_10MOHM,   "R_SHUNT"),
+    (XT30PW,         "SW1"),
+    (TPS54560,       "U13"),
+    (CAP_100NF_0402, "CBOOT"),
+    (CAP_10UF_1210,  "CIN1"),
+    (CAP_10UF_1210,  "CIN2"),
+    (INDUCTOR_10UH,  "L1"),
+    (CAP_47UF_1210,  "COUT1"),
+    (CAP_47UF_1210,  "COUT2"),
+    (BARREL_JACK,    "J15"),
+    (RES_100K,       "R_RT"),
+    (RES_100K,       "R_FB_T"),
+    (RES_24K9,       "R_FB_B"),
+    (RES_30K1,       "R_COMP"),
+    (CAP_6N8_0402,   "C_COMP"),
+    (CAP_68PF_0402,  "C_COMP2"),
+    (CAP_47NF_0402,  "CSS"),
+    (RES_1M,         "R_EN1"),
+    (RES_160K,       "R_EN2"),
+
+    # ── 3.3V LDO (Section 8) ──
+    (AP2112K,        "U14"),
+    (CAP_1UF_0402,   "C_LDO_IN"),
+    (CAP_2U2_0402,   "C_LDO1"),
+    (CAP_10UF_0603,  "C_LDO2"),
+
+    # ── Current Sense (Section 8) ──
+    (INA219,         "U15"),
+    (CAP_100NF_0402, "C_INA"),
+    (RES_150K,       "R19"),
+    (RES_27K,        "R20"),
+    (CAP_100PF_0402, "C_BATT"),
+
+    # ── DShot Channel 1 (Section 1) ──
+    (JST_XH_3PIN,        "J1"),
+    (SCHMITT_74LVC1G17,  "U1"),
+    (TVS_PESD5V0S1BL,    "D1"),
+    (CAP_100NF_0402,     "C1"),
+
+    # ── DShot Channel 2 ──
+    (JST_XH_3PIN,        "J2"),
+    (SCHMITT_74LVC1G17,  "U2"),
+    (TVS_PESD5V0S1BL,    "D2"),
+    (CAP_100NF_0402,     "C2"),
+
+    # ── DShot Channel 3 ──
+    (JST_XH_3PIN,        "J3"),
+    (SCHMITT_74LVC1G17,  "U3"),
+    (TVS_PESD5V0S1BL,    "D3"),
+    (CAP_100NF_0402,     "C3"),
+
+    # ── DShot Channel 4 ──
+    (JST_XH_3PIN,        "J4"),
+    (SCHMITT_74LVC1G17,  "U4"),
+    (TVS_PESD5V0S1BL,    "D4"),
+    (CAP_100NF_0402,     "C4"),
+
+    # ── IMU (Section 2) ──
+    (ICM_20948,      "U5"),
+    (SN74AVC4T245,   "U6"),
+    (TPS7A2018,      "U7"),
+    (BSS138,         "Q1"),
+    (CAP_10UF_0603,  "C5"),
+    (CAP_100NF_0402, "C6"),
+    (CAP_100NF_0402, "C7"),
+    (CAP_100NF_0402, "C8"),
+    (CAP_1UF_0402,   "C9"),
+    (CAP_4U7_0402,   "C10"),
+    (CAP_1UF_0402,   "C11"),
+    (RES_10K,        "R1"),
+    (RES_10K,        "R2"),
+    (RES_10K,        "R3"),
+
+    # ── Barometer (Section 5) ──
+    (BMP390,         "U11"),
+    (CAP_100NF_0402, "C20"),
+    (CAP_100NF_0402, "C21"),
+    (RES_10K,        "R14"),
+    (RES_10K,        "R15"),
+
+    # ── Camera LDOs (Section 3) ──
+    (TPS7A2028,      "U8"),
+    (TPS7A2015,      "U9"),
+    (CAP_4U7_0402,   "C12"),
+    (CAP_4U7_0402,   "C13"),
+    (CAP_1UF_0402,   "C14"),
+    (CAP_1UF_0402,   "C15"),
+    (CAP_10UF_0603,  "C16"),
+    (CAP_10UF_0603,  "C17"),
+    (RES_4K7,        "R4"),
+    (RES_4K7,        "R5"),
+    (FPC_24PIN,      "J5"),
+
+    # ── Pump Driver (Section 9) ──
+    (AO3400A,        "Q3"),
+    (RES_1K,         "R21"),
+    (RES_10K,        "R22"),
+    (SS14,           "D8"),
+    (JST_XH_2PIN,    "J16"),
+
+    # ── Buzzer Driver (Section 10) ──
+    (AO3400A,        "Q4"),
+    (RES_1K,         "R23"),
+    (RES_10K,        "R24"),
+    (JST_XH_2PIN,    "J17"),
+
+    # ── Status LEDs (Section 10) ──
+    (LED_GREEN,      "LED1"),
+    (LED_RED,        "LED2"),
+    (LED_BLUE,       "LED3"),
+    (LED_YELLOW,     "LED4"),
+    (RES_330R,       "R25"),
+    (RES_330R,       "R26"),
+    (RES_330R,       "R27"),
+    (RES_330R,       "R28"),
+
+    # ── Switches (Section 10) ──
+    (JST_XH_2PIN,    "J18"),
+    (JST_XH_2PIN,    "J19"),
+    (RES_10K,        "R29"),
+    (RES_10K,        "R30"),
+    (RES_10K,        "R31"),
+    (CAP_100NF_0402, "C29"),
+
+    # ── ToF Hub (Section 4) ──
+    (TCA9548A,       "U10"),
+    (CAP_100NF_0402, "C18"),
+    (CAP_10UF_0603,  "C19"),
+    (RES_4K7,        "R6"),
+    (RES_4K7,        "R7"),
+    (RES_100R,       "R8"),
+    (RES_100R,       "R9"),
+    (RES_100R,       "R10"),
+    (RES_100R,       "R11"),
+
+    # ── WiFi/BLE (Section 7) ──
+    (WILC3000,       "U12"),
+    (CAP_10UF_0603,  "C26"),
+    (CAP_100NF_0402, "C27"),
+    (CAP_1UF_0402,   "C28"),
+    (RES_10K,        "R17"),
+    (RES_10K,        "R18"),
+    (JST_SH_6PIN,    "J13"),
+
+    # ── IR Receivers (Section 6) ──
+    (JST_SH_3PIN,    "J12A"),
+    (CAP_100NF_0402, "C22"),
+    (RES_4K7,        "R16A"),
+    (JST_SH_3PIN,    "J12B"),
+    (CAP_100NF_0402, "C23"),
+    (RES_4K7,        "R16B"),
+    (JST_SH_3PIN,    "J12C"),
+    (CAP_100NF_0402, "C24"),
+    (RES_4K7,        "R16C"),
+    (JST_SH_3PIN,    "J12D"),
+    (CAP_100NF_0402, "C25"),
+    (RES_4K7,        "R16D"),
+]
+
+# Subsystem groupings for the optimizer — maps subsystem name to ref list.
+# The optimizer uses these to keep related components close together and
+# to apply subsystem-level constraints (edge placement, thermal separation).
+SUBSYSTEM_GROUPS: dict[str, list[str]] = {
+    "power_buck": [
+        "J14", "D6", "D7", "Q2", "R_SHUNT", "SW1", "U13", "CBOOT",
+        "CIN1", "CIN2", "L1", "COUT1", "COUT2", "J15",
+        "R_RT", "R_FB_T", "R_FB_B", "R_COMP", "C_COMP", "C_COMP2",
+        "CSS", "R_EN1", "R_EN2",
+    ],
+    "power_ldo_3v3": ["U14", "C_LDO_IN", "C_LDO1", "C_LDO2"],
+    "current_sense": ["U15", "C_INA", "R19", "R20", "C_BATT"],
+    "dshot_ch1": ["J1", "U1", "D1", "C1"],
+    "dshot_ch2": ["J2", "U2", "D2", "C2"],
+    "dshot_ch3": ["J3", "U3", "D3", "C3"],
+    "dshot_ch4": ["J4", "U4", "D4", "C4"],
+    "imu": [
+        "U5", "U6", "U7", "Q1",
+        "C5", "C6", "C7", "C8", "C9", "C10", "C11",
+        "R1", "R2", "R3",
+    ],
+    "barometer": ["U11", "C20", "C21", "R14", "R15"],
+    "camera": [
+        "U8", "U9", "C12", "C13", "C14", "C15", "C16", "C17",
+        "R4", "R5", "J5",
+    ],
+    "pump_driver": ["Q3", "R21", "R22", "D8", "J16"],
+    "buzzer_driver": ["Q4", "R23", "R24", "J17"],
+    "leds": ["LED1", "LED2", "LED3", "LED4", "R25", "R26", "R27", "R28"],
+    "switches": ["J18", "J19", "R29", "R30", "R31", "C29"],
+    "tof_hub": ["U10", "C18", "C19", "R6", "R7", "R8", "R9", "R10", "R11"],
+    "wifi_ble": ["U12", "C26", "C27", "C28", "R17", "R18", "J13"],
+    "ir_front": ["J12A", "C22", "R16A"],
+    "ir_left": ["J12B", "C23", "R16B"],
+    "ir_right": ["J12C", "C24", "R16C"],
+    "ir_rear": ["J12D", "C25", "R16D"],
+}
 
 
 # =============================================================================
@@ -886,6 +781,54 @@ NETS["TOF_XSHUT_3"].append(NC("R11", "2"))
 
 
 # =============================================================================
+# Run Placement Optimizer
+# =============================================================================
+# Now that NETS is fully defined, invoke the optimizer to compute positions
+# for all non-fixed components.  The optimizer works in 110×110mm board
+# coordinates internally and returns results in electronics-zone coordinates.
+
+_DIMS_PATH = Path(__file__).resolve().parents[2] / "dimensions.json"
+
+# Frame-area placements must be defined BEFORE the optimizer call so they
+# can be passed as immovable obstacles.  They use full 110×110 board coords.
+_FRAME_PLACEMENTS_FOR_OPTIMIZER = [
+    Placement(JST_SH_4PIN, "J6",   x=104.0, y=55.0,  rotation=90),   # front bracket
+    Placement(JST_SH_4PIN, "J7",   x=6.0,   y=55.0,  rotation=270),  # back bracket
+    Placement(JST_SH_4PIN, "J8",   x=97.0,  y=30.0,  rotation=90),   # left (inboard to clear prop_45deg)
+    Placement(JST_SH_4PIN, "J9",   x=97.0,  y=80.0,  rotation=90),   # right (inboard to clear prop_315deg)
+    Placement(JST_SH_4PIN, "J10",  x=6.0,   y=40.0,  rotation=270),  # up sensor
+    Placement(JST_SH_4PIN, "J11",  x=6.0,   y=70.0,  rotation=270),  # spare
+]
+
+# Keep-out zones in board coordinates (shifted from EZ).
+_EZ_OX_PRE = (_D["frame"]["plate_size"] - _D["daughter_board"]["width"]) / 2
+_EZ_OY_PRE = (_D["frame"]["plate_size"] - _D["daughter_board"]["length"]) / 2
+_KEEP_OUT_ZONES = [
+    KeepOutZone(
+        name="WILC3000 antenna",
+        owner_ref="U12",
+        xmin=73.0 + 9.6 - 2.0 + _EZ_OX_PRE,
+        ymin=92.0 - 7.5 + _EZ_OY_PRE,
+        xmax=_D["daughter_board"]["width"] + _EZ_OX_PRE,
+        ymax=92.0 + 7.5 + _EZ_OY_PRE,
+    ),
+]
+
+PLACEMENTS = optimize_placements(
+    components_and_refs=COMPONENTS_TO_PLACE,
+    nets=NETS,
+    fixed_placements=FIXED_PLACEMENTS,
+    board_width=_D["frame"]["plate_size"],
+    board_height=_D["frame"]["plate_size"],
+    dims_path=_DIMS_PATH,
+    subsystem_groups=SUBSYSTEM_GROUPS,
+    seed=42,
+    frame_placements=_FRAME_PLACEMENTS_FOR_OPTIMIZER,
+    keep_out_zones=_KEEP_OUT_ZONES,
+)
+
+
+# =============================================================================
 # Frame-area placements (110×110 board coordinates)
 # =============================================================================
 # These components sit on the structural frame area OUTSIDE the 85×108
@@ -897,21 +840,8 @@ NETS["TOF_XSHUT_3"].append(NC("R11", "2"))
 #   Left  (-Y): (55, 10)    Right(+Y): (55, 100)
 # in 110×110 top-left coordinates.
 
-FRAME_PLACEMENTS = [
-    # ToF sensor connectors — on the 12.5mm structural frame strips (left/right
-    # of the 85×108 electronics zone).  Cables route from here to bracket mounts.
-    #
-    # Left strip (x < 12.5) and right strip (x > 97.5), rotated 90° so pads
-    # face inward.  Y positions match bracket y-coordinates where possible.
-    #
-    # Bracket mounts (110 top-left):  front(100,55) back(10,55) left(55,10) right(55,100)
-    Placement(JST_SH_4PIN, "J6",   x=104.0, y=55.0,  rotation=90),   # front bracket (+X edge)
-    Placement(JST_SH_4PIN, "J7",   x=6.0,   y=55.0,  rotation=270),  # back bracket  (-X edge)
-    Placement(JST_SH_4PIN, "J8",   x=104.0, y=25.0,  rotation=90),   # left bracket  (routed to -Y, moved from y=15 to clear prop_45deg cutout)
-    Placement(JST_SH_4PIN, "J9",   x=104.0, y=85.0,  rotation=90),   # right bracket (routed to +Y, moved from y=95 to clear prop_315deg cutout)
-    Placement(JST_SH_4PIN, "J10",  x=6.0,   y=40.0,  rotation=270),  # up sensor
-    Placement(JST_SH_4PIN, "J11",  x=6.0,   y=70.0,  rotation=270),  # spare
-]
+# Reuse the list already defined for the optimizer (single source of truth).
+FRAME_PLACEMENTS = list(_FRAME_PLACEMENTS_FOR_OPTIMIZER)
 
 
 # =============================================================================

@@ -58,6 +58,7 @@ DRM_STANDOFF_CLEARANCE_MM = 0.250   # copper clearance around M2.5 mounting hole
 
 DRM_BARO_VENT_HOLE_MM     = 1.000   # BMP390 pressure vent hole diameter (NPTH)
 DRM_BARO_VENT_CLEARANCE_MM = 2.000  # copper-free radius around vent hole
+DRM_SILK_TO_COPPER_MM     = max(JLCPCB_SILK_TO_PAD_MM, DRM_MIN_CLEARANCE_MM)  # silkscreen must clear all copper and holes
 
 # =============================================================================
 # SOLDER MASK  (ENIG finish, JLCPCB default)
@@ -284,9 +285,10 @@ def dru_content():
    (constraint text_height (min {JLCPCB_SILK_TEXT_HEIGHT_MM}mm))
    (condition "A.Layer == 'F.SilkS' || A.Layer == 'B.SilkS'")
 )
-(rule "Silkscreen to pad clearance"
-   (constraint silk_clearance (min {JLCPCB_SILK_TO_PAD_MM}mm))
-   (condition "A.Type == 'Pad'")
+(rule "Silkscreen to copper, pads, vias, and holes"
+   (constraint silk_clearance (min {DRM_SILK_TO_COPPER_MM}mm))
+   (condition "A.Layer == 'F.SilkS' || A.Layer == 'B.SilkS'")
+   (severity error)
 )
 (rule "Silkscreen to silkscreen clearance"
    (constraint silk_clearance (min 0.1mm))
