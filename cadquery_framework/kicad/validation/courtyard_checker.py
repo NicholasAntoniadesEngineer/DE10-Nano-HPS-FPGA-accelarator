@@ -182,20 +182,23 @@ def validate_physical(board: BoardDefinition) -> PhysicalResult:
     # Check 6: Propeller clearance cutout zones (no PCB material)
     # ------------------------------------------------------------------
     # At each motor position, the propeller disc clips the board corner.
-    # Use precise circle-distance check: a component is in the cutout only
-    # if its centre is BOTH inside the board rectangle AND inside the prop
-    # disc (i.e., closer to the motor centre than prop_r).
+    # Use AABB-circle intersection: clamp motor centre to the nearest
+    # point on the component's courtyard bounding box, then check if
+    # that clamped point is within prop_r of the motor.  This catches
+    # components whose courtyard extends into the cutout even if the
+    # component centre is outside.
     prop_motors = _propeller_motor_positions(board.width, board.height)
     for motor_bx, motor_by, prop_r, label in prop_motors:
         for p in placements:
-            # Component must be near the board corner (inside the board)
-            # AND inside the prop disc circle
-            dist = math.sqrt((p.x - motor_bx) ** 2 + (p.y - motor_by) ** 2)
+            bounds = p.courtyard_bounds  # (xmin, ymin, xmax, ymax)
+            closest_x = max(bounds[0], min(motor_bx, bounds[2]))
+            closest_y = max(bounds[1], min(motor_by, bounds[3]))
+            dist = math.sqrt((closest_x - motor_bx) ** 2 + (closest_y - motor_by) ** 2)
             if dist < prop_r:
                 errors.append(
                     f"{p.ref} at ({p.x:.1f}, {p.y:.1f}) is inside the "
                     f"propeller cutout zone '{label}' "
-                    f"(dist to motor: {dist:.1f}mm < prop radius {prop_r:.1f}mm) "
+                    f"(courtyard-to-motor: {dist:.1f}mm < prop radius {prop_r:.1f}mm) "
                     f"— no PCB material here"
                 )
 
