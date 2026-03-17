@@ -627,55 +627,209 @@ def _outer_boundary_with_prop_arcs(bw, bh, cr, dims, arm_angles, plate_size):
             return None
         return d["edge_pts"].get(edge_key)
 
+    # ── Fillet computation ──────────────────────────────────────────────
+    # At each junction between a straight edge and a propeller arc, insert
+    # a fillet arc of radius 6mm to round off the hard angle.
+    #
+    # Fillet center: offset `fr` inward from edge, and `prop_r + fr` from
+    # the motor centre (external tangency).
+    fr = 6.0  # aggressive fillet radius (6mm)
+
+    def _fillet_at_vertical_edge(edge_x, y_int, mx, my, prop_r, inward_sign):
+        """Compute fillet between vertical edge (x=edge_x) and propeller arc.
+
+        inward_sign: -1 if edge is right (x=+half), +1 if left (x=-half).
+        Returns (fillet_center, edge_tangent_pt, arc_tangent_pt, fillet_sa, fillet_ea).
+        """
+        x_fc = edge_x + inward_sign * fr
+        disc = (prop_r + fr) ** 2 - (x_fc - mx) ** 2
+        if disc < 0:
+            return None
+        y_fc_candidates = [my + math.sqrt(disc), my - math.sqrt(disc)]
+        y_fc = min(y_fc_candidates, key=lambda y: abs(y - y_int))
+
+        # Tangent point on edge: directly perpendicular from fillet centre
+        edge_tp = (edge_x, y_fc)
+
+        # Tangent point on propeller arc: on line from motor to fillet centre
+        dx = x_fc - mx
+        dy = y_fc - my
+        dist = math.hypot(dx, dy)
+        arc_tp = (mx + prop_r * dx / dist, my + prop_r * dy / dist)
+
+        # Fillet arc angles from fillet centre
+        sa_f = math.degrees(math.atan2(edge_tp[1] - y_fc, edge_tp[0] - x_fc))
+        ea_f = math.degrees(math.atan2(arc_tp[1] - y_fc, arc_tp[0] - x_fc))
+
+        return (x_fc, y_fc), edge_tp, arc_tp, sa_f, ea_f
+
+    def _fillet_at_horizontal_edge(edge_y, x_int, mx, my, prop_r, inward_sign):
+        """Compute fillet between horizontal edge (y=edge_y) and propeller arc.
+
+        inward_sign: -1 if edge is top (y=+half), +1 if bottom (y=-half).
+        """
+        y_fc = edge_y + inward_sign * fr
+        disc = (prop_r + fr) ** 2 - (y_fc - my) ** 2
+        if disc < 0:
+            return None
+        x_fc_candidates = [mx + math.sqrt(disc), mx - math.sqrt(disc)]
+        x_fc = min(x_fc_candidates, key=lambda x: abs(x - x_int))
+
+        edge_tp = (x_fc, edge_y)
+
+        dx = x_fc - mx
+        dy = y_fc - my
+        dist = math.hypot(dx, dy)
+        arc_tp = (mx + prop_r * dx / dist, my + prop_r * dy / dist)
+
+        sa_f = math.degrees(math.atan2(edge_tp[1] - y_fc, edge_tp[0] - x_fc))
+        ea_f = math.degrees(math.atan2(arc_tp[1] - y_fc, arc_tp[0] - x_fc))
+
+        return (x_fc, y_fc), edge_tp, arc_tp, sa_f, ea_f
+
+    def _prop_angle(mx, my, pt):
+        """Angle of point on propeller arc from motor centre."""
+        return math.degrees(math.atan2(pt[1] - my, pt[0] - mx))
+
+    # Precompute fillets for all 8 junction points
+    fillets = {}
+    # Format: fillets[(corner_angle, edge_key)] = fillet_data or None
+
+    for angle_deg, d in corner_data.items():
+        mx, my = d["mx"], d["my"]
+        pr = d["r"]
+        for edge_key, int_pt in d["edge_pts"].items():
+            axis, val = edge_key
+            if axis == "x":
+                inward = -1 if val > 0 else 1
+                f = _fillet_at_vertical_edge(val, int_pt[1], mx, my, pr, inward)
+            else:
+                inward = -1 if val > 0 else 1
+                f = _fillet_at_horizontal_edge(val, int_pt[0], mx, my, pr, inward)
+            if f:
+                fillets[(angle_deg, edge_key)] = f
+
+    # ── Build boundary segments ─────────────────────────────────────────
+    def _emit_edge_and_fillets(edge_start, edge_end, corner_before, edge_key_before,
+                                corner_after, edge_key_after, is_vertical):
+        """Emit a trimmed edge with fillet arcs on each end."""
+        out = []
+        # Fillet at start of edge (coming from previous arc)
+        f_start = fillets.get((corner_before, edge_key_before))
+        # Fillet at end of edge (going into next arc)
+        f_end = fillets.get((corner_after, edge_key_after))
+
+        if is_vertical:
+            y1 = f_start[1][1] if f_start else edge_start[1]
+            y2 = f_end[1][1] if f_end else edge_end[1]
+            out.append(("line", edge_start[0], y1, edge_end[0], y2))
+        else:
+            x1 = f_start[1][0] if f_start else edge_start[0]
+            x2 = f_end[1][0] if f_end else edge_end[0]
+            out.append(("line", x1, edge_start[1], x2, edge_end[1]))
+        return out
+
+    def _emit_prop_arc_with_fillets(angle_deg, d):
+        """Emit a propeller arc trimmed by fillets, plus the fillet arcs."""
+        out = []
+        mx, my, pr = d["mx"], d["my"], d["r"]
+        sa, ea = d["sa"], d["ea"]
+
+        # Get the two edge keys for this corner
+        edge_keys = list(d["edge_pts"].keys())
+
+        # Determine which edge is "first" (start of prop arc) and "second" (end)
+        # by checking which intersection is at angle sa vs ea
+        pts = {}
+        for ek in edge_keys:
+            pt = d["edge_pts"][ek]
+            a = _prop_angle(mx, my, pt)
+            pts[ek] = (pt, a)
+
+        # Sort by proximity to sa and ea
+        ek_start = min(edge_keys, key=lambda ek: abs(((pts[ek][1] - sa + 180) % 360) - 180))
+        ek_end = [ek for ek in edge_keys if ek != ek_start][0]
+
+        f_start = fillets.get((angle_deg, ek_start))
+        f_end = fillets.get((angle_deg, ek_end))
+
+        # Emit fillet at arc start (junction with previous edge)
+        if f_start:
+            fc, edge_tp, arc_tp, sa_f, ea_f = f_start
+            # Fillet arc: from edge tangent point to arc tangent point
+            # Direction: the short arc that rounds the corner inward
+            out.append(("arc", fc[0], fc[1], fr, sa_f, ea_f))
+            # Trim propeller arc start
+            sa = _prop_angle(mx, my, arc_tp)
+
+        # Emit fillet at arc end
+        if f_end:
+            fc, edge_tp, arc_tp, sa_f, ea_f = f_end
+            ea = _prop_angle(mx, my, arc_tp)
+
+        # Emit the (trimmed) propeller arc
+        out.append(("arc", mx, my, pr, sa, ea))
+
+        # Emit fillet at arc end
+        if f_end:
+            fc, edge_tp, arc_tp, sa_f, ea_f = f_end
+            out.append(("arc", fc[0], fc[1], fr, ea_f, sa_f))
+
+        return out
+
     segs = []
 
-    # Right edge (x = +half): y from bottom to top
-    right_bottom = _get_edge_pt(315, ("x", half))
-    right_top = _get_edge_pt(45, ("x", half))
-    ry_bot = right_bottom[1] if right_bottom else -half + cr
-    ry_top = right_top[1] if right_top else half - cr
+    # Right edge (x = +half): trimmed
+    r_bot_pt = _get_edge_pt(315, ("x", half)) or (half, -half + cr)
+    r_top_pt = _get_edge_pt(45, ("x", half)) or (half, half - cr)
+    f_bot = fillets.get((315, ("x", half)))
+    f_top = fillets.get((45, ("x", half)))
+    ry_bot = f_bot[1][1] if f_bot else r_bot_pt[1]
+    ry_top = f_top[1][1] if f_top else r_top_pt[1]
     segs.append(("line", half, ry_bot, half, ry_top))
 
-    # 45° arc (top-right corner)
+    # 45° propeller arc with fillets
     if 45 in corner_data:
-        d = corner_data[45]
-        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+        segs.extend(_emit_prop_arc_with_fillets(45, corner_data[45]))
 
-    # Top edge (y = +half): x from right to left
-    top_right = _get_edge_pt(45, ("y", half))
-    top_left = _get_edge_pt(135, ("y", half))
-    tx_right = top_right[0] if top_right else half - cr
-    tx_left = top_left[0] if top_left else -half + cr
+    # Top edge (y = +half): trimmed
+    t_right_pt = _get_edge_pt(45, ("y", half)) or (half - cr, half)
+    t_left_pt = _get_edge_pt(135, ("y", half)) or (-half + cr, half)
+    f_right = fillets.get((45, ("y", half)))
+    f_left = fillets.get((135, ("y", half)))
+    tx_right = f_right[1][0] if f_right else t_right_pt[0]
+    tx_left = f_left[1][0] if f_left else t_left_pt[0]
     segs.append(("line", tx_right, half, tx_left, half))
 
-    # 135° arc (top-left corner)
+    # 135° propeller arc with fillets
     if 135 in corner_data:
-        d = corner_data[135]
-        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+        segs.extend(_emit_prop_arc_with_fillets(135, corner_data[135]))
 
-    # Left edge (x = -half): y from top to bottom
-    left_top = _get_edge_pt(135, ("x", -half))
-    left_bottom = _get_edge_pt(225, ("x", -half))
-    ly_top = left_top[1] if left_top else half - cr
-    ly_bot = left_bottom[1] if left_bottom else -half + cr
+    # Left edge (x = -half): trimmed
+    l_top_pt = _get_edge_pt(135, ("x", -half)) or (-half, half - cr)
+    l_bot_pt = _get_edge_pt(225, ("x", -half)) or (-half, -half + cr)
+    f_top_l = fillets.get((135, ("x", -half)))
+    f_bot_l = fillets.get((225, ("x", -half)))
+    ly_top = f_top_l[1][1] if f_top_l else l_top_pt[1]
+    ly_bot = f_bot_l[1][1] if f_bot_l else l_bot_pt[1]
     segs.append(("line", -half, ly_top, -half, ly_bot))
 
-    # 225° arc (bottom-left corner)
+    # 225° propeller arc with fillets
     if 225 in corner_data:
-        d = corner_data[225]
-        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+        segs.extend(_emit_prop_arc_with_fillets(225, corner_data[225]))
 
-    # Bottom edge (y = -half): x from left to right
-    bot_left = _get_edge_pt(225, ("y", -half))
-    bot_right = _get_edge_pt(315, ("y", -half))
-    bx_left = bot_left[0] if bot_left else -half + cr
-    bx_right = bot_right[0] if bot_right else half - cr
+    # Bottom edge (y = -half): trimmed
+    b_left_pt = _get_edge_pt(225, ("y", -half)) or (-half + cr, -half)
+    b_right_pt = _get_edge_pt(315, ("y", -half)) or (half - cr, -half)
+    f_left_b = fillets.get((225, ("y", -half)))
+    f_right_b = fillets.get((315, ("y", -half)))
+    bx_left = f_left_b[1][0] if f_left_b else b_left_pt[0]
+    bx_right = f_right_b[1][0] if f_right_b else b_right_pt[0]
     segs.append(("line", bx_left, -half, bx_right, -half))
 
-    # 315° arc (bottom-right corner)
+    # 315° propeller arc with fillets
     if 315 in corner_data:
-        d = corner_data[315]
-        segs.append(("arc", d["mx"], d["my"], d["r"], d["sa"], d["ea"]))
+        segs.extend(_emit_prop_arc_with_fillets(315, corner_data[315]))
 
     return segs
 
