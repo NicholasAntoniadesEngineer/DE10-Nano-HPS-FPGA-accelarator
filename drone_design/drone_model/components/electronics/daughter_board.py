@@ -52,14 +52,16 @@ GPIO_LENGTH = (GPIO_COLS - 1) * GPIO_PITCH  # 48.26mm for 2x20
 GPIO_WIDTH  = (GPIO_ROWS - 1) * GPIO_PITCH  # 2.54mm for 2-row
 GPIO_HEADER_H = 8.5  # receptacle housing height (extends downward toward DE10)
 
+_PLATE_SIZE = _D["frame"]["plate_size"]  # 110.0 — combined PCB is the full top plate
+
 CATALOG = {
     "daughter_board": {
         "material": "FR4 PCB + components",
-        "dims": "85 x 100 x 1.6mm",
-        "mass_g": 35, "qty": 1,
+        "dims": f"{_PLATE_SIZE:.0f} x {_PLATE_SIZE:.0f} x {DB_H}mm",
+        "mass_g": 45, "qty": 1,
         "supplier": "Custom PCB (JLCPCB)",
-        "notes": "Sensor hub: level shifter, I2C mux, barometer, power regulators",
-        "interface": "Stacks above DE10-Nano on standoffs",
+        "notes": "Combined top plate + daughter board: Kagome frame, sensor hub, power regulators",
+        "interface": "Structural top plate + DE10-Nano daughter board in one PCB",
     },
 }
 
@@ -123,29 +125,31 @@ def make_daughter_board():
         )
         board = board.union(ard_header)
 
-    # Central heatsink/fan cutout — the DE10 heatsink (40x40mm) and cooling fan
-    # protrude through this opening. 2mm clearance on each side.
-    _hs_w = _D["de10_nano"]["heatsink_width"]
-    _hs_l = _D["de10_nano"]["heatsink_length"]
-    hs_cutout = (
-        cq.Workplane("XY")
-        .rect(_hs_w + 4, _hs_l + 4)
-        .extrude(DB_H)
-        .edges("|Z")
-        .chamfer(board_chamfer)
-    )
-    board = board.cut(hs_cutout)
+    # NOTE: No heatsink cutout — the 8.5mm standoff gap between DE10-Nano and
+    # daughter board provides clearance for the heatsink.  Components are placed
+    # on the PCB surface above the heatsink zone.
 
-    # IC component blocks (level shifters, mux, power regulators)
-    # Positioned around the heatsink cutout, not overlapping it
-    for pos in [(25, 20), (-25, -15), (25, -15), (0, -30)]:
+    # IC / connector component blocks — rendered from the actual netlist placements
+    # Coordinate transform: netlist uses top-left origin (0,0), CQ uses board centre
+    from drone_design.drone_model.components.electronics.daughter_board_netlist import PLACEMENTS
+    _hs_half_w = (_D["de10_nano"]["heatsink_width"] + 4) / 2
+    _hs_half_l = (_D["de10_nano"]["heatsink_length"] + 4) / 2
+    for p in PLACEMENTS:
+        cw = p.component.courtyard_w
+        ch = p.component.courtyard_h
+        if cw < 1.5 and ch < 1.5:
+            continue  # skip tiny passives (0402, 0603) for rendering speed
+        cx = p.x - DB_W / 2
+        cy = p.y - DB_L / 2
+        # Skip components that overlap the heatsink cutout
+        if (abs(cx) < _hs_half_w + cw / 2 and abs(cy) < _hs_half_l + ch / 2):
+            continue
+        ic_h = 2.0 if cw > 3.0 else 1.2  # taller block for larger ICs
         ic = (
             cq.Workplane("XY")
-            .center(pos[0], pos[1])
-            .rect(8, 8)
-            .extrude(DB_H + 2)
-            .edges("|Z")
-            .chamfer(min(0.6, pcb_chamfer))
+            .center(cx, cy)
+            .rect(cw, ch)
+            .extrude(DB_H + ic_h)
         )
         board = board.union(ic)
 
@@ -154,7 +158,7 @@ def make_daughter_board():
     if Anchor is not None:
         anchors["bottom_face"] = Anchor(point=(0, 0, 0), normal=(0, 0, -1), label="Daughter board bottom mates with DE10 headers")
         # Top face at tallest IC block height — used for top plate clearance chain
-        _ic_top = DB_H + 2  # PCB + IC component height
+        _ic_top = DB_H + 2.0  # PCB + tallest component height (large IC blocks)
         anchors["top_face"] = Anchor(point=(0, 0, _ic_top), normal=(0, 0, 1), label="Tallest point on daughter board")
 
         # Mounting holes matching DE10-Nano corner pattern (bottom — mates lower standoffs)
@@ -191,180 +195,26 @@ def make_daughter_board():
 
 
 # =============================================================================
-# KiCad PCB generator
+# KiCad PCB generator — production-quality output from BoardDefinition
 # =============================================================================
 
 try:
     from cadquery_framework.kicad.primitives import (
-        rounded_rect_outline, outline_to_sexpr, through_hole_pad,
-        text_sexpr, kicad_pcb_wrapper,
+        rounded_rect_outline, outline_to_sexpr,
+        text_sexpr,
     )
     import uuid as _uuid
     _KI_AVAIL = True
 except ImportError:
     _KI_AVAIL = False
 
-# ── Coordinate transform ──────────────────────────────────────────────────────
-# Intel PCB coords:   origin = board bottom-left corner
-#                     X along 107.95mm (length) axis
-#                     Y along 68.58mm  (width)  axis
-# CadQuery / KiCad:   origin = board center
-#                     CQ_X = DE10_W/2 - intel_y
-#                     CQ_Y = intel_x  - DE10_L/2
-# ─────────────────────────────────────────────────────────────────────────────
+from collections import defaultdict
 
-# Full GPIO0 (JP1) pin→net mapping.
-# DE10-Nano 2x20 header pin numbering: odd pins on row A, even pins on row B.
-# Row A = column closer to board centre (lower intel_y).
-# Pins increment along +Y (increasing intel_x).
-# Net names follow the design doc signal assignments.
-_GPIO0_NETS = {
-    # pin: net_name
-     1: "CAM_D0",        2: "CAM_D1",
-     3: "CAM_D2",        4: "CAM_D3",
-     5: "CAM_D4",        6: "CAM_D5",
-     7: "CAM_D6",        8: "CAM_D7",
-     9: "CAM_PCLK",     10: "CAM_VSYNC",
-    11: "CAM_HSYNC",    12: "CAM_XCLK",
-    13: "CAM_SIOC",     14: "CAM_SIOD",
-    15: "CAM_PWDN",     16: "CAM_RESET",
-    17: "DSHOT_CH1",    18: "DSHOT_CH2",
-    19: "DSHOT_CH3",    20: "DSHOT_CH4",
-    21: "PUMP_PWM",     22: "BUZZER_PWM",
-    23: "ARM_SW_IN",    24: "ESTOP_IN",
-    25: "DOCK_DET",     26: "LED_POWER",
-    27: "LED_ARMED",    28: "LED_BEACON",
-    29: "+5V",          30: "+3V3",
-    31: "LED_ERROR",    32: "CHARGE_SENSE1",
-    33: "CHARGE_SENSE2",34: "GPIO0_SPARE34",
-    35: "GND",          36: "GND",
-    37: "GPIO0_SPARE37",38: "GPIO0_SPARE38",
-    39: "GPIO0_SPARE39",40: "GPIO0_SPARE40",
-}
-
-# Full GPIO1 (JP2) pin→net mapping.
-_GPIO1_NETS = {
-     1: "IMU_SCLK",      2: "IMU_MOSI",
-     3: "IMU_MISO",      4: "IMU_CS_N",
-     5: "IMU_INT",       6: "TOF_I2C_SCL",
-     7: "TOF_I2C_SDA",   8: "TOF_MUX_RST_N",
-     9: "TOF_XSHUT0",   10: "TOF_XSHUT1",
-    11: "TOF_XSHUT2",   12: "TOF_XSHUT3",
-    13: "IR_RX_FRONT",  14: "IR_RX_LEFT",
-    15: "IR_RX_RIGHT",  16: "IR_RX_REAR",
-    17: "INA219_ALERT", 18: "GPIO1_SPARE18",
-    19: "GPIO1_SPARE19",20: "GPIO1_SPARE20",
-    21: "GPIO1_SPARE21",22: "GPIO1_SPARE22",
-    23: "GPIO1_SPARE23",24: "GPIO1_SPARE24",
-    25: "GPIO1_SPARE25",26: "GPIO1_SPARE26",
-    27: "GPIO1_SPARE27",28: "GPIO1_SPARE28",
-    29: "+5V",          30: "+3V3",
-    31: "GPIO1_SPARE31",32: "GPIO1_SPARE32",
-    33: "GPIO1_SPARE33",34: "GPIO1_SPARE34",
-    35: "GND",          36: "GND",
-    37: "GPIO1_SPARE37",38: "GPIO1_SPARE38",
-    39: "GPIO1_SPARE39",40: "GPIO1_SPARE40",
-}
-
-# Power / ground net names used across the board
-_PWR_NETS = {"+5V", "+3V3", "+1V8", "GND"}
-
-# Component placements: (ref, value, cx, cy, width_mm, height_mm, layer, description)
-# All coordinates in board-centre frame (mm).  Layer "F" = front, "B" = back.
-# Positions are chosen to avoid the heatsink cutout (±22mm), mounting holes,
-# and GPIO connector areas.  Left half (X<0) = GPIO0 subsystems.
-# Right half (X>0) = GPIO1 subsystems.  Top strip (Y>30) = power/misc.
-_COMPONENTS = [
-    # ── GPIO0 subsystems (left side) ─────────────────────────────────────────
-    # U1-U4: DShot buffers (74LVC1G17, SOT-353, ~1.6x1.6mm)
-    ("U1",  "74LVC1G17", -30.0,  25.0,  3.0,  3.0, "F", "DSHOT_CH1 Schmitt buf"),
-    ("U2",  "74LVC1G17", -30.0,  20.0,  3.0,  3.0, "F", "DSHOT_CH2 Schmitt buf"),
-    ("U3",  "74LVC1G17", -30.0,  15.0,  3.0,  3.0, "F", "DSHOT_CH3 Schmitt buf"),
-    ("U4",  "74LVC1G17", -30.0,  10.0,  3.0,  3.0, "F", "DSHOT_CH4 Schmitt buf"),
-    # D1-D4: TVS diodes on ESC signal lines (SOD-882, ~1.6x0.9mm)
-    ("D1",  "PESD5V0S1BL", -26.0, 25.0, 2.0, 1.5, "F", "DSHOT_CH1 TVS"),
-    ("D2",  "PESD5V0S1BL", -26.0, 20.0, 2.0, 1.5, "F", "DSHOT_CH2 TVS"),
-    ("D3",  "PESD5V0S1BL", -26.0, 15.0, 2.0, 1.5, "F", "DSHOT_CH3 TVS"),
-    ("D4",  "PESD5V0S1BL", -26.0, 10.0, 2.0, 1.5, "F", "DSHOT_CH4 TVS"),
-    # J1-J4: JST-XH 3-pin ESC connectors (left board edge, evenly spaced)
-    ("J1",  "JST-XH-3",  -34.0,  25.0,  7.5,  5.0, "F", "ESC1 connector"),
-    ("J2",  "JST-XH-3",  -34.0,  18.0,  7.5,  5.0, "F", "ESC2 connector"),
-    ("J3",  "JST-XH-3",  -34.0,  11.0,  7.5,  5.0, "F", "ESC3 connector"),
-    ("J4",  "JST-XH-3",  -34.0,   4.0,  7.5,  5.0, "F", "ESC4 connector"),
-    # J5: Pump/buzzer JST-XH 2-pin
-    ("J5",  "JST-XH-2",  -34.0,  -4.0,  5.5,  5.0, "F", "Pump/buzzer out"),
-    # ── GPIO1 subsystems (right side) ────────────────────────────────────────
-    # U5: IMU level translator SN74AVC4T245 (TSSOP-16, ~5x4.4mm)
-    ("U5",  "SN74AVC4T245",  28.0,  20.0,  6.0,  5.5, "F", "IMU SPI level xlat"),
-    # U6: 1.8V LDO for IMU (SOT-23-5, ~3x2mm)
-    ("U6",  "TPS7A2018",     28.0,  12.0,  3.5,  2.5, "F", "1.8V LDO for IMU"),
-    # U7: ICM-20948 IMU (3x3mm LGA)
-    ("U7",  "ICM-20948",     28.0,   5.0,  4.0,  4.0, "F", "9-axis IMU"),
-    # U8: TCA9548A I2C mux for 6x ToF sensors (SOIC-24, ~8.6x7.5mm)
-    ("U8",  "TCA9548A",      28.0,  -8.0,  9.5,  8.5, "F", "I2C mux for ToF"),
-    # J6-J11: Molex Picoblade 4-pin for 6x ToF sensors (right side)
-    ("J6",  "PICOBLADE-4",   34.0,  28.0,  5.0,  4.0, "F", "ToF sensor 0"),
-    ("J7",  "PICOBLADE-4",   34.0,  22.0,  5.0,  4.0, "F", "ToF sensor 1"),
-    ("J8",  "PICOBLADE-4",   34.0,  16.0,  5.0,  4.0, "F", "ToF sensor 2"),
-    ("J9",  "PICOBLADE-4",   34.0,  10.0,  5.0,  4.0, "F", "ToF sensor 3"),
-    ("J10", "PICOBLADE-4",   34.0,   4.0,  5.0,  4.0, "F", "ToF sensor 4 (up)"),
-    ("J11", "PICOBLADE-4",   34.0,  -2.0,  5.0,  4.0, "F", "ToF sensor 5 (down)"),
-    # J12-J15: IR receiver connectors (right edge, lower)
-    ("J12", "JST-SH-3",      34.0, -10.0,  4.5,  3.5, "F", "IR front"),
-    ("J13", "JST-SH-3",      34.0, -15.0,  4.5,  3.5, "F", "IR left"),
-    ("J14", "JST-SH-3",      34.0, -20.0,  4.5,  3.5, "F", "IR right"),
-    ("J15", "JST-SH-3",      34.0, -25.0,  4.5,  3.5, "F", "IR rear"),
-    # ── Power section (top strip, above heatsink area) ────────────────────────
-    # U9: INA219 current/voltage monitor (SOIC-8, ~5x4mm)
-    ("U9",  "INA219",         0.0,  33.0,  5.5,  4.5, "F", "Battery V/I monitor"),
-    # J16: Battery sense JST-XH 2-pin
-    ("J16", "JST-XH-2",       8.0,  36.0,  5.5,  5.0, "F", "Batt sense input"),
-    # J17: Status LED JST-SH 6-pin
-    ("J17", "JST-SH-6",      -8.0,  36.0,  7.5,  3.5, "F", "Status LEDs"),
-    # J18: Arm/estop switch JST-SH 3-pin
-    ("J18", "JST-SH-3",     -16.0,  36.0,  4.5,  3.5, "F", "Arm/EStop switch"),
-    # U10: Barometer (BMP390, LGA-8 2x2mm) — near board centre, shielded
-    ("U10", "BMP390",        -3.0,  28.0,  3.0,  3.0, "F", "Barometric altimeter"),
-    # C1-C10: Bulk decoupling (0402, scattered — courtyard only)
-    ("C1",  "100nF",         24.0,  28.0,  1.5,  1.0, "F", "IMU VDD decoup"),
-    ("C2",  "10uF",          25.5,  28.0,  2.0,  1.5, "F", "IMU VDD bulk"),
-    ("C3",  "100nF",         24.0,  26.0,  1.5,  1.0, "F", "IMU VDDIO decoup"),
-    ("C4",  "1uF",           25.5,  26.0,  2.0,  1.5, "F", "IMU REGOUT"),
-    ("C5",  "4.7uF",         24.0,  10.0,  2.0,  1.5, "F", "1V8 LDO input"),
-    ("C6",  "1uF",           25.5,  10.0,  2.0,  1.5, "F", "1V8 LDO output"),
-    ("C7",  "100nF",         -3.0,  25.5,  1.5,  1.0, "F", "Baro decoup"),
-    ("C8",  "100nF",          0.0,  30.5,  1.5,  1.0, "F", "INA219 decoup"),
-    ("C9",  "100nF",         24.0, -12.0,  1.5,  1.0, "F", "TCA9548A decoup"),
-    ("C10", "10uF",          25.5, -12.0,  2.0,  1.5, "F", "TCA9548A bulk"),
-    # R1-R4: Pull-up resistors for IMU INT, TOF MUX RST (0402)
-    ("R1",  "10k",           26.0,   2.0,  1.5,  1.0, "F", "IMU INT pull-up"),
-    ("R2",  "10k",           26.0,   0.0,  1.5,  1.0, "F", "TOF MUX RST pull-up"),
-    ("R3",  "4k7",           -5.0,  28.0,  1.5,  1.0, "F", "INA219 current shunt hi"),
-    ("R4",  "4k7",           -5.0,  26.0,  1.5,  1.0, "F", "INA219 current shunt lo"),
-]
-
-# ── GPIO header connector layout ─────────────────────────────────────────────
-# 2x20 male header, 2.54mm pitch, pins run along Y axis.
-# In KiCad footprint convention: pin 1 at lowest-Y, odd pins on row A (lower X),
-# even pins on row B (higher X).
-_GPIO_LAYOUT = {
-    "gpio0": {
-        "ref":      "JP1",
-        "value":    "2x20_GPIO0",
-        "cx":       DE10_W / 2 - _D["de10_nano"]["connectors"]["gpio0"]["intel_y"],
-        "y_pin1":   _D["de10_nano"]["connectors"]["gpio0"]["intel_x"] - DE10_L / 2,
-        "nets":     _GPIO0_NETS,
-        "label":    "JP1 GPIO0",
-    },
-    "gpio1": {
-        "ref":      "JP2",
-        "value":    "2x20_GPIO1",
-        "cx":       DE10_W / 2 - _D["de10_nano"]["connectors"]["gpio1"]["intel_y"],
-        "y_pin1":   _D["de10_nano"]["connectors"]["gpio1"]["intel_x"] - DE10_L / 2,
-        "nets":     _GPIO1_NETS,
-        "label":    "JP2 GPIO1",
-    },
-}
+from cadquery_framework.kicad.component_library import (
+    BoardDefinition,
+    Placement as CompPlacement,
+    PadGeometry,
+)
 
 
 def _uid():
@@ -376,148 +226,167 @@ def _net_sexpr(net_id, net_name):
     return f'  (net {net_id} "{net_name}")'
 
 
-def _th_pad_with_net(cx, cy, pad_no, drill_d, pad_d, net_id, net_name, square=False):
-    """Through-hole pad inside a footprint, with net assignment."""
-    shape = "rect" if square else "circle"
-    return (
-        f'    (pad "{pad_no}" thru_hole {shape} (at {cx:.4f} {cy:.4f}) '
-        f'(size {pad_d:.2f} {pad_d:.2f}) (drill {drill_d:.2f}) '
-        f'(layers "*.Cu" "*.Mask") '
-        f'(net {net_id} "{net_name}") '
-        f'(uuid "{_uid()}"))'
-    )
+# ---------------------------------------------------------------------------
+# Pad S-expression generation from PadGeometry + net assignment
+# ---------------------------------------------------------------------------
+
+def _pad_sexpr(pad: PadGeometry, net_id: int, net_name: str,
+               pin1: bool = False) -> str:
+    """Generate KiCad pad S-expression from PadGeometry dataclass."""
+    shape = pad.shape
+    # Pin 1 of through-hole components uses square pad
+    if pin1 and pad.pad_type == "thru_hole":
+        shape = "rect"
+
+    layers_str = " ".join(f'"{l}"' for l in pad.layers)
+
+    parts = [
+        f'    (pad "{pad.number}" {pad.pad_type} {shape}',
+        f' (at {pad.x:.4f} {pad.y:.4f})',
+        f' (size {pad.width:.3f} {pad.height:.3f})',
+    ]
+
+    if pad.drill > 0:
+        parts.append(f' (drill {pad.drill:.2f})')
+
+    if shape == "roundrect" and pad.roundrect_rratio > 0:
+        parts.append(f' (roundrect_rratio {pad.roundrect_rratio:.3f})')
+
+    parts.append(f' (layers {layers_str})')
+
+    if net_name:
+        parts.append(f' (net {net_id} "{net_name}")')
+
+    parts.append(f' (uuid "{_uid()}"))')
+
+    return "".join(parts)
 
 
-def _gpio_footprint(layout, global_nets, pitch=2.54, drill_d=1.0, pad_d=1.7):
-    """Generate a complete 2x20 through-hole GPIO receptacle footprint.
+# ---------------------------------------------------------------------------
+# Footprint generation from Placement + net map
+# ---------------------------------------------------------------------------
 
-    Pin numbering follows DE10-Nano JP1/JP2 conventions:
-      - Odd pins (1,3,5,...) are on row A: x = cx - pitch/2
-      - Even pins (2,4,6,...) are on row B: x = cx + pitch/2
-      - Pin 1 at y_pin1 (lowest Y), pin 39 at y_pin1 + 19*pitch
+def _footprint_sexpr(placement: CompPlacement,
+                     pin_net_map: dict[str, str],
+                     net_ids: dict[str, int]) -> str:
+    """Generate complete footprint S-expression for a placed component.
 
-    global_nets: dict {net_name: net_id} — the file-wide net table (net 0 = "").
-        Any NC pins not in global_nets are added to it automatically.
-    Returns footprint_str.
+    Uses real pad geometry from ComponentDef, with net assignments from
+    the pin_net_map.
     """
-    cx    = layout["cx"]
-    y_p1  = layout["y_pin1"]
-    ref   = layout["ref"]
-    value = layout["value"]
-    nets  = layout["nets"]
-    label = layout["label"]
+    comp = placement.component
+    ref = placement.ref
+    layer_prefix = placement.side  # "F" or "B"
 
-    def _lookup(name):
-        if name not in global_nets:
-            global_nets[name] = len(global_nets)
-        return global_nets[name]
+    # Courtyard dimensions
+    hw = comp.courtyard_w / 2
+    hh = comp.courtyard_h / 2
 
-    # Build pad list
-    pads = []
-    for pos in range(1, 21):      # 20 positions (rows of pins)
-        pin_a = 2 * pos - 1       # odd pin number (row A, lower X)
-        pin_b = 2 * pos           # even pin number (row B, higher X)
-        y_pos = y_p1 + (pos - 1) * pitch   # Y increases with pin position
-        xa    = cx - pitch / 2    # row A
-        xb    = cx + pitch / 2    # row B
-
-        net_a = nets.get(pin_a, f"NC_{ref}_{pin_a}")
-        net_b = nets.get(pin_b, f"NC_{ref}_{pin_b}")
-
-        pads.append(_th_pad_with_net(
-            xa - cx, y_pos - (y_p1 + 19 * pitch / 2),   # relative to footprint origin
-            pin_a, drill_d, pad_d,
-            _lookup(net_a), net_a,
-            square=(pin_a == 1),   # square pad on pin 1
-        ))
-        pads.append(_th_pad_with_net(
-            xb - cx, y_pos - (y_p1 + 19 * pitch / 2),
-            pin_b, drill_d, pad_d,
-            _lookup(net_b), net_b,
-        ))
-
-    # Courtyard (F.Courtyard)
-    cy_center = y_p1 + 19 * pitch / 2
-    cyd_w = 2 * pitch + 2.0
-    cyd_l = 19 * pitch + 2.0
-    hw, hl = cyd_w / 2, cyd_l / 2
-    courtyard = (
-        f'    (fp_line (start {-hw:.3f} {-hl:.3f}) (end {hw:.3f} {-hl:.3f}) '
-        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
-        f'    (fp_line (start {hw:.3f} {-hl:.3f}) (end {hw:.3f} {hl:.3f}) '
-        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
-        f'    (fp_line (start {hw:.3f} {hl:.3f}) (end {-hw:.3f} {hl:.3f}) '
-        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
-        f'    (fp_line (start {-hw:.3f} {hl:.3f}) (end {-hw:.3f} {-hl:.3f}) '
-        f'(layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
+    lines = []
+    lines.append(
+        f'  (footprint "custom:{comp.package}:{comp.mpn}" '
+        f'(layer "{layer_prefix}.Cu") (uuid "{_uid()}")'
     )
-    # Silkscreen pin-1 indicator and reference label
-    silk_pin1 = (
-        f'    (fp_text "1" (at {-(pitch / 2 + 2.0):.3f} {-hl + 0.5:.3f}) (layer "F.SilkS") '
-        f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))\n'
-        f'    )'
-    )
-    silk_ref = (
-        f'    (fp_text reference "{ref}" (at 0 {-hl - 2.5:.3f}) (layer "F.SilkS") '
-        f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size {SILK_REF_SIZE_MM} {SILK_REF_SIZE_MM}) (thickness {SILK_REF_THICK_MM})))\n'
-        f'    )'
-    )
-    silk_val = (
-        f'    (fp_text value "{label}" (at 0 {hl + 2.0:.3f}) (layer "F.Fab") '
-        f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size {SILK_SMALL_SIZE_MM} {SILK_SMALL_SIZE_MM}) (thickness {SILK_SMALL_THICK_MM})))\n'
+    lines.append(f'  (at {placement.x:.4f} {placement.y:.4f} {placement.rotation:.1f})')
+    lines.append(f'  (descr "{comp.description}")')
+
+    # Reference designator on silkscreen
+    lines.append(
+        f'    (fp_text reference "{ref}" (at 0 {-hh - 1.0:.3f}) '
+        f'(layer "{layer_prefix}.SilkS") (uuid "{_uid()}")\n'
+        f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) '
+        f'(thickness {SILK_MICRO_THICK_MM})))\n'
         f'    )'
     )
 
-    fp = (
-        f'  (footprint "Connector_PinHeader_2.54mm:PinHeader_2x20_P2.54mm_Vertical" '
-        f'(layer "F.Cu") (uuid "{_uid()}")\n'
-        f'  (at {cx:.4f} {cy_center:.4f})\n'
-        f'  (descr "DE10-Nano {label} 2x20 receptacle")\n'
-        f'{silk_ref}\n'
-        f'{silk_val}\n'
-        f'{courtyard}\n'
-        + "\n".join(pads) + "\n"
-        f'  )'
+    # Value on fab layer
+    lines.append(
+        f'    (fp_text value "{comp.value}" (at 0 {hh + 0.8:.3f}) '
+        f'(layer "{layer_prefix}.Fab") (uuid "{_uid()}")\n'
+        f'      (effects (font (size {SILK_FAB_SIZE_MM} {SILK_FAB_SIZE_MM}) '
+        f'(thickness {SILK_FAB_THICK_MM})))\n'
+        f'    )'
     )
-    return fp
 
-
-def _component_footprint(ref, value, cx, cy, w, h, layer, description):
-    """Minimal courtyard + silkscreen footprint for a placed component."""
-    hw, hh = w / 2, h / 2
-    layer_prefix = "F" if layer == "F" else "B"
-    lines = (
-        f'  (footprint "custom:{ref}" (layer "{layer_prefix}.Cu") (uuid "{_uid()}")\n'
-        f'  (at {cx:.4f} {cy:.4f})\n'
-        f'  (descr "{description}")\n'
-        f'    (fp_text reference "{ref}" (at 0 {-hh - 1.0:.3f}) (layer "{layer_prefix}.SilkS") '
-        f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))\n'
-        f'    )\n'
-        f'    (fp_text value "{value}" (at 0 {hh + 0.8:.3f}) (layer "{layer_prefix}.Fab") '
-        f'(uuid "{_uid()}")\n'
-        f'      (effects (font (size {SILK_FAB_SIZE_MM} {SILK_FAB_SIZE_MM}) (thickness {SILK_FAB_THICK_MM})))\n'
-        f'    )\n'
+    # Courtyard rectangle
+    lines.append(
         f'    (fp_line (start {-hw:.3f} {-hh:.3f}) (end {hw:.3f} {-hh:.3f}) '
-        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
+    )
+    lines.append(
         f'    (fp_line (start {hw:.3f} {-hh:.3f}) (end {hw:.3f} {hh:.3f}) '
-        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
+    )
+    lines.append(
         f'    (fp_line (start {hw:.3f} {hh:.3f}) (end {-hw:.3f} {hh:.3f}) '
-        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
+    )
+    lines.append(
         f'    (fp_line (start {-hw:.3f} {hh:.3f}) (end {-hw:.3f} {-hh:.3f}) '
-        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))\n'
+        f'(layer "{layer_prefix}.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))'
+    )
+
+    # Pin-1 indicator (small triangle on silkscreen)
+    if comp.pads:
+        p1 = comp.pads[0]
+        lines.append(
+            f'    (fp_line (start {p1.x - 0.3:.3f} {p1.y - 0.5:.3f}) '
+            f'(end {p1.x + 0.3:.3f} {p1.y - 0.5:.3f}) '
+            f'(layer "{layer_prefix}.SilkS") (width {SILK_MICRO_THICK_MM}) (uuid "{_uid()}"))'
+        )
+
+    # All pads with net assignments
+    for pad in comp.pads:
+        net_name = pin_net_map.get(pad.number, "")
+        net_id = net_ids.get(net_name, 0) if net_name else 0
+        is_pin1 = (pad.number == comp.pads[0].number)
+        lines.append(_pad_sexpr(pad, net_id, net_name, pin1=is_pin1))
+
+    lines.append('  )')
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Copper zone pour S-expression
+# ---------------------------------------------------------------------------
+
+def _zone_pour(net_id: int, net_name: str, layer: str,
+               points: list[tuple[float, float]],
+               priority: int = 0) -> str:
+    """Generate a filled copper zone pour."""
+    pts = " ".join(f'(xy {x:.4f} {y:.4f})' for x, y in points)
+    return (
+        f'  (zone (net {net_id}) (net_name "{net_name}") (layer "{layer}") '
+        f'(uuid "{_uid()}") (hatch edge 0.5)\n'
+        f'    (priority {priority})\n'
+        f'    (connect_pads (clearance 0.2))\n'
+        f'    (fill yes (thermal_gap 0.25) (thermal_bridge_width 0.25))\n'
+        f'    (polygon (pts {pts}))\n'
         f'  )'
     )
-    return lines
 
+
+# ---------------------------------------------------------------------------
+# Via stitching S-expression
+# ---------------------------------------------------------------------------
+
+def _via_sexpr(x: float, y: float, net_id: int, net_name: str,
+               drill: float = 0.3, size: float = 0.6) -> str:
+    """Generate a via S-expression."""
+    return (
+        f'  (via (at {x:.4f} {y:.4f}) (size {size:.2f}) (drill {drill:.2f}) '
+        f'(layers "F.Cu" "B.Cu") (net {net_id}) (uuid "{_uid()}"))'
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4-layer PCB wrapper (unchanged stackup)
+# ---------------------------------------------------------------------------
 
 def _kicad_pcb_4layer(title, thickness, nets_block, content):
     """Full .kicad_pcb wrapper with a proper 4-layer stackup for an electrical PCB."""
     from datetime import datetime
-    return f"""(kicad_pcb (version 20221018) (generator "cadquery_framework")
+    return f"""(kicad_pcb (version 20241228) (generator "pcbnew") (generator_version "9.0")
   (general
     (thickness {thickness:.2f})
     (legacy_teardrops no)
@@ -621,142 +490,287 @@ def _kicad_pcb_4layer(title, thickness, nets_block, content):
 
 
 def generate_daughter_board_pcb():
-    """Generate production-quality .kicad_pcb for the daughter board.
+    """Generate production-quality .kicad_pcb for the combined top plate + daughter board.
 
-    Coordinate origin: board centre.
-    X-axis: parallel to DE10-Nano 68.58mm (width) axis.
-    Y-axis: parallel to DE10-Nano 107.95mm (length) axis.
-
-    Board: 72×80mm, 1.6mm FR4, 4-layer (sig/GND/PWR/sig).
+    The fabricated PCB is 110×110mm (PLATE_SIZE) — the full structural top frame
+    plate with integrated electronics.  Features:
+      - Outer frame with Kagome lattice lightening cutouts
+      - Central heatsink/fan pass-through cutout
+      - Connector relief cutouts (Ethernet, barrel jack)
+      - All electronic component footprints (from daughter_board_netlist)
+      - 4-layer stackup, copper zone pours, GND via stitching
 
     Content:
-      Edge.Cuts     — board outline (3mm corner radius) + heatsink/fan cutout
-      F.Cu / B.Cu   — all through-hole pads with net assignments
-      F.Courtyard   — courtyard outlines for every component
-      F.SilkS       — connector labels, pin-1 markers, ref designators, board ID
-      F.Fab         — component values
-      Dwgs.User     — DE10-Nano board shadow at 1:1 scale (routing reference)
-      Net list       — all 72 GPIO signals + power/GND nets declared
+      Edge.Cuts      — 110×110 outline + Kagome hex cutouts + heatsink + connector reliefs
+      F.Cu / B.Cu    — all real SMD + TH pads with net assignments
+      In1.Cu         — GND copper zone pour (continuous plane)
+      In2.Cu         — +3V3 copper zone pour
+      F.Courtyard    — courtyard outlines for every component
+      F.SilkS        — ref designators, pin-1 markers, board title
+      F.Fab          — component values
+      GND vias       — perimeter via stitching (2mm spacing)
     """
     if not _KI_AVAIL:
         raise RuntimeError("cadquery_framework.kicad.primitives not available")
 
-    db_w  = DB_W           # 72.0 mm
-    db_l  = DB_L           # 80.0 mm
-    db_t  = DB_H           # 1.6 mm
-    de10_w = DE10_W        # 68.58 mm
-    de10_l = DE10_L        # 107.95 mm
-    hole_d = DB_MOUNT_HOLE_D   # 2.7 mm
-    inset  = DB_MOUNT_INSET    # 4.0 mm
-    hs_w   = _D["de10_nano"]["heatsink_width"]    # 40.0 mm
-    hs_l   = _D["de10_nano"]["heatsink_length"]   # 40.0 mm
+    from cadquery_framework.kicad.primitives import rounded_hexagon_outline
+    from drone_design.drone_model.components.frame.skeleton_plate import (
+        _kagome_cutout_centers_pcb, KAGOME_HOLE_R, ARM_ANGLES, PLATE_CORNER_R,
+    )
+    from drone_design.drone_model.components.assembly_constants import PLATE_SIZE
+    import math
 
-    # ── Collect all net names to build global net table ───────────────────────
-    all_nets = {"": 0}   # net 0 = no-connect / unconnected
-    for nets_dict in (_GPIO0_NETS, _GPIO1_NETS):
-        for net_name in nets_dict.values():
-            if net_name not in all_nets:
-                all_nets[net_name] = len(all_nets)
-    # Power nets guaranteed present
-    for pnet in ("+5V", "+3V3", "+1V8", "GND"):
-        if pnet not in all_nets:
-            all_nets[pnet] = len(all_nets)
+    # Import netlist and build board definition
+    from drone_design.drone_model.components.electronics.daughter_board_netlist import build_board
+    board = build_board()
 
-    # Assign GPIO connector net IDs using the global table
-    def _gp_net_id(name):
-        return all_nets.get(name, 0)
+    bw = board.width      # 110.0 mm (PLATE_SIZE)
+    bh = board.height     # 110.0 mm
+    bt = board.thickness  # 1.6 mm
+    cr = board.corner_radius  # PLATE_CORNER_R = 2.0
 
-    # ── Board outline (Edge.Cuts) ─────────────────────────────────────────────
-    segs = rounded_rect_outline(db_w, db_l, 3.0)
+    # ── Build global net table ───────────────────────────────────────────────
+    net_ids: dict[str, int] = {"": 0}
+    for net_name in sorted(board.nets.keys()):
+        if net_name and net_name not in net_ids:
+            net_ids[net_name] = len(net_ids)
+
+    # ── Build per-placement pin→net maps ─────────────────────────────────────
+    ref_pin_nets: dict[str, dict[str, str]] = defaultdict(dict)
+    for net_name, connections in board.nets.items():
+        for conn in connections:
+            ref_pin_nets[conn.ref][conn.pin_number] = net_name
+
+    # ── Board outline (Edge.Cuts) — centre-origin ─────────────────────────
+    ox = bw / 2   # offset: top-left (0,0) → centre
+    oy = bh / 2
+
+    segs = rounded_rect_outline(bw, bh, cr)
+
+    # ── Heatsink/fan pass-through cutout (centre of board) ─────────────────
+    _hs_w = _D["de10_nano"]["heatsink_width"]
+    _hs_l = _D["de10_nano"]["heatsink_length"]
+    _hs_clear = 4.0
+    _hs_cw = _hs_w + _hs_clear
+    _hs_cl = _hs_l + _hs_clear
+    _hs_r = min(cr, 3.0)
+    segs.extend(rounded_rect_outline(_hs_cw, _hs_cl, _hs_r))
+
+    # ── Connector relief cutouts (Ethernet, barrel jack from DE10-Nano) ────
+    _de10_conn = _D["de10_nano"]["connectors"]
+    for key, margin in [("ethernet", 6.0), ("barrel_jack", 4.0)]:
+        if key not in _de10_conn:
+            continue
+        c = _de10_conn[key]
+        cx = DE10_W / 2 - c["intel_y"]
+        cy = c["intel_x"] - DE10_L / 2
+        w, h = c["width"] + margin * 2, c["length"] + margin * 2
+        r = min(2.0, (min(w, h) / 2) - 0.5)
+        segs.extend(rounded_rect_outline(w, h, r, cx, cy))
+
+    # ── Kagome lattice lightening cutouts (frame area only) ────────────────
+    # Keepouts: arm rail paths + central daughter board area (solid PCB)
+    keepouts = []
+    half = PLATE_SIZE / 2
+    for angle in ARM_ANGLES:
+        rad = math.radians(angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        abs_cos = abs(cos_a) if abs(cos_a) > 1e-9 else 1e-9
+        abs_sin = abs(sin_a) if abs(sin_a) > 1e-9 else 1e-9
+        max_r = min(half / abs_cos, half / abs_sin) - 5.0
+        dist = 15.0
+        while dist <= max_r:
+            keepouts.append((dist * cos_a, dist * sin_a, 9.0))
+            dist += 10.0
+    keepouts.append((0, 0, 58.0))  # central electronics area keepout
+
+    _hex_r = min(cr, KAGOME_HOLE_R * 0.35)
+    hex_centers = _kagome_cutout_centers_pcb(PLATE_SIZE, keepouts)
+    for hcx, hcy in hex_centers:
+        segs.extend(rounded_hexagon_outline(hcx, hcy, KAGOME_HOLE_R, _hex_r))
+
+    # ── Propeller clearance arc cutouts on Edge.Cuts ───────────────────────
+    # Motor positions at 45/135/225/315° on diagonal, distance = motor_to_motor_diagonal / 2.
+    # Prop disc radius = propeller diameter / 2 + clearance margin.
+    # Where each prop disc overlaps the board rectangle, draw an arc cutout.
+    _motor_r = _D["arms"]["motor_to_motor_diagonal"] / 2  # 110mm
+    _prop_r = _D["propeller"]["diameter"] / 2 + _D.get("motor_riser", {}).get("prop_clearance_margin", 3.0)  # 54mm
+    _half_plate = PLATE_SIZE / 2  # 55mm
+
+    for _angle_deg in ARM_ANGLES:  # 45, 135, 225, 315
+        _rad = math.radians(_angle_deg)
+        _mx = _motor_r * math.cos(_rad)  # motor centre X (centre-origin)
+        _my = _motor_r * math.sin(_rad)  # motor centre Y (centre-origin)
+
+        # Find intersections of the prop circle (cx=_mx, cy=_my, r=_prop_r)
+        # with the board rectangle edges (±_half_plate).
+        # Each corner motor can intersect two edges of the board rectangle.
+        intersections = []
+
+        # Check all 4 board edges: x = ±half, y = ±half
+        for edge_val in [-_half_plate, _half_plate]:
+            # Vertical edges: x = edge_val
+            dx = edge_val - _mx
+            if abs(dx) < _prop_r:
+                dy_sq = _prop_r ** 2 - dx ** 2
+                dy = math.sqrt(dy_sq)
+                for sign in [1, -1]:
+                    iy = _my + sign * dy
+                    # Point must be on the board edge segment
+                    if -_half_plate - 0.01 <= iy <= _half_plate + 0.01:
+                        iy = max(-_half_plate, min(_half_plate, iy))
+                        intersections.append((edge_val, iy))
+
+            # Horizontal edges: y = edge_val
+            dy = edge_val - _my
+            if abs(dy) < _prop_r:
+                dx_sq = _prop_r ** 2 - dy ** 2
+                ddx = math.sqrt(dx_sq)
+                for sign in [1, -1]:
+                    ix = _mx + sign * ddx
+                    if -_half_plate - 0.01 <= ix <= _half_plate + 0.01:
+                        ix = max(-_half_plate, min(_half_plate, ix))
+                        intersections.append((ix, edge_val))
+
+        # Deduplicate points that are very close (corner intersections)
+        unique_pts = []
+        for pt in intersections:
+            if not any(abs(pt[0] - u[0]) < 0.01 and abs(pt[1] - u[1]) < 0.01 for u in unique_pts):
+                unique_pts.append(pt)
+
+        if len(unique_pts) >= 2:
+            # Compute angle (degrees) of each intersection relative to motor centre
+            pt_angles = []
+            for pt in unique_pts:
+                a = math.degrees(math.atan2(pt[1] - _my, pt[0] - _mx))
+                pt_angles.append((a, pt))
+            pt_angles.sort(key=lambda x: x[0])
+
+            # The arc that cuts into the board passes through the board corner.
+            # Find the angular direction toward the board corner from motor centre.
+            corner_x = _half_plate * (1 if math.cos(_rad) > 0 else -1)
+            corner_y = _half_plate * (1 if math.sin(_rad) > 0 else -1)
+            corner_angle = math.degrees(math.atan2(corner_y - _my, corner_x - _mx))
+
+            # Select the arc span that contains corner_angle.
+            # With 2 intersection points we have two candidate arcs.
+            sa = pt_angles[0][0]
+            ea = pt_angles[-1][0]
+
+            # Normalise corner_angle into the same range
+            def _angle_between(start, end, test):
+                """Check if test angle is in the CCW arc from start to end."""
+                s = start % 360
+                e = end % 360
+                t = test % 360
+                if s <= e:
+                    return s <= t <= e
+                else:
+                    return t >= s or t <= e
+
+            if _angle_between(sa, ea, corner_angle):
+                # Arc from sa to ea contains the corner
+                segs.append(("arc", _mx, _my, _prop_r, sa, ea))
+            else:
+                # Arc from ea to sa (going the other way) contains the corner
+                segs.append(("arc", _mx, _my, _prop_r, ea, ea + (360 - (ea - sa))))
+
     content = outline_to_sexpr(segs)
 
-    # ── Heatsink / cooling-fan cutout (Edge.Cuts) ─────────────────────────────
-    cutout_w = hs_w + 4.0   # 44mm
-    cutout_l = hs_l + 4.0   # 44mm
-    hs_segs = rounded_rect_outline(cutout_w, cutout_l, 1.5)
-    content += "\n" + outline_to_sexpr(hs_segs)
-
-    # ── M2.5 mounting holes — four board corners, inset 4mm ───────────────────
-    mh_net = _gp_net_id("GND")
-    for hx in [-db_w / 2 + inset, db_w / 2 - inset]:
-        for hy in [-db_l / 2 + inset, db_l / 2 - inset]:
-            # Use a proper footprint so the hole has a reference
-            ref_label = f"MH{1 + int(hx > 0) + 2 * int(hy > 0)}"
-            content += f"""
-  (footprint "MountingHole:MountingHole_2.7mm_M2.5" (layer "F.Cu") (uuid "{_uid()}")
+    # ── Mounting holes (NPTH) ────────────────────────────────────────────────
+    gnd_net_id = net_ids.get("GND", 0)
+    for mx, my, drill_d in board.mounting_holes:
+        hx = mx - ox
+        hy = my - oy
+        pad_d = drill_d + 0.6
+        content += f"""
+  (footprint "MountingHole:MountingHole_{drill_d:.1f}mm" (layer "F.Cu") (uuid "{_uid()}")
   (at {hx:.4f} {hy:.4f})
-  (descr "M2.5 standoff, GND-tied")
-    (fp_text reference "{ref_label}" (at 0 -2.5) (layer "F.SilkS") (uuid "{_uid()}")
+  (descr "M2.5 mounting hole, GND-tied")
+    (fp_text reference "MH" (at 0 -2.5) (layer "F.SilkS") (uuid "{_uid()}")
       (effects (font (size {SILK_MICRO_SIZE_MM} {SILK_MICRO_SIZE_MM}) (thickness {SILK_MICRO_THICK_MM})))
     )
     (fp_text value "M2.5" (at 0 2.5) (layer "F.Fab") (uuid "{_uid()}")
       (effects (font (size {SILK_FAB_SIZE_MM} {SILK_FAB_SIZE_MM}) (thickness {SILK_FAB_THICK_MM})))
     )
-    (fp_circle (center 0 0) (end 2.0 0) (layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))
-    (pad "" thru_hole circle (at 0 0) (size {TH_M25_PAD_MM} {TH_M25_PAD_MM}) (drill {TH_M25_DRILL_MM})
+    (fp_circle (center 0 0) (end {pad_d / 2 + 0.5:.3f} 0) (layer "F.CrtYd") (width {COURTYARD_WIDTH_MM}) (uuid "{_uid()}"))
+    (pad "" thru_hole circle (at 0 0) (size {pad_d:.2f} {pad_d:.2f}) (drill {drill_d:.2f})
       (layers "*.Cu" "*.Mask")
-      (net {mh_net} "GND")
+      (net {gnd_net_id} "GND")
       (uuid "{_uid()}")
     )
   )"""
 
-    # ── GPIO0 (JP1) footprint ─────────────────────────────────────────────────
-    jp1_fp = _gpio_footprint(
-        _GPIO_LAYOUT["gpio0"],
-        global_nets=all_nets,
-        pitch=GPIO_PITCH,
-        drill_d=TH_GPIO_DRILL_MM, pad_d=TH_GPIO_PAD_MM,
-    )
-    content += "\n" + jp1_fp
+    # ── All component footprints with real pads and net assignments ──────────
+    for placement in board.placements:
+        pin_nets = ref_pin_nets.get(placement.ref, {})
+        shifted = CompPlacement(
+            component=placement.component,
+            ref=placement.ref,
+            x=placement.x - ox,
+            y=placement.y - oy,
+            rotation=placement.rotation,
+            side=placement.side,
+        )
+        content += "\n" + _footprint_sexpr(shifted, pin_nets, net_ids)
 
-    # ── GPIO1 (JP2) footprint ─────────────────────────────────────────────────
-    jp2_fp = _gpio_footprint(
-        _GPIO_LAYOUT["gpio1"],
-        global_nets=all_nets,
-        pitch=GPIO_PITCH,
-        drill_d=TH_GPIO_DRILL_MM, pad_d=TH_GPIO_PAD_MM,
-    )
-    content += "\n" + jp2_fp
+    # ── Copper zone pours on inner layers ────────────────────────────────────
+    margin = 0.5
+    zone_pts = [
+        (-bw / 2 + margin, -bh / 2 + margin),
+        ( bw / 2 - margin, -bh / 2 + margin),
+        ( bw / 2 - margin,  bh / 2 - margin),
+        (-bw / 2 + margin,  bh / 2 - margin),
+    ]
 
-    # ── All subsystem components (courtyard + silkscreen + fab) ──────────────
-    for comp in _COMPONENTS:
-        ref, value, cx, cy, w, h, layer, desc = comp
-        content += "\n" + _component_footprint(ref, value, cx, cy, w, h, layer, desc)
+    content += "\n" + _zone_pour(gnd_net_id, "GND", "In1.Cu", zone_pts, priority=0)
+    v33_net_id = net_ids.get("+3V3", 0)
+    if v33_net_id:
+        content += "\n" + _zone_pour(v33_net_id, "+3V3", "In2.Cu", zone_pts, priority=0)
+    content += "\n" + _zone_pour(gnd_net_id, "GND", "F.Cu", zone_pts, priority=0)
+    content += "\n" + _zone_pour(gnd_net_id, "GND", "B.Cu", zone_pts, priority=0)
 
-    # ── DE10-Nano board shadow (Dwgs.User — routing reference, not fabricated) ─
-    de10_segs = rounded_rect_outline(de10_w, de10_l, 1.0)
-    content += "\n" + outline_to_sexpr(de10_segs, layer="Dwgs.User", width=0.08)
-    content += "\n" + text_sexpr(
-        "DE10-Nano PCB shadow (routing reference only — not Edge.Cuts)",
-        0, -de10_l / 2 - 5.0,
-        "Dwgs.User", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
-    )
+    # ── GND via stitching around perimeter ──────────────────────────────────
+    via_spacing = 2.0
+    via_inset = 1.5
+
+    x = -bw / 2 + via_inset
+    while x <= bw / 2 - via_inset:
+        content += "\n" + _via_sexpr(x, -bh / 2 + via_inset, gnd_net_id, "GND")
+        content += "\n" + _via_sexpr(x,  bh / 2 - via_inset, gnd_net_id, "GND")
+        x += via_spacing
+
+    y = -bh / 2 + via_inset + via_spacing
+    while y <= bh / 2 - via_inset - via_spacing:
+        content += "\n" + _via_sexpr(-bw / 2 + via_inset, y, gnd_net_id, "GND")
+        content += "\n" + _via_sexpr( bw / 2 - via_inset, y, gnd_net_id, "GND")
+        y += via_spacing
 
     # ── Board identification silkscreen ───────────────────────────────────────
     content += "\n" + text_sexpr(
-        "DE10-NANO FLIGHT CTRL DAUGHTER BOARD",
-        0, db_l / 2 - 4.5,
+        "DE10-NANO COMBINED TOP PLATE + DAUGHTER BOARD",
+        0, bh / 2 - 4.5,
         "F.SilkS", SILK_REF_SIZE_MM, SILK_REF_THICK_MM,
     )
     content += "\n" + text_sexpr(
-        f"{db_w:.0f}x{db_l:.0f}mm  FR4  1.6mm  4L  ENIG",
-        0, db_l / 2 - 8.5,
+        f"{bw:.0f}x{bh:.0f}mm  FR4  1.6mm  4L  ENIG  Kagome frame",
+        0, bh / 2 - 8.5,
         "F.SilkS", SILK_SMALL_SIZE_MM, SILK_SMALL_THICK_MM,
     )
     content += "\n" + text_sexpr(
-        "HEATSINK/FAN OPENING",
-        0, 0,
-        "F.SilkS", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
-    )
-    content += "\n" + text_sexpr(
         "Stackup: F.Cu(sig) / In1(GND) / In2(PWR) / B.Cu(sig)",
-        0, db_l / 2 - 12.0,
+        0, bh / 2 - 12.0,
         "Cmts.User", SILK_MICRO_SIZE_MM, SILK_MICRO_THICK_MM,
     )
 
-    # ── Build net table AFTER all footprints (NC pins may have been added) ─────
+    # ── Build net table ──────────────────────────────────────────────────────
     nets_block = "\n".join(
-        _net_sexpr(nid, nname) for nname, nid in sorted(all_nets.items(), key=lambda x: x[1])
+        _net_sexpr(nid, nname)
+        for nname, nid in sorted(net_ids.items(), key=lambda x: x[1])
     )
 
-    return _kicad_pcb_4layer("DE10-Nano Daughter Board v1.0", db_t, nets_block, content)
+    return _kicad_pcb_4layer(
+        f"DE10-Nano Daughter Board v2.0 ({len(board.placements)} components, "
+        f"{board.net_count()} nets)",
+        bt, nets_block, content,
+    )

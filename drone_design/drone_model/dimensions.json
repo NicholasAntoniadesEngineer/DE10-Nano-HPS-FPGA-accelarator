@@ -240,9 +240,9 @@
         }
     },
     "daughter_board": {
-        "_doc": "Custom daughter board \u2014 sensor hub, level shifters, power regulation. Sized to cover DE10-Nano GPIO headers.",
-        "width": 72.0,
-        "length": 80.0,
+        "_doc": "Custom daughter board \u2014 sensor hub, level shifters, power regulation. 85mm wide (overhangs DE10-Nano 68.58mm width), 108mm long (matches DE10-Nano 107.95mm for mounting hole alignment).",
+        "width": 85.0,
+        "length": 108.0,
         "pcb_thickness": 1.6,
         "gap_above_de10": 8.5
     },

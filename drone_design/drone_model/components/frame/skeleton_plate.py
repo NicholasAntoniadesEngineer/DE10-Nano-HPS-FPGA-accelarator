@@ -339,19 +339,26 @@ def make_skeleton_plate(thick, is_bottom=True, combined_top=False):
                 )
                 plate = plate.cut(notch)
 
-            # IC component blocks on top surface (level shifters, mux, power regs)
+            # IC component blocks on top surface — from daughter board netlist
+            from drone_design.drone_model.components.electronics.daughter_board_netlist import PLACEMENTS
+            _db_w = _D["daughter_board"]["width"]
+            _db_l = _D["daughter_board"]["length"]
             _ic_h = 2.0
-            for pos in [(25, 20), (-25, -15), (25, -15), (0, -30)]:
+            for p in PLACEMENTS:
+                cw = p.component.courtyard_w
+                ch = p.component.courtyard_h
+                if cw < 3.0 and ch < 3.0:
+                    continue  # skip small passives
+                cx = p.x - _db_w / 2
+                cy = p.y - _db_l / 2
                 ic = (
                     cq.Workplane("XY")
-                    .center(pos[0], pos[1])
-                    .rect(8, 8)
+                    .center(cx, cy)
+                    .rect(cw, ch)
                     .extrude(thick + _ic_h)
-                    .edges("|Z")
-                    .chamfer(cutout_chamfer)
                 )
                 plate = plate.union(ic)
-                keepouts.append((pos[0], pos[1], 8.0))
+                keepouts.append((cx, cy, max(cw, ch)))
 
         else:
             # ── Separate top plate (legacy: large central cutout) ──

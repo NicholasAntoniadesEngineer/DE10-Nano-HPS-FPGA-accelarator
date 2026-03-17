@@ -81,7 +81,7 @@ Files:
   landing_leg.kicad_pcb    — L-shape, {LEG_THICK:.1f}mm FR4, lightening holes + {LEG_HEADER_PINS} header pads
   nose_boom.kicad_pcb      — {BOOM_LENGTH:.0f}x{BOOM_WIDTH:.0f}mm, {BOOM_THICK:.1f}mm FR4, I-beam + 2x{BOOM_HEADER_PINS} root header pads
   pump_bracket.kicad_pcb   — unfolded U-channel clip for RP-Q1 pump, {_D['pump_bracket']['thickness']:.1f}mm FR4, fold lines + frame mounting holes
-  daughter_board.kicad_pcb — 72x80mm, 1.6mm FR4 4L, DE10-Nano GPIO0+GPIO1 receptacles, M2.5 standoff pattern
+  daughter_board.kicad_pcb — 85x108mm, 1.6mm FR4 4L, DE10-Nano GPIO0+GPIO1 receptacles, M2.5 standoff pattern
 
 Structural PCB fabrication specs:
   Material:     FR4 (standard glass-epoxy)

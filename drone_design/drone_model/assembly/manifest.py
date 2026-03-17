@@ -159,11 +159,11 @@ COMPONENT_CATALOG = {
     },
     "daughter_board": {
         "material": "FR4 PCB + components",
-        "dims": "85 x 100 x 1.6mm",
-        "mass_g": 35, "qty": 1,
+        "dims": "110 x 110 x 1.6mm",
+        "mass_g": 45, "qty": 1,
         "supplier": "Custom PCB (JLCPCB)",
-        "notes": "Sensor hub: level shifter, I2C mux, barometer, power regulators",
-        "interface": "Stacks above DE10-Nano on standoffs",
+        "notes": "Combined top plate + daughter board: Kagome frame, sensor hub, power regulators",
+        "interface": "Structural top plate + DE10-Nano daughter board in one PCB",
     },
     "battery": {
         "material": "Lithium polymer cells",
