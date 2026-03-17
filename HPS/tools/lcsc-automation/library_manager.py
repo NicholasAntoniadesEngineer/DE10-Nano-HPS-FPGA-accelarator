@@ -123,12 +123,115 @@ class KiCADLibraryManager:
                     shutil.move(str(model_file), str(dest))
                     logger.debug(f"Moved 3D model: {dest}")
 
+            # Link 3D models to footprints
+            self._link_3d_models_to_footprints(lcsc_id)
+
             # Cleanup temp directory
             if source_dir.exists():
                 shutil.rmtree(source_dir)
 
         except Exception as e:
             logger.error(f"Failed to organize files for {lcsc_id}: {e}")
+
+    def _link_3d_models_to_footprints(self, lcsc_id: str):
+        """Link 3D models to footprints by inserting (model ...) s-expressions
+
+        Scans for 3D model files matching the lcsc_id and adds (model ...) entries
+        to corresponding footprint files if not already present.
+        Prefers STEP files over VRML files if both exist.
+        """
+        try:
+            # Find all 3D model files for this part (prefer .step over .wrl)
+            model_files = {}  # Maps model base name to Path
+
+            for ext in [".step", ".stp", ".wrl"]:
+                for model_path in self.models_dir.glob(f"{lcsc_id}_*{ext}"):
+                    # Extract base filename (e.g., "C2040_file" from "C2040_file.step")
+                    base_name = model_path.stem
+
+                    # Only add if we haven't already found a STEP/STP version
+                    if base_name not in model_files or ext in [".step", ".stp"]:
+                        model_files[base_name] = model_path
+
+            if not model_files:
+                logger.debug(f"No 3D models found for {lcsc_id}")
+                return
+
+            # Find all footprint .pretty directories for this part
+            fp_pretty_dirs = list(self.footprints_dir.glob(f"{lcsc_id}_*.pretty"))
+
+            if not fp_pretty_dirs:
+                logger.debug(f"No footprints found for {lcsc_id}")
+                return
+
+            # Process each footprint directory
+            for pretty_dir in fp_pretty_dirs:
+                # Find all .kicad_mod files in this footprint directory
+                kicad_mod_files = list(pretty_dir.glob("*.kicad_mod"))
+
+                for kicad_mod_path in kicad_mod_files:
+                    # Try to link the first available 3D model
+                    # (In most cases there will be one model file per LCSC ID)
+                    for base_name, model_path in model_files.items():
+                        self._add_model_to_footprint(kicad_mod_path, model_path, pretty_dir)
+                        # Link first model to this footprint, then move to next footprint
+                        break
+
+        except Exception as e:
+            logger.error(f"Failed to link 3D models for {lcsc_id}: {e}")
+
+    def _add_model_to_footprint(self, footprint_path: Path, model_path: Path,
+                                footprint_dir: Path) -> bool:
+        """Add (model ...) s-expression to a footprint file if not already present
+
+        Args:
+            footprint_path: Path to .kicad_mod file
+            model_path: Path to 3D model file (.step, .stp, or .wrl)
+            footprint_dir: Parent .pretty directory (for relative path calculation)
+
+        Returns:
+            True if model was added or already exists, False on error
+        """
+        try:
+            # Read footprint file
+            with open(footprint_path, 'r') as f:
+                content = f.read()
+
+            # Check if (model ...) entry already exists
+            if "(model " in content:
+                logger.debug(f"Footprint {footprint_path.name} already has model reference")
+                return True
+
+            # Calculate relative path from footprint location to model
+            # Footprint is at: footprints/C2040_PAD1206.pretty/PAD1206.kicad_mod
+            # Model is at: 3dmodels/C2040_file.step
+            # Relative path: ../../3dmodels/C2040_file.step
+
+            rel_path = Path("..") / ".." / "3dmodels" / model_path.name
+            rel_path_str = str(rel_path).replace("\\", "/")  # Normalize to forward slashes
+
+            # Create model s-expression
+            # KiCAD model format: (model "relative/path/to/model.step" (offset ...) (scale ...) (rotate ...))
+            model_entry = f'\n  (model "{rel_path_str}"\n    (offset (xyz 0 0 0))\n    (scale (xyz 1 1 1))\n    (rotate (xyz 0 0 0)))'
+
+            # Insert model entry before the closing parenthesis
+            # Find the last closing paren (end of footprint)
+            if content.rstrip().endswith(")"):
+                new_content = content.rstrip()[:-1] + model_entry + "\n)"
+
+                # Write back to file
+                with open(footprint_path, 'w') as f:
+                    f.write(new_content)
+
+                logger.info(f"Added 3D model to {footprint_path.name}: {model_path.name}")
+                return True
+            else:
+                logger.warning(f"Unexpected footprint format in {footprint_path.name}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to add model to {footprint_path.name}: {e}")
+            return False
 
     def batch_download_parts(self, lcsc_ids: List[str], max_workers: int = 4) -> Dict[str, bool]:
         """Download libraries for multiple parts in parallel"""
